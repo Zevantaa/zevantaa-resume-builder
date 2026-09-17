@@ -67,6 +67,16 @@
   --layout-stack-gap: var(--space-6);
   --layout-inset-padding: var(--space-6);
   --layout-grid-gap: var(--space-4);
+
+  /* Form controls */
+  --form-control-height: 2.75rem;
+  --form-control-radius: 0.5rem;
+  --form-control-border-width: 0.0625rem;
+  --form-control-padding-inline: var(--space-3);
+  --form-control-padding-block: var(--space-2);
+  --form-field-gap: var(--space-2);
+  --form-group-gap: var(--space-4);
+  --form-textarea-min-height: 7rem;
 }
 
 @theme inline {
@@ -204,6 +214,89 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: var(--layout-grid-gap);
+}
+
+.form-demo,
+.form-demo-header,
+.form-field {
+  display: grid;
+}
+
+.form-demo {
+  gap: var(--form-group-gap);
+}
+
+.form-demo-header,
+.form-field {
+  gap: var(--form-field-gap);
+}
+
+.form-label {
+  color: var(--text);
+}
+
+.form-required-indicator {
+  margin-inline-start: var(--space-1);
+}
+
+.form-control {
+  width: 100%;
+  min-height: var(--form-control-height);
+  padding-block: var(--form-control-padding-block);
+  padding-inline: var(--form-control-padding-inline);
+  border: var(--form-control-border-width) solid var(--border);
+  border-radius: var(--form-control-radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  line-height: var(--type-line-height-compact);
+  transition:
+    border-color 150ms ease,
+    outline-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.form-control::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+.form-control:focus-visible {
+  border-color: var(--text);
+  outline: 0.1875rem solid var(--focus);
+  outline-offset: 0.125rem;
+}
+
+.form-control:disabled {
+  cursor: not-allowed;
+  border-color: var(--border);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+}
+
+.form-control--error {
+  border-color: var(--text);
+  border-width: 0.125rem;
+}
+
+.form-textarea {
+  min-height: var(--form-textarea-min-height);
+  padding-block: var(--space-3);
+  resize: vertical;
+}
+
+.form-helper,
+.form-error {
+  margin: 0;
+}
+
+.form-helper {
+  color: var(--text-muted);
+}
+
+.form-error {
+  color: var(--text);
+  font-weight: var(--type-font-weight-medium);
 }
 
 @media (min-width: 48rem) {

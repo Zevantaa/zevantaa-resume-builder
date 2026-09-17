@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { FormStyleDemo } from "@/components/ui";
+
 export default function HomePage() {
   return (
     <main className="layout-page flex flex-1 items-center justify-center bg-background">
@@ -38,6 +40,7 @@ export default function HomePage() {
             </li>
           </ul>
         </nav>
+        <FormStyleDemo />
       </section>
     </main>
   );
