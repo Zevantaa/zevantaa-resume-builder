@@ -1,2 +1,22 @@
-/** Shared application types belong in this module. */
-export {};
+export type {
+  AdditionalProfileSection,
+  AdditionalProfileSectionItem,
+  CandidateProfile,
+  CertificationEntry,
+  ClientProfile,
+  EducationEntry,
+  EntityId,
+  IsoDateTime,
+  LanguageEntry,
+  LanguageProficiency,
+  OrderedProfileItem,
+  PrivateFileReference,
+  ProjectEntry,
+  RelocationPreference,
+  ResumeFileMimeType,
+  SkillEntry,
+  TargetMarket,
+  V1PackageCode,
+  WorkExperienceEntry,
+  YearMonth,
+} from "./client-profile";
