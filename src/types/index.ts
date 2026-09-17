@@ -20,3 +20,9 @@ export type {
   WorkExperienceEntry,
   YearMonth,
 } from "./client-profile";
+export { V1_PACKAGE_DEFINITIONS } from "./package";
+export type {
+  CoverLetterConfigurationRef,
+  ResumeFormatFamily,
+  V1PackageDefinition,
+} from "./package";
