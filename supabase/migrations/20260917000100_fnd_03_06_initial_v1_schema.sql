@@ -145,7 +145,7 @@ create table public.profile_work_experiences (
   employer_name text not null,
   job_title text not null,
   start_date text not null,
-  current_role boolean not null default false,
+  is_current_role boolean not null default false,
   end_date text,
   location text,
   description text,
