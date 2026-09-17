@@ -1,6 +1,10 @@
 import Link from "next/link";
 
-import { CardTableStyleDemo, FormStyleDemo } from "@/components/ui";
+import {
+  CardTableStyleDemo,
+  FormStyleDemo,
+  StatusAlertStyleDemo,
+} from "@/components/ui";
 
 export default function HomePage() {
   return (
@@ -42,6 +46,7 @@ export default function HomePage() {
         </nav>
         <FormStyleDemo />
         <CardTableStyleDemo />
+        <StatusAlertStyleDemo />
       </section>
     </main>
   );
