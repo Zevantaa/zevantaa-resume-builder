@@ -1,11 +1,12 @@
-/** Stable application identifier, intended to map to a database UUID later. */
-export type EntityId = string;
-
-/** ISO 8601 date-time string, for example `2026-09-17T12:00:00.000Z`. */
-export type IsoDateTime = string;
-
-/** Calendar month string in `YYYY-MM` format. */
-export type YearMonth = string;
+import type { TimestampAuditFields } from "./audit";
+import type { EntityId, YearMonth } from "./core";
+import type {
+  PrivateFileReference,
+  ProfilePhotoFileExtension,
+  ProfilePhotoMimeType,
+  ResumeFileExtension,
+  ResumeFileMimeType,
+} from "./file-upload";
 
 export type RelocationPreference =
   | "open"
@@ -28,26 +29,12 @@ export type V1PackageCode =
   | "global-mobility-master"
   | "executive-transition-agency-distribution";
 
-export type ResumeFileMimeType =
-  | "application/pdf"
-  | "application/msword"
-  | "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
 export type LanguageProficiency =
   | "basic"
   | "conversational"
   | "professional-working"
   | "fluent"
   | "native-or-bilingual";
-
-export interface PrivateFileReference<TMimeType extends string = string> {
-  id: EntityId;
-  storagePath: string;
-  originalFileName: string;
-  mimeType: TMimeType;
-  sizeBytes: number;
-  uploadedAt: IsoDateTime;
-}
 
 export interface OrderedProfileItem {
   id: EntityId;
@@ -128,7 +115,7 @@ export interface AdditionalProfileSection extends OrderedProfileItem {
  * templates. Arrays are required but may be empty when a section is not
  * applicable or the candidate has not supplied content.
  */
-export interface CandidateProfile {
+export interface CandidateProfile extends TimestampAuditFields {
   id: EntityId;
 
   fullName: string;
@@ -142,8 +129,14 @@ export interface CandidateProfile {
   selectedPackage: V1PackageCode;
   targetMarkets: TargetMarket[];
 
-  existingResume: PrivateFileReference<ResumeFileMimeType>;
-  gccPhoto?: PrivateFileReference;
+  existingResume: PrivateFileReference<
+    ResumeFileMimeType,
+    ResumeFileExtension
+  >;
+  gccPhoto?: PrivateFileReference<
+    ProfilePhotoMimeType,
+    ProfilePhotoFileExtension
+  >;
 
   professionalSummary?: string;
   workExperience: WorkExperienceEntry[];
@@ -154,8 +147,6 @@ export interface CandidateProfile {
   projects: ProjectEntry[];
   additionalSections: AdditionalProfileSection[];
 
-  createdAt: IsoDateTime;
-  updatedAt: IsoDateTime;
 }
 
 /** Client-facing naming for the same authoritative candidate record. */

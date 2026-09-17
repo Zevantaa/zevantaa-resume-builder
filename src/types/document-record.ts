@@ -1,10 +1,11 @@
+import type { TimestampAuditFields } from "./audit";
+import type { V1PackageCode } from "./client-profile";
+import type { EntityId, IsoDateTime } from "./core";
 import type {
-  EntityId,
-  IsoDateTime,
   PrivateFileReference,
+  ResumeFileExtension,
   ResumeFileMimeType,
-  V1PackageCode,
-} from "./client-profile";
+} from "./file-upload";
 import type { ResumeFormatFamily } from "./package";
 
 export type DocumentCategory = "source-resume" | "resume" | "cover-letter";
@@ -35,15 +36,13 @@ export interface DocumentNamingMetadata<
   fileExtension: TExtension;
 }
 
-interface BaseDocumentRecord {
+interface BaseDocumentRecord extends TimestampAuditFields {
   id: EntityId;
   candidateProfileId: EntityId;
   category: DocumentCategory;
   origin: DocumentOrigin;
   status: DocumentStatus;
   versionNumber: number;
-  createdAt: IsoDateTime;
-  updatedAt: IsoDateTime;
 }
 
 export interface UploadedSourceResumeDocumentRecord
@@ -52,14 +51,14 @@ export interface UploadedSourceResumeDocumentRecord
   origin: "uploaded";
   packageCode?: V1PackageCode;
   isPrivacyMasked: false;
-  file: PrivateFileReference<ResumeFileMimeType>;
+  file: PrivateFileReference<ResumeFileMimeType, ResumeFileExtension>;
   naming?: DocumentNamingMetadata;
 }
 
 interface BaseGeneratedDocumentRecord extends BaseDocumentRecord {
   origin: "generated";
   packageCode: V1PackageCode;
-  file?: PrivateFileReference<GeneratedDocumentMimeType>;
+  file?: PrivateFileReference<GeneratedDocumentMimeType, "pdf">;
   naming: DocumentNamingMetadata<"pdf">;
   generatedAt?: IsoDateTime;
   exportedAt?: IsoDateTime;

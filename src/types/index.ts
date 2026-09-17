@@ -1,25 +1,29 @@
 export type {
+  ActorAuditFields,
+  AdministrativeAuditFields,
+  ArchiveAuditFields,
+  AuditActorId,
+  FullAuditFields,
+  TimestampAuditFields,
+} from "./audit";
+export type {
   AdditionalProfileSection,
   AdditionalProfileSectionItem,
   CandidateProfile,
   CertificationEntry,
   ClientProfile,
   EducationEntry,
-  EntityId,
-  IsoDateTime,
   LanguageEntry,
   LanguageProficiency,
   OrderedProfileItem,
-  PrivateFileReference,
   ProjectEntry,
   RelocationPreference,
-  ResumeFileMimeType,
   SkillEntry,
   TargetMarket,
   V1PackageCode,
   WorkExperienceEntry,
-  YearMonth,
 } from "./client-profile";
+export type { EntityId, IsoDateTime, YearMonth } from "./core";
 export type {
   CoverLetterType,
   DocumentCategory,
@@ -34,6 +38,22 @@ export type {
   PrivacyMaskedResumeDocumentRecord,
   UploadedSourceResumeDocumentRecord,
 } from "./document-record";
+export type {
+  FileAccessLevel,
+  FilePurpose,
+  FileUploadRecord,
+  FileUploadStatus,
+  GccProfilePhotoUploadRecord,
+  PrivateFileReference,
+  ProfilePhotoFileExtension,
+  ProfilePhotoMimeType,
+  ResumeFileExtension,
+  ResumeFileMimeType,
+  SourceResumeUploadRecord,
+  StorageObjectReference,
+  SupportedUploadFileExtension,
+  SupportedUploadMimeType,
+} from "./file-upload";
 export { V1_PACKAGE_DEFINITIONS } from "./package";
 export type {
   CoverLetterConfigurationRef,
