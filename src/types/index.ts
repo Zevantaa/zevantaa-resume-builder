@@ -20,6 +20,20 @@ export type {
   WorkExperienceEntry,
   YearMonth,
 } from "./client-profile";
+export type {
+  CoverLetterType,
+  DocumentCategory,
+  DocumentFileExtension,
+  DocumentNamingMetadata,
+  DocumentOrigin,
+  DocumentRecord,
+  DocumentStatus,
+  GeneratedCoverLetterDocumentRecord,
+  GeneratedDocumentMimeType,
+  GeneratedResumeDocumentRecord,
+  PrivacyMaskedResumeDocumentRecord,
+  UploadedSourceResumeDocumentRecord,
+} from "./document-record";
 export { V1_PACKAGE_DEFINITIONS } from "./package";
 export type {
   CoverLetterConfigurationRef,
