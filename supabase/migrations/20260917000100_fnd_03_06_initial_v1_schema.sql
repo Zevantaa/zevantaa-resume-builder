@@ -54,15 +54,6 @@ create type public.file_upload_status as enum (
 
 create type public.file_access_level as enum ('private');
 
-create type public.supported_file_mime_type as enum (
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'image/jpeg',
-  'image/png',
-  'image/webp'
-);
-
 create type public.file_extension as enum (
   'doc',
   'docx',
@@ -296,7 +287,16 @@ create table public.file_records (
   purpose public.file_purpose not null,
   original_file_name text not null,
   stored_file_name text,
-  mime_type public.supported_file_mime_type not null,
+  mime_type text not null constraint file_records_mime_type_check check (
+    mime_type in (
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'image/jpeg',
+      'image/png',
+      'image/webp'
+    )
+  ),
   file_extension public.file_extension not null,
   size_bytes bigint not null check (size_bytes >= 0),
   storage_bucket_name text,
