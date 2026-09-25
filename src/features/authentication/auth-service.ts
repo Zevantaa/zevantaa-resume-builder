@@ -4,8 +4,12 @@ import { SupabaseConfigurationError } from "@/lib/supabase/config";
 import { AUTH_PORTALS } from "./config";
 import type {
   AuthServiceErrorCode,
+  AuthPortalIntent,
+  PasswordRecoveryRequest,
   PasswordSignInCredentials,
   PasswordSignInResult,
+  PasswordUpdateRequest,
+  SignOutResult,
 } from "./types";
 
 export class AuthServiceError extends Error {
@@ -19,23 +23,16 @@ export class AuthServiceError extends Error {
 }
 
 function mapAuthenticationError(code: string | undefined) {
-  if (code === "invalid_credentials") {
+  if (code === "invalid_credentials" || code === "email_not_confirmed") {
     return new AuthServiceError(
       "invalid-credentials",
       "The email address or password is incorrect.",
     );
   }
 
-  if (code === "email_not_confirmed") {
-    return new AuthServiceError(
-      "email-unconfirmed",
-      "This account must be confirmed before it can sign in.",
-    );
-  }
-
   return new AuthServiceError(
     "authentication",
-    "We could not sign you in. Check your details and try again.",
+    "The email address or password is incorrect.",
   );
 }
 
@@ -59,8 +56,8 @@ export async function signInWithPassword({
       throw mapAuthenticationError(undefined);
     }
 
-    // Portal intent controls only the post-login destination. It is not an
-    // authorization decision; role enforcement is deliberately deferred.
+    // Portal intent controls only the post-login destination. Server layouts
+    // independently verify the database-backed role before rendering.
     return {
       email: data.user.email ?? null,
       portal,
@@ -80,5 +77,108 @@ export async function signInWithPassword({
     }
 
     throw mapAuthenticationError(undefined);
+  }
+}
+
+export async function requestPasswordRecovery({
+  email,
+  portal,
+  redirectOrigin,
+}: PasswordRecoveryRequest) {
+  try {
+    const callbackUrl = new URL("/auth/callback", redirectOrigin);
+    callbackUrl.searchParams.set("portal", portal);
+
+    const supabase = createBrowserSupabaseClient();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: callbackUrl.toString(),
+    });
+
+    if (error) {
+      throw new AuthServiceError(
+        "password-recovery",
+        "We could not send a recovery email. Please try again shortly.",
+      );
+    }
+  } catch (error) {
+    if (error instanceof AuthServiceError) {
+      throw error;
+    }
+
+    if (error instanceof SupabaseConfigurationError) {
+      throw new AuthServiceError(
+        "configuration",
+        "Password recovery is not configured. Please contact Zevantaa support.",
+      );
+    }
+
+    throw new AuthServiceError(
+      "password-recovery",
+      "We could not send a recovery email. Please try again shortly.",
+    );
+  }
+}
+
+export async function updatePassword({ password }: PasswordUpdateRequest) {
+  try {
+    const supabase = createBrowserSupabaseClient();
+    const { error } = await supabase.auth.updateUser({ password });
+
+    if (error) {
+      throw new AuthServiceError(
+        "password-update",
+        "We could not update your password. Request a new recovery link and try again.",
+      );
+    }
+  } catch (error) {
+    if (error instanceof AuthServiceError) {
+      throw error;
+    }
+
+    if (error instanceof SupabaseConfigurationError) {
+      throw new AuthServiceError(
+        "configuration",
+        "Password recovery is not configured. Please contact Zevantaa support.",
+      );
+    }
+
+    throw new AuthServiceError(
+      "password-update",
+      "We could not update your password. Request a new recovery link and try again.",
+    );
+  }
+}
+
+export async function signOut(
+  portal: AuthPortalIntent,
+): Promise<SignOutResult> {
+  try {
+    const supabase = createBrowserSupabaseClient();
+    const { error } = await supabase.auth.signOut({ scope: "local" });
+
+    if (error) {
+      throw new AuthServiceError(
+        "sign-out",
+        "We could not sign you out. Please try again.",
+      );
+    }
+
+    return { redirectTo: `/login?portal=${portal}` };
+  } catch (error) {
+    if (error instanceof AuthServiceError) {
+      throw error;
+    }
+
+    if (error instanceof SupabaseConfigurationError) {
+      throw new AuthServiceError(
+        "configuration",
+        "Authentication is not configured. Please contact Zevantaa support.",
+      );
+    }
+
+    throw new AuthServiceError(
+      "sign-out",
+      "We could not sign you out. Please try again.",
+    );
   }
 }

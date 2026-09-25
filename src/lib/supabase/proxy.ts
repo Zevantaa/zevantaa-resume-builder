@@ -37,8 +37,8 @@ export async function updateSupabaseSession(request: NextRequest) {
     },
   });
 
-  // This verifies the access token and refreshes it when necessary. It does
-  // not protect routes or authorize either portal; that belongs to FND-04-04.
+  // This verifies and refreshes the cookie-backed session. Portal layouts
+  // perform the database-backed role authorization after this refresh step.
   await supabase.auth.getClaims();
 
   return response;

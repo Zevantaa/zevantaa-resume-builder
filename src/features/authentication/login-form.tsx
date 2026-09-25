@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
@@ -122,6 +123,15 @@ export function LoginForm({ portal }: LoginFormProps) {
         type="password"
         value={password}
       />
+
+      <div className="auth-form-secondary-action">
+        <Link
+          className="type-supporting auth-text-link"
+          href={`/forgot-password?portal=${portal}`}
+        >
+          Forgot password?
+        </Link>
+      </div>
 
       <button className="type-button auth-submit" disabled={isSubmitting} type="submit">
         {isSubmitting
