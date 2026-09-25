@@ -6,6 +6,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 import type {
+  AccountStatus,
   ApplicationRole,
   AuthContext,
   AuthPortalIntent,
@@ -15,9 +16,13 @@ function isApplicationRole(value: unknown): value is ApplicationRole {
   return value === "admin" || value === "client";
 }
 
+function isAccountStatus(value: unknown): value is AccountStatus {
+  return value === "active" || value === "disabled";
+}
+
 export async function getAuthContext(): Promise<AuthContext> {
   if (!isSupabaseConfigured()) {
-    return { role: null, userId: null };
+    return { accountStatus: null, role: null, userId: null };
   }
 
   try {
@@ -27,22 +32,35 @@ export async function getAuthContext(): Promise<AuthContext> {
     const userId = claimsData?.claims?.sub;
 
     if (claimsError || typeof userId !== "string") {
-      return { role: null, userId: null };
+      return { accountStatus: null, role: null, userId: null };
     }
 
     const { data: roleRecord, error: roleError } = await supabase
       .from("user_roles")
-      .select("role_code")
+      .select("account_status, candidate_profile_id, role_code")
       .eq("user_id", userId)
       .maybeSingle();
 
     if (roleError || !isApplicationRole(roleRecord?.role_code)) {
-      return { role: null, userId };
+      return { accountStatus: null, role: null, userId };
     }
 
-    return { role: roleRecord.role_code, userId };
+    if (
+      roleRecord.role_code === "client" &&
+      typeof roleRecord.candidate_profile_id !== "string"
+    ) {
+      return { accountStatus: null, role: null, userId };
+    }
+
+    return {
+      accountStatus: isAccountStatus(roleRecord.account_status)
+        ? roleRecord.account_status
+        : null,
+      role: roleRecord.role_code,
+      userId,
+    };
   } catch {
-    return { role: null, userId: null };
+    return { accountStatus: null, role: null, userId: null };
   }
 }
 
@@ -55,7 +73,10 @@ export async function requireApplicationRole(
     redirect(`/login?portal=${expectedRole}`);
   }
 
-  if (authContext.role !== expectedRole) {
+  if (
+    authContext.role !== expectedRole ||
+    authContext.accountStatus !== "active"
+  ) {
     redirect(`/access-denied?portal=${expectedRole}`);
   }
 

@@ -19,7 +19,7 @@ export default async function AccessDeniedPage({
     redirect(`/login?portal=${requestedPortal}`);
   }
 
-  const authorizedDestination = authContext.role
+  const authorizedDestination = authContext.accountStatus === "active" && authContext.role
     ? `/${authContext.role}`
     : undefined;
 

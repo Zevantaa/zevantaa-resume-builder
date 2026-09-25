@@ -1,12 +1,24 @@
+import Link from "next/link";
+
 import { PlaceholderPage } from "@/components/ui";
 import { LogoutButton } from "@/features/authentication";
 
 export function AdminPortalPlaceholder() {
   return (
     <PlaceholderPage
-      actions={<LogoutButton portal="admin" />}
+      actions={
+        <div className="access-denied-actions">
+          <Link
+            className="type-button auth-submit auth-action-link"
+            href="/admin/clients/new"
+          >
+            Create client account
+          </Link>
+          <LogoutButton portal="admin" />
+        </div>
+      }
       title="Admin Portal"
-      description="The master administrator workspace will be implemented here."
+      description="Create and manage the client access required for frozen V1."
     />
   );
 }

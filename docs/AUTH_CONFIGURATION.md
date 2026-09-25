@@ -17,6 +17,15 @@ Projects that still expose the legacy public anon key may set
 when both variables are present. Never put a secret key or `service_role` key in
 a `NEXT_PUBLIC_` variable.
 
+The protected client-provisioning service additionally requires one server-only
+administrative key:
+
+- `SUPABASE_SECRET_KEY`: the current Supabase secret key (preferred).
+- `SUPABASE_SERVICE_ROLE_KEY`: optional legacy fallback.
+
+Set only one on the application server. Never expose either in browser code,
+commit it, or give it a `NEXT_PUBLIC_` prefix.
+
 ## Required Supabase dashboard settings
 
 1. In **Authentication > Providers > Email**, enable email and password sign-in.
@@ -75,23 +84,25 @@ set role_code = excluded.role_code,
     updated_at = now();
 ```
 
-Assign the current test client by replacing the example address with that
-user's actual Auth email before running the statement:
+New clients should be created at `/admin/clients/new`. If a test client predates
+this workflow, link its existing role to its candidate profile from the SQL
+Editor by replacing both placeholders:
 
 ```sql
-insert into public.user_roles (user_id, role_code)
-select id, 'client'
-from auth.users
-where lower(email) = lower('test-client@example.invalid')
-on conflict (user_id) do update
-set role_code = excluded.role_code,
-    updated_at = now();
+update public.user_roles as role
+set candidate_profile_id = '00000000-0000-0000-0000-000000000000'::uuid,
+    account_status = 'active',
+    updated_at = now()
+from auth.users as auth_user
+where role.user_id = auth_user.id
+  and lower(auth_user.email) = lower('test-client@example.invalid')
+  and role.role_code = 'client';
 ```
 
 Verify both assignments without exposing credentials:
 
 ```sql
-select u.email, r.role_code
+select u.email, r.role_code, r.account_status, r.candidate_profile_id
 from auth.users as u
 join public.user_roles as r on r.user_id = u.id
 where lower(u.email) in (
@@ -102,8 +113,27 @@ order by u.email;
 ```
 
 These statements must be run only from the trusted Supabase SQL Editor or a
-future protected provisioning service. No service-role key is used by the
+protected provisioning service. No secret or service-role key is used by the
 browser application.
+
+## Client account provisioning
+
+Apply the FND-05-03 migration before opening `/admin/clients/new`. The migration
+adds the one-to-one candidate link and account status to `public.user_roles`.
+Its role/profile check is `NOT VALID` so a pre-existing unlinked test-client row
+does not block deployment; PostgreSQL still enforces it for new or updated rows.
+
+The form and its server action both sit behind authoritative admin checks. The
+server-only service creates and confirms the Supabase Auth email, writes the
+`client` role and candidate link together, and attempts to delete the new Auth
+user if that database insert fails. The temporary password is shown only in the
+successful response and is never logged or stored by the application. An
+`active` client can enter `/client`; a `disabled` account is rejected by
+server-side portal authorization.
+
+For V1, transmit the temporary password through an approved secure channel. The
+client can use the existing recovery flow to replace it. Production recovery
+email delivery still requires suitable SMTP configuration.
 
 ## Session persistence and logout
 

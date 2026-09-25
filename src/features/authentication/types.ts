@@ -2,7 +2,10 @@ export type AuthPortalIntent = "admin" | "client";
 
 export type ApplicationRole = AuthPortalIntent;
 
+export type AccountStatus = "active" | "disabled";
+
 export type AuthContext = {
+  accountStatus: AccountStatus | null;
   role: ApplicationRole | null;
   userId: string | null;
 };

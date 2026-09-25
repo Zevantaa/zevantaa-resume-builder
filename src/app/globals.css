@@ -317,6 +317,25 @@ body {
   margin: 0;
 }
 
+.client-account-form {
+  display: grid;
+  gap: var(--form-group-gap);
+}
+
+.client-account-header {
+  gap: var(--space-2);
+}
+
+.credential-result {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.credential-result code {
+  font-family: var(--font-geist-mono), monospace;
+  font-weight: var(--type-font-weight-semibold);
+}
+
 .form-helper {
   color: var(--text-muted);
 }
