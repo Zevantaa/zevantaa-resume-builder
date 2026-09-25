@@ -1,5 +1,10 @@
-import { LoginPlaceholder } from "@/features/authentication";
+import {
+  getAuthPortalIntent,
+  LoginExperience,
+} from "@/features/authentication";
 
-export default function LoginPage() {
-  return <LoginPlaceholder />;
+export default async function LoginPage({ searchParams }: PageProps<"/login">) {
+  const { portal } = await searchParams;
+
+  return <LoginExperience portal={getAuthPortalIntent(portal)} />;
 }
