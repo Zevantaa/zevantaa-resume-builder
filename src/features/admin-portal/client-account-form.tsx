@@ -95,6 +95,7 @@ export function ClientAccountForm({ candidates }: { candidates: CandidateAccount
 
       <SelectField
         defaultValue="active"
+        error={state.fieldErrors?.accountStatus}
         id="account-status"
         label="Account status"
         name="accountStatus"

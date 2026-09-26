@@ -1,6 +1,15 @@
 import type { ReactNode } from "react";
 
+import { DashboardShell, type DashboardNavigationItem } from "@/components/dashboard/dashboard-shell";
 import { requireApplicationRole } from "@/features/authentication/authorization";
+
+const navigation: readonly DashboardNavigationItem[] = [
+  { href: "/client", label: "Overview" },
+  { href: "/client/profile", label: "My profile & intake" },
+  { href: "/client/documents", label: "Resumes & documents", note: "Coming later" },
+  { href: "/client/cover-letters", label: "Cover letters", note: "Coming later" },
+  { href: "/client/ats", label: "ATS status", note: "Coming later" },
+];
 
 export default async function ClientLayout({
   children,
@@ -9,5 +18,5 @@ export default async function ClientLayout({
 }) {
   await requireApplicationRole("client");
 
-  return children;
+  return <DashboardShell navigation={navigation} portal="client">{children}</DashboardShell>;
 }

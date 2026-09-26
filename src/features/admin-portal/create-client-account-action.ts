@@ -64,6 +64,10 @@ export async function createClientAccountAction(
     fieldErrors.email = "Enter a valid email address.";
   }
 
+  if (accountStatus !== "active" && accountStatus !== "disabled") {
+    fieldErrors.accountStatus = "Select a valid account status.";
+  }
+
   const temporaryPassword =
     credentialMode === "generated" ? generateTemporaryPassword() : suppliedPassword;
 
@@ -82,7 +86,7 @@ export async function createClientAccountAction(
 
   try {
     result = await provisionClientAccount({
-      accountStatus: accountStatus === "disabled" ? "disabled" : "active",
+      accountStatus: accountStatus as "active" | "disabled",
       candidateProfileId,
       email,
       temporaryPassword,

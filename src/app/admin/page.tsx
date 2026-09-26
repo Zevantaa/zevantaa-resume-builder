@@ -1,5 +1,5 @@
-import { AdminPortalPlaceholder } from "@/features/admin-portal";
+import { AdminDashboardPage } from "@/features/admin-portal/admin-dashboard-page";
 
 export default function AdminPage() {
-  return <AdminPortalPlaceholder />;
+  return <AdminDashboardPage />;
 }

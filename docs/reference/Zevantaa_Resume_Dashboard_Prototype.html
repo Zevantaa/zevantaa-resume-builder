@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zevantaa Careers - Complete Master Dashboard & Client Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900 text-white shadow-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl font-black tracking-wider text-amber-400">ZEVANTAA</span>
+                <span class="text-xs uppercase tracking-widest text-slate-400 border-l border-slate-700 pl-3">Careers Private Limited</span>
+            </div>
+            <div class="flex items-center space-x-2 bg-slate-800 p-1 rounded-lg border border-slate-700">
+                <button onclick="switchView('client')" id="btn-client" class="px-4 py-1.5 text-xs font-semibold rounded-md bg-amber-500 text-slate-950 transition shadow">Client Portal View</button>
+                <button onclick="switchView('admin')" id="btn-admin" class="px-4 py-1.5 text-xs font-semibold rounded-md text-slate-300 hover:bg-slate-700 transition">Master Admin Panel View</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6">
+
+        <!-- ========================================== -->
+        <!-- 1. CLIENT PORTAL VIEW                      -->
+        <!-- ========================================== -->
+        <div id="view-client" class="space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h1 class="text-2xl font-bold text-slate-900">Client Portal: Intake & Automated Generation</h1>
+                <p class="text-sm text-slate-500 mt-1">Manual provisioning access. Clients log in to manage intake details, select service packages, and download real-time generated documents.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Module 1: Client Intake Form & Package Selection Management -->
+                <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                    <div class="border-b pb-3">
+                        <span class="text-xs font-bold uppercase tracking-wider text-amber-600">Module 1</span>
+                        <h2 class="text-base font-bold text-slate-900">Client Intake & Package Management</h2>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Full Name</label>
+                        <input type="text" value="Ratan Jyoti Mishra" class="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Primary Email ID</label>
+                        <input type="email" value="ratan@zevantaacareers.com" class="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50 focus:outline-none">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Mobile Number</label>
+                            <input type="text" value="+91 7003221516" class="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">WhatsApp</label>
+                            <input type="text" value="+91 7003221516" class="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">LinkedIn Profile URL</label>
+                        <input type="text" value="linkedin.com/in/ratanjyotimishra" class="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Current Location / Relocation Preference</label>
+                        <input type="text" value="Kolkata, India / Global" class="w-full px-3 py-2 border rounded-lg text-sm bg-slate-50">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Package Tier / Target Market Selection</label>
+                        <select class="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-500">
+                            <option>Executive Transition & Agency Distribution Package (All-Inclusive)</option>
+                            <option>Global Mobility Master Combo (Domestic + GCC + Europass)</option>
+                            <option>Dual-Market Regional Combo (Domestic + GCC)</option>
+                            <option>Indian Domestic Market</option>
+                            <option>GCC/Middle East Market</option>
+                            <option>Europass & European Union Market</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Raw CV/Resume Upload (.doc, .docx, .pdf)</label>
+                        <input type="file" class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">Upload Professional Passport-Size Photo (GCC)</label>
+                        <input type="file" class="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-700">
+                    </div>
+
+                    <button class="w-full py-2.5 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-800 transition shadow">Save Intake & Run Engine</button>
+                </div>
+
+                <!-- Module 2: Automated Document Generation Engine Outputs -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Standalone ATS Optimization Scorecard -->
+                    <div class="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-6 rounded-xl shadow-sm flex items-center justify-between">
+                        <div>
+                            <span class="text-xs uppercase tracking-widest text-amber-400 font-bold">Module 2 Engine Output</span>
+                            <h3 class="text-xl font-bold mt-0.5">Standalone Global ATS Optimization Layout</h3>
+                            <p class="text-xs text-slate-300 mt-1">Single-column structural format with real-time custom JS keyword match score.</p>
+                        </div>
+                        <div class="flex flex-col items-center justify-center bg-amber-400 text-slate-950 font-black h-16 w-16 rounded-full shadow">
+                            <span class="text-xl">95%</span>
+                            <span class="text-[9px] uppercase tracking-tighter">Score</span>
+                        </div>
+                    </div>
+
+                    <!-- Resume Suite Grid -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                        <div class="border-b pb-3 flex justify-between items-center">
+                            <div>
+                                <span class="text-xs font-bold uppercase tracking-wider text-amber-600">Module 2</span>
+                                <h3 class="text-base font-bold text-slate-900">Automated Document Generation Suite (Resumes & Cover Letters)</h3>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Standalone ATS Layout Card (Explicit Download Button Added) -->
+                            <div class="p-4 border rounded-lg bg-slate-50 flex flex-col justify-between">
+                                <div>
+                                    <span class="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">Standalone ATS Layout</span>
+                                    <h4 class="font-semibold text-slate-900 mt-2 text-sm">Global ATS Optimized Resume</h4>
+                                    <p class="text-xs text-slate-500 mt-1">Strict single-column text layout designed for automated screening systems.</p>
+                                </div>
+                                <button onclick="alert('Downloading Standalone ATS-Optimized Resume PDF...')" class="mt-4 px-3 py-1.5 bg-slate-900 text-white rounded text-xs font-semibold hover:bg-slate-800 transition text-center shadow-sm">Download ATS PDF</button>
+                            </div>
+
+                            <!-- Domestic 5 Frameworks -->
+                            <div class="p-4 border rounded-lg bg-slate-50 flex flex-col justify-between">
+                                <div>
+                                    <span class="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">Domestic Market (5 Layouts)</span>
+                                    <h4 class="font-semibold text-slate-900 mt-2 text-sm">Classic Two-Column, Minimalist, Grid, Bold Header & Hybrid Layouts</h4>
+                                    <p class="text-xs text-slate-500 mt-1">Multi-architecture structured templates generated on the fly via open-source tools.</p>
+                                </div>
+                                <button onclick="alert('Downloading Domestic Market 5-Layout Suite...')" class="mt-4 px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded text-xs font-medium hover:bg-slate-100 transition text-center shadow-sm">Download Domestic Suite</button>
+                            </div>
+
+                            <!-- GCC / Middle East -->
+                            <div class="p-4 border rounded-lg bg-slate-50 flex flex-col justify-between">
+                                <div>
+                                    <span class="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">GCC / Middle East Market</span>
+                                    <h4 class="font-semibold text-slate-900 mt-2 text-sm">Photo-Compliant Regional CV</h4>
+                                    <p class="text-xs text-slate-500 mt-1">Conditional logic rules dynamically embed uploaded passport photo into header.</p>
+                                </div>
+                                <button onclick="alert('Downloading GCC Photo-Compliant CV...')" class="mt-4 px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded text-xs font-medium hover:bg-slate-100 transition text-center shadow-sm">Download GCC CV</button>
+                            </div>
+
+                            <!-- Europass EU -->
+                            <div class="p-4 border rounded-lg bg-slate-50 flex flex-col justify-between">
+                                <div>
+                                    <span class="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">Europass & EU Market</span>
+                                    <h4 class="font-semibold text-slate-900 mt-2 text-sm">Standard European Union Structure</h4>
+                                    <p class="text-xs text-slate-500 mt-1">Strict adherence to official EU layout standards and format formatting.</p>
+                                </div>
+                                <button onclick="alert('Downloading Europass EU Standard PDF...')" class="mt-4 px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded text-xs font-medium hover:bg-slate-100 transition text-center shadow-sm">Download Europass PDF</button>
+                            </div>
+                        </div>
+
+                        <!-- Cover Letter Suite Box -->
+                        <div class="p-4 border rounded-lg bg-slate-50 mt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <div>
+                                <span class="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">Cover Letter Variations (3)</span>
+                                <h4 class="font-semibold text-slate-900 mt-1 text-sm">General Corporate, Relocation & Startup Roles Letters</h4>
+                                <p class="text-xs text-slate-500">Auto-populated using candidate profile core intake credentials.</p>
+                            </div>
+                            <button onclick="alert('Downloading all 3 auto-populated Cover Letters...')" class="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded text-xs font-semibold hover:bg-slate-100 transition shadow-sm whitespace-nowrap">Download Cover Letters</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 2. MASTER ADMIN PANEL VIEW                 -->
+        <!-- ========================================== -->
+        <div id="view-admin" class="space-y-6 hidden">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-600">Module 3 Master Control</span>
+                    <h1 class="text-2xl font-bold text-slate-900">Zevantaa Master Admin Panel & Pipeline Control</h1>
+                    <p class="text-sm text-slate-500 mt-0.5">Single administrator login with full cross-profile visibility to create accounts, assign package tiers, audit data, download files, and trigger PII masking.</p>
+                </div>
+                <button onclick="alert('Admin Action: Opens manual client provisioning modal to generate secure login credentials.')" class="px-4 py-2 bg-amber-500 text-slate-950 rounded-lg text-sm font-bold hover:bg-amber-400 shadow transition whitespace-nowrap">+ Manually Create Profile & Account</button>
+            </div>
+
+            <!-- Admin Access Provisions Overview Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <span class="text-xs text-slate-400 uppercase font-semibold">Access Provision 1</span>
+                    <h4 class="text-sm font-bold text-slate-800 mt-1">Full Profile Visibility</h4>
+                    <p class="text-xs text-slate-500 mt-1">Complete audit access across all registered candidate files.</p>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <span class="text-xs text-slate-400 uppercase font-semibold">Access Provision 2</span>
+                    <h4 class="text-sm font-bold text-slate-800 mt-1">Package Tier Assignment</h4>
+                    <p class="text-xs text-slate-500 mt-1">Dynamically allocate market tiers and update client profiles.</p>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <span class="text-xs text-slate-400 uppercase font-semibold">Access Provision 3</span>
+                    <h4 class="text-sm font-bold text-slate-800 mt-1">Document Auditing & Download</h4>
+                    <p class="text-xs text-slate-500 mt-1">Instant master audit and download rights for generated outputs.</p>
+                </div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <span class="text-xs text-slate-400 uppercase font-semibold">Access Provision 4</span>
+                    <h4 class="text-sm font-bold text-slate-800 mt-1">Privacy Masking Trigger</h4>
+                    <p class="text-xs text-slate-500 mt-1">Secure employer review export protection control.</p>
+                </div>
+            </div>
+
+            <!-- Master Client Directory Table -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-6 py-4 border-b bg-slate-50 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-sm">Master Client Directory</h3>
+                        <p class="text-xs text-slate-500">Simple list view showing all registered clients, contact info, selected packages, and generated files.</p>
+                    </div>
+                    <span class="text-xs bg-amber-100 text-amber-800 px-3 py-1 rounded-full font-bold">1 Active Client Record</span>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b bg-slate-100 text-slate-600 text-xs uppercase tracking-wider">
+                                <th class="p-4 font-semibold">Client Name</th>
+                                <th class="p-4 font-semibold">Contact Info (Raw Admin View)</th>
+                                <th class="p-4 font-semibold">Selected Package Tier</th>
+                                <th class="p-4 font-semibold">Generated Files</th>
+                                <th class="p-4 font-semibold text-right">Privacy Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y text-sm text-slate-700">
+                            <tr>
+                                <td class="p-4 font-bold text-slate-900">Ratan Jyoti Mishra</td>
+                                <td class="p-4 text-xs text-slate-600 space-y-0.5">
+                                    <div>+91 7003221516</div>
+                                    <div>ratan@zevantaacareers.com</div>
+                                    <div>linkedin.com/in/ratanjyotimishra</div>
+                                </td>
+                                <td class="p-4 text-xs">
+                                    <span class="bg-amber-50 text-amber-800 px-2 py-1 rounded font-medium border border-amber-200">Executive Transition Package</span>
+                                </td>
+                                <td class="p-4 text-xs font-medium text-slate-600">
+                                    9 Resumes, 3 Cover Letters
+                                </td>
+                                <td class="p-4 text-right">
+                                    <!-- One-Click PII Masking Export Button -->
+                                    <button onclick="triggerMaskingModal()" class="px-3.5 py-2 bg-slate-900 text-amber-400 hover:bg-slate-800 rounded-lg text-xs font-bold shadow transition flex items-center justify-end gap-1.5 ml-auto">
+                                        <span>🔒 Export for Employer Review</span>
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Live PII Masking Simulation Box -->
+            <div id="masking-preview-box" class="bg-amber-50 border border-amber-300 p-6 rounded-xl hidden space-y-3 shadow-md">
+                <div class="flex justify-between items-center border-b border-amber-200 pb-2">
+                    <h4 class="font-bold text-amber-900 text-sm flex items-center gap-2">
+                        <span>🛡️ One-Click PII Masking Export Simulation</span>
+                    </h4>
+                    <button onclick="closeMaskingPreview()" class="text-xs text-amber-800 hover:underline font-semibold">Close Preview</button>
+                </div>
+                <p class="text-xs text-amber-900">When the master admin clicks <strong>"Export for Employer Review"</strong>, direct contact details are instantly replaced with placeholder text to protect Zevantaa's database when distributing files to third-party employers:</p>
+                
+                <div class="bg-white p-4 rounded-lg border border-amber-300 font-mono text-xs text-slate-700 space-y-1.5 shadow-inner">
+                    <p><strong>Candidate Name:</strong> Ratan Jyoti Mishra</p>
+                    <p class="text-red-600 bg-red-50 p-1 rounded"><strong>Phone Number:</strong> Contact via Zevantaa Careers — Ref ID: ZEV-2026-0001</p>
+                    <p class="text-red-600 bg-red-50 p-1 rounded"><strong>Email ID:</strong> Contact via Zevantaa Careers — Ref ID: ZEV-2026-0001</p>
+                    <p class="text-red-600 bg-red-50 p-1 rounded"><strong>LinkedIn URL:</strong> Contact via Zevantaa Careers — Ref ID: ZEV-2026-0001</p>
+                    <p class="text-emerald-700 font-sans font-semibold mt-2 pt-2 border-t">✓ Clean copy generated successfully for safe third-party agency and employer distribution.</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+            Zevantaa Careers Private Limited • Zero-Cost Architecture Specification (Next.js + Supabase + Vercel / Netlify Free-Tier)
+        </div>
+    </footer>
+
+    <!-- Interactive Navigation and Preview Scripts -->
+    <script>
+        function switchView(viewName) {
+            const clientView = document.getElementById('view-client');
+            const adminView = document.getElementById('view-admin');
+            const btnClient = document.getElementById('btn-client');
+            const btnAdmin = document.getElementById('btn-admin');
+
+            if (viewName === 'client') {
+                clientView.classList.remove('hidden');
+                adminView.classList.add('hidden');
+                btnClient.className = "px-4 py-1.5 text-xs font-semibold rounded-md bg-amber-500 text-slate-950 transition shadow";
+                btnAdmin.className = "px-4 py-1.5 text-xs font-semibold rounded-md text-slate-300 hover:bg-slate-700 transition";
+            } else {
+                clientView.classList.add('hidden');
+                adminView.classList.remove('hidden');
+                btnAdmin.className = "px-4 py-1.5 text-xs font-semibold rounded-md bg-amber-500 text-slate-950 transition shadow";
+                btnClient.className = "px-4 py-1.5 text-xs font-semibold rounded-md text-slate-300 hover:bg-slate-700 transition";
+            }
+        }
+
+        function triggerMaskingModal() {
+            const box = document.getElementById('masking-preview-box');
+            box.classList.remove('hidden');
+            box.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function closeMaskingPreview() {
+            document.getElementById('masking-preview-box').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>

@@ -9,7 +9,7 @@ export async function CreateClientAccountPage() {
   const candidates = await listEligibleCandidateProfiles();
 
   return (
-    <main className="layout-page bg-background">
+    <div className="dashboard-page">
       <div className="layout-container-readable layout-stack">
         <header className="layout-stack client-account-header">
           <div>
@@ -41,6 +41,6 @@ export async function CreateClientAccountPage() {
           Return to admin portal
         </Link>
       </div>
-    </main>
+    </div>
   );
 }

@@ -29,8 +29,6 @@ export async function editClientAccountAction(
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const packageCode = String(formData.get("packageCode") ?? "").trim();
   const rawAccountStatus = formData.get("accountStatus");
-  const accountStatus: ClientAccountStatus =
-    rawAccountStatus === "disabled" ? "disabled" : "active";
   const fieldErrors: NonNullable<EditClientAccountFormState["fieldErrors"]> = {};
 
   if (!UUID_PATTERN.test(userId)) {
@@ -45,9 +43,15 @@ export async function editClientAccountAction(
     fieldErrors.packageCode = "Select a package.";
   }
 
+  if (rawAccountStatus !== "active" && rawAccountStatus !== "disabled") {
+    fieldErrors.accountStatus = "Select a valid account status.";
+  }
+
   if (Object.keys(fieldErrors).length > 0) {
     return { fieldErrors, status: "error" };
   }
+
+  const accountStatus = rawAccountStatus as ClientAccountStatus;
 
   try {
     const result = await updateClientAccount({

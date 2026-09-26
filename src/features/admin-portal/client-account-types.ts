@@ -28,7 +28,7 @@ export type ProvisionedClientDetail = ProvisionedClientSummary & {
 
 export type ClientAccountFormState = {
   fieldErrors?: Partial<
-    Record<"candidateProfileId" | "email" | "temporaryPassword", string>
+    Record<"candidateProfileId" | "email" | "temporaryPassword" | "accountStatus", string>
   >;
   message?: string;
   status: "idle" | "success" | "error";
@@ -43,7 +43,7 @@ export const initialClientAccountFormState: ClientAccountFormState = {
 };
 
 export type EditClientAccountFormState = {
-  fieldErrors?: Partial<Record<"email" | "packageCode" | "confirmation", string>>;
+  fieldErrors?: Partial<Record<"email" | "packageCode" | "accountStatus" | "confirmation", string>>;
   message?: string;
   status: "idle" | "success" | "error";
 };

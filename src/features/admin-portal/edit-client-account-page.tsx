@@ -14,7 +14,7 @@ export async function EditClientAccountPage({ userId }: { userId: string }) {
   }
 
   return (
-    <main className="layout-page bg-background">
+    <div className="dashboard-page">
       <div className="layout-container-readable layout-stack">
         <header className="layout-stack client-account-header">
           <div className="admin-edit-heading">
@@ -44,6 +44,6 @@ export async function EditClientAccountPage({ userId }: { userId: string }) {
           Return to client accounts
         </Link>
       </div>
-    </main>
+    </div>
   );
 }

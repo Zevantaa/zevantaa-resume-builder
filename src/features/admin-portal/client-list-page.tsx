@@ -18,7 +18,7 @@ export async function ClientListPage() {
   const clients = await listProvisionedClients();
 
   return (
-    <main className="layout-page bg-background">
+    <div className="dashboard-page">
       <div className="layout-container layout-stack">
         <header className="admin-page-header">
           <div>
@@ -88,6 +88,6 @@ export async function ClientListPage() {
           Return to admin portal
         </Link>
       </div>
-    </main>
+    </div>
   );
 }

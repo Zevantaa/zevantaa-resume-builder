@@ -67,6 +67,7 @@ export function EditClientAccountForm({
       </SelectField>
 
       <SelectField
+        error={state.fieldErrors?.accountStatus}
         id="account-status"
         label="Account status"
         name="accountStatus"
