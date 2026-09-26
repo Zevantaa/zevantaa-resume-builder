@@ -142,3 +142,22 @@ create a second custom session store. The Next.js proxy verifies claims and
 forwards refreshed cookies and cache headers to both browser and server clients.
 Logout uses local scope, clearing the current browser session while leaving any
 independent sessions on other devices unchanged.
+
+## Client account administration QA
+
+Use `/admin/clients` to open a linked client at
+`/admin/clients/[userId]/edit`. Verify the following with fictional test data:
+
+1. Change the email to an unused address and confirm both the Auth user and
+   linked candidate profile use the new address.
+2. Attempt an email already assigned to another Auth user or candidate and
+   confirm the edit is rejected without changing the original account.
+3. Change the assigned package and confirm both `selected_package_code` and
+   `target_markets` match the selected active package definition.
+4. Submit an altered/invalid package code and confirm it is rejected server-side.
+5. Change `active` to `disabled`, accept the explicit non-deletion confirmation,
+   and confirm the client can no longer enter `/client`.
+6. Change `disabled` back to `active` and confirm client access is restored.
+7. Confirm a client or unauthenticated session cannot load the admin routes or
+   invoke the edit action successfully.
+8. Confirm `user_roles.candidate_profile_id` remains unchanged after every edit.

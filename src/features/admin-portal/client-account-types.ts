@@ -7,6 +7,25 @@ export type CandidateAccountOption = {
   name: string;
 };
 
+export type PackageAssignmentOption = {
+  code: string;
+  displayName: string;
+};
+
+export type ProvisionedClientSummary = {
+  accountStatus: ClientAccountStatus;
+  candidateProfileId: string;
+  email: string;
+  fullName: string;
+  packageCode: string;
+  packageName: string;
+  userId: string;
+};
+
+export type ProvisionedClientDetail = ProvisionedClientSummary & {
+  packages: PackageAssignmentOption[];
+};
+
 export type ClientAccountFormState = {
   fieldErrors?: Partial<
     Record<"candidateProfileId" | "email" | "temporaryPassword", string>
@@ -20,5 +39,15 @@ export type ClientAccountFormState = {
 };
 
 export const initialClientAccountFormState: ClientAccountFormState = {
+  status: "idle",
+};
+
+export type EditClientAccountFormState = {
+  fieldErrors?: Partial<Record<"email" | "packageCode" | "confirmation", string>>;
+  message?: string;
+  status: "idle" | "success" | "error";
+};
+
+export const initialEditClientAccountFormState: EditClientAccountFormState = {
   status: "idle",
 };

@@ -14,6 +14,12 @@ export function AdminPortalPlaceholder() {
           >
             Create client account
           </Link>
+          <Link
+            className="type-button auth-secondary-button auth-action-link"
+            href="/admin/clients"
+          >
+            Manage client accounts
+          </Link>
           <LogoutButton portal="admin" />
         </div>
       }
