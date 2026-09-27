@@ -3,12 +3,8 @@ import Link from "next/link";
 import { InlineAlert, StatusBadge } from "@/components/ui";
 
 import { getClientDashboardSummary } from "./contact-profile-service";
-
-const targetMarketLabels: Record<string, string> = {
-  "indian-domestic": "Indian Domestic",
-  "gcc-middle-east": "GCC / Middle East",
-  "european-union": "European Union",
-};
+import { TARGET_MARKET_LABELS } from "./target-market-labels";
+import type { TargetMarket } from "@/types/client-profile";
 
 export async function ClientDashboardPage() {
   const summary = await getClientDashboardSummary();
@@ -38,11 +34,11 @@ export async function ClientDashboardPage() {
             <div className="dashboard-assignment">
               <span className="type-label dashboard-kicker">Package / target market</span>
               <strong className="type-heading-4">{summary.packageName}</strong>
-              <span className="type-supporting">Target markets: {summary.targetMarkets.map((market) => targetMarketLabels[market] ?? market).join(" · ")}</span>
+              <span className="type-supporting">Target markets: {summary.targetMarkets.map((market) => TARGET_MARKET_LABELS[market as TargetMarket] ?? market).join(" · ")}</span>
               <p className="type-supporting text-text-muted">Assigned by Zevantaa. Contact the administrator for package changes.</p>
             </div>
-            <Link className="type-button dashboard-primary-link" href="/client/profile">Edit contact details <span aria-hidden="true">→</span></Link>
-            <p className="type-supporting text-text-muted">Other intake sections and uploads are not active yet.</p>
+            <Link className="type-button dashboard-primary-link" href="/client/profile">Open my intake <span aria-hidden="true">→</span></Link>
+            <p className="type-supporting text-text-muted">Contact, LinkedIn and mobility details are available now. Uploads and later sections are not active yet.</p>
           </section>
 
           <div className="dashboard-output-column">

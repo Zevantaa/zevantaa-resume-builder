@@ -21,7 +21,7 @@ export type ClientDashboardSummary = {
   targetMarkets: string[];
 };
 
-async function resolveLinkedClientProfile(): Promise<LinkedClientProfile | null> {
+export async function resolveLinkedClientProfile(): Promise<LinkedClientProfile | null> {
   const context = await requireApplicationRole("client");
   if (!context.userId) {
     return null;
