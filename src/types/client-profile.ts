@@ -48,7 +48,9 @@ export interface WorkExperienceEntry extends OrderedProfileItem {
   currentRole: boolean;
   endDate?: YearMonth;
   location?: string;
+  /** Candidate-supplied role narrative and responsibilities. */
   description?: string;
+  /** Candidate-supplied, evidence-backed achievements; never inferred. */
   highlights: string[];
 }
 
@@ -59,6 +61,8 @@ export interface EducationEntry extends OrderedProfileItem {
   startDate?: YearMonth;
   endDate?: YearMonth;
   location?: string;
+  /** Candidate-supplied grade, classification, GPA, or result, if relevant. */
+  gradeResult?: string;
   highlights: string[];
 }
 
