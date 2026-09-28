@@ -26,6 +26,9 @@ type TextareaFieldProps = SharedFieldProps &
 type SelectFieldProps = SharedFieldProps &
   Omit<SelectHTMLAttributes<HTMLSelectElement>, "id" | "required">;
 
+type FileInputProps = SharedFieldProps &
+  Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "required" | "type">;
+
 function FieldShell({
   children,
   descriptionId,
@@ -106,6 +109,16 @@ export function TextInput({
         required={required}
         type={type}
       />
+    </FieldShell>
+  );
+}
+
+export function FileInput({ className, error, helperText, id, label, required, ...props }: FileInputProps) {
+  const descriptionId = getDescriptionId(id, helperText, error);
+  return (
+    <FieldShell descriptionId={descriptionId} error={error} helperText={helperText} id={id} label={label} required={required}>
+      <input {...props} aria-describedby={descriptionId} aria-invalid={error ? true : undefined}
+        className={getControlClassName(error, className)} id={id} required={required} type="file" />
     </FieldShell>
   );
 }
