@@ -1,5 +1,7 @@
-/**
- * Document-generation modules will consume the authoritative structured
- * candidate profile when that in-scope functionality is implemented.
- */
-export {};
+export { mapCandidateProfileToDocumentData } from "./profile-mapper";
+export type {
+  DocumentData,
+  DocumentDataFinding,
+  DocumentDataMappingResult,
+  DocumentDataPurpose,
+} from "./profile-mapper";
