@@ -5,7 +5,7 @@ import { Document, Font, Link, Page, Text, View, renderToBuffer } from "@react-p
 import { jsx } from "react/jsx-runtime";
 import { cloneElement, type ComponentProps, type ReactElement, type ReactNode } from "react";
 
-import type { PdfBlock, PdfContactItem, PdfDocumentModel, PdfSection } from "./pdf-model";
+import type { PdfBlock, PdfContactItem, PdfDocumentModel, PdfPageAdornment, PdfSection } from "./pdf-model";
 import { resolvePdfTheme, type PdfTheme, type PdfThemeOverrides } from "./pdf-theme";
 
 const fontPath = (name: string) => path.join(process.cwd(), "public", "fonts", name);
@@ -23,6 +23,8 @@ Font.register({ family: "Zevantaa PDF Devanagari", fonts: [
 ] });
 
 const hasText = (value: string | undefined): value is string => Boolean(value?.trim());
+const ADORNMENT_HEIGHT = 16;
+const ADORNMENT_GAP = 10;
 
 /** Keep glyph runs in a bundled font rather than relying on host OS fallback. */
 function textRuns(value: string, defaultFamily: string): ReactNode[] {
@@ -145,15 +147,45 @@ function renderSection(section: PdfSection, theme: PdfTheme, key: string): React
   ];
 }
 
+function pageAdornment(adornment: PdfPageAdornment | undefined, position: "header" | "footer", theme: PdfTheme) {
+  if (!adornment) return null;
+  const values = [adornment.text, adornment.reference].filter(hasText);
+  if (!values.length && !adornment.pageNumbers) return null;
+  const staticValue = values.join(" · ");
+  const limit = adornment.pageNumbers ? 36 : 42;
+  if (values.some((value) => /[\r\n\u0000-\u001f\u007f]/u.test(value)) || Array.from(staticValue).length > limit) {
+    throw new RangeError(`PDF header/footer text must be one line of at most ${limit} characters.`);
+  }
+  const alignment = adornment.alignment ?? "left";
+  const justifyContent = alignment === "left" ? "flex-start" : alignment === "right" ? "flex-end" : "center";
+  return jsx(View, { fixed: true, style: {
+    position: "absolute", left: theme.margins.left, right: theme.margins.right,
+    ...(position === "header" ? { top: theme.margins.top } : { bottom: theme.margins.bottom }),
+    height: ADORNMENT_HEIGHT, flexDirection: "row", justifyContent, alignItems: "center", gap: 6,
+  }, children: [
+    staticValue ? text(staticValue, { fontSize: theme.typography.smallSize, color: theme.mutedColor,
+      lineHeight: theme.typography.lineHeight }, theme, `${position}-text`) : null,
+    adornment.pageNumbers ? jsx(Text, { style: { fontSize: theme.typography.smallSize, color: theme.mutedColor,
+      fontFamily: theme.typography.fontFamily },
+      render: ({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) =>
+        adornment.pageNumbers === "current" ? `Page ${pageNumber}` : `Page ${pageNumber} of ${totalPages}`,
+    }, `${position}-pages`) : null,
+  ] }, position);
+}
+
 /** Server-only, in-memory PDF render. Caller must supply already-authorized data. */
 export async function renderPdfDocument(model: PdfDocumentModel, overrides: PdfThemeOverrides = {}): Promise<Buffer> {
   const theme = resolvePdfTheme(overrides);
   const sections = model.sections.flatMap((section, index) => renderSection(section, theme, `section-${index}`));
+  const header = pageAdornment(model.header, "header", theme);
+  const footer = pageAdornment(model.footer, "footer", theme);
   const page = jsx(Page, { size: "A4", wrap: true,
-    style: { paddingTop: theme.margins.top, paddingRight: theme.margins.right,
-      paddingBottom: theme.margins.bottom, paddingLeft: theme.margins.left,
+    style: { paddingTop: theme.margins.top + (header ? ADORNMENT_HEIGHT + ADORNMENT_GAP : 0),
+      paddingRight: theme.margins.right,
+      paddingBottom: theme.margins.bottom + (footer ? ADORNMENT_HEIGHT + ADORNMENT_GAP : 0),
+      paddingLeft: theme.margins.left,
       fontFamily: theme.typography.fontFamily, fontSize: theme.typography.bodySize,
-      color: theme.textColor }, children: sections });
+      color: theme.textColor }, children: [header, ...sections, footer] });
   const document = jsx(Document, { title: model.title, creator: "Zevantaa Resume Builder",
     creationDate: new Date(0), modificationDate: new Date(0), children: page });
   return renderToBuffer(document as ReactElement<ComponentProps<typeof Document>>);

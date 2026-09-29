@@ -56,6 +56,10 @@ export function PdfRenderQaPanel() {
           <button className="auth-submit type-button" type="button" onClick={() => generate(scenario)} disabled={isPending}>
             {isPending && active === scenario ? "Generating…" : label}
           </button>
+          <form action="/admin/pdf-render-test/download" method="post">
+            <input type="hidden" name="scenario" value={scenario} />
+            <button className="type-button" type="submit">Test protected HTTP download</button>
+          </form>
           {generated[scenario] && (
             <p className="type-body">
               <a href={generated[scenario].url} target="_blank" rel="noopener noreferrer">Open PDF</a>

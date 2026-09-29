@@ -5,6 +5,16 @@ export interface PdfDocumentModel {
   sourceProfileId: EntityId;
   title?: string;
   sections: PdfSection[];
+  header?: PdfPageAdornment;
+  footer?: PdfPageAdornment;
+}
+
+/** Optional, template-supplied running text; omitted unless explicitly set. */
+export interface PdfPageAdornment {
+  text?: string;
+  reference?: string;
+  alignment?: "left" | "center" | "right";
+  pageNumbers?: "current" | "current-of-total";
 }
 
 export interface PdfSection {

@@ -1,7 +1,8 @@
-# PDF rendering foundation (DOC-03-01–04)
+# PDF rendering and download foundation (DOC-03-01–08)
 
 This is a server-only, transient PDF layer. It does not load profiles, authorize
-users, generate final resume layouts, persist files, or expose a download route.
+users by itself, generate final resume layouts, or persist files. Authorization
+belongs to the server route before candidate-specific model construction.
 The intended flow is:
 
 `reviewed CandidateProfile → mapCandidateProfileToDocumentData → DocumentData → future V1 template → PdfDocumentModel → renderPdfDocument() → PDF Buffer`
@@ -38,6 +39,20 @@ Dates and links are supplied text, not parsed or synthesized by the renderer.
 `renderPdfDocument(model, themeOverrides?)` in `render-pdf.ts` returns a Buffer.
 It has no database or Supabase dependency and is marked `server-only`.
 `sourceProfileId` is carried for caller provenance; it is not printed.
+
+## Optional running header and footer
+
+`PdfDocumentModel.header` and `.footer` accept `PdfPageAdornment` with optional
+`text`, `reference`, `alignment` (`left`, `center`, `right`), and `pageNumbers`
+(`current` or `current-of-total`). They are absent unless supplied explicitly.
+The same controls are suitable for later resume, cover-letter and masked-review
+templates; no brand-specific header or footer is built into the renderer.
+When enabled, a fixed adornment repeats on every page. The renderer reserves an
+additional 26 pt above/below the body (16 pt adornment and 10 pt separation),
+on top of the configured top/bottom margins. Adornment text is constrained to a
+short single line (42 characters, or 36 with page numbers) to avoid overflow;
+longer text is rejected rather than silently clipped. Page numbering is
+computed after wrapping, so `Page 1 of 3` reflects the rendered page count.
 
 The renderer uses A4 portrait with configurable margins. Text wraps at the
 available width. A link is active only for `https:`, `mailto:` or `tel:`; other
@@ -79,14 +94,46 @@ validated in this batch and require suitable licensed fonts/QA, not silent
 substitution. This is a known foundation limit, not a completed market layout.
 
 PDF metadata dates are fixed so identical inputs produce byte-identical output
-in the tested runtime. No header/footer controls, final resume or cover-letter
-templates, ATS scoring, filenames, public URLs or DOC-04 work are included.
+in the tested runtime. No final resume or cover-letter templates, ATS scoring,
+public file URLs or DOC-04 work are included.
+
+## Filename and transient HTTP download
+
+`pdf-filename.ts` builds deterministic `<Candidate_Name>_<Document_Type>.pdf`
+names from a fixed V1 output-kind union. Resume names can add `_Masked`;
+cover-letter masked naming is rejected because only resume masking is in the
+frozen record model. Names are Unicode-preserving by default, with an optional
+ASCII-only fallback. Unsafe punctuation, slashes, backslashes, controls and
+repeated separators become a single underscore. Names are bounded, and a blank
+candidate name becomes `Candidate`. No database ID is included. The download
+boundary sanitizes the filename again before building HTTP headers.
+
+`renderPdfDownloadResponse(model, filename)` in `pdf-download.ts` returns a
+direct `application/pdf` attachment response with a safe ASCII `filename`,
+RFC 5987 Unicode `filename*`, byte length, `nosniff`, and `private, no-store`.
+It renders in memory and does not need Supabase Storage or a document row. It
+must be called only after a server route has established the user's role and
+candidate-specific ownership, loaded reviewed data server-side, and built the
+model without trusting browser-supplied facts. Renderer failures should be
+returned as generic errors without leaking candidate content.
+
+The existing `/admin/pdf-render-test` is a temporary manual QA harness, not a
+production template. Its POST-only `/admin/pdf-render-test/download` endpoint
+rechecks active admin access and accepts only three fixed fictional scenario
+keys. It rejects cross-origin requests with a mismatched `Origin`, returns the
+PDF directly to the authorized browser, and exposes no public file URL,
+storage path or service-role key. The route is not in normal admin navigation.
 
 ## QA
 
 `tests/doc-03-01-04.test.mjs` creates fictional in-memory PDFs and opens them
 with PDF.js. It checks the `%PDF-` header, nonzero bytes, page count, selectable
 text, source order, empty-section omission, Unicode, breaks, margins, and
-content preservation through long wrapped sections. Manual visual review on
-desktop/mobile PDF viewers, especially for complex scripts and unusually dense
-two-column layouts, remains necessary when real V1 templates are built.
+content preservation through long wrapped sections. `tests/doc-03-05-08.test.mjs`
+also checks one/two/3+ pages, running adornments, numbering, body clearance,
+heading keep-with-next, filenames, response headers and admin-only QA POST.
+These are structural rather than screenshot-only checks. Manual visual review
+on desktop/mobile PDF viewers, especially for complex scripts, long running
+labels and unusually dense two-column layouts, remains necessary when real V1
+templates are built. Automated coordinate checks cannot prove the absence of
+every visual collision or guarantee PDF/UA accessibility.
