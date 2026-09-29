@@ -123,25 +123,22 @@ test("filename builder supports frozen output labels, Unicode, sanitization, and
 });
 
 test("three-page QA content retains order, long bullets, explicit break, and repeated footer numbering", async () => {
-  const source = createPdfRenderQaModel("multi-page");
-  const pages = await inspect(await renderPdfDocument({ ...source,
-    header: { text: "RUNNING QA HEADER" }, footer: { pageNumbers: "current-of-total" },
-  }));
+  const pages = await inspect(await renderPdfDocument(createPdfRenderQaModel("header-footer")));
   assert.ok(pages.length >= 3);
   const text = pages.map((page) => page.text).join(" ");
   assert.ok(text.indexOf("Long supplied bullet 1") < text.indexOf("Long supplied bullet 13"));
   const breakPage = pages.findIndex((page) => page.text.includes("This supplied QA paragraph starts after an explicit page break"));
   assert.ok(breakPage > 0);
   for (const [index, page] of pages.entries()) {
-    assert.match(page.text, /RUNNING QA HEADER/);
+    assert.match(page.text, /Zevantaa Resume Builder QA/);
     assert.match(page.text, new RegExp(`Page ${index + 1} of ${pages.length}`));
-    const headerY = page.items.find((item) => item.str.includes("RUNNING QA HEADER"))?.transform[5];
+    const headerY = page.items.find((item) => item.str.includes("Zevantaa Resume Builder QA"))?.transform[5];
     const footerY = page.items.find((item) => item.str.includes(`Page ${index + 1} of ${pages.length}`))?.transform[5];
     assert.ok(typeof headerY === "number" && typeof footerY === "number");
     for (const item of page.items) {
       assert.ok(item.transform[4] >= 15 && item.transform[4] + item.width <= page.width - 15);
       assert.ok(item.transform[5] >= 15 && item.transform[5] <= page.height - 15);
-      if (!item.str.includes("RUNNING QA HEADER") && !item.str.includes(`Page ${index + 1} of ${pages.length}`)) {
+      if (!item.str.includes("Zevantaa Resume Builder QA") && !item.str.includes(`Page ${index + 1} of ${pages.length}`)) {
         assert.ok(item.transform[5] < headerY - 5 && item.transform[5] > footerY + 5,
           "Body content does not enter either running adornment band.");
       }
@@ -179,4 +176,14 @@ test("QA POST requires admin before generation and rejects cross-origin or arbit
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("content-type"), "application/pdf");
   assert.equal(Buffer.from(await response.arrayBuffer()).subarray(0, 5).toString(), "%PDF-");
+
+  const decorated = await POST(request("header-footer"));
+  assert.equal(decorated.status, 200);
+  assert.equal(decorated.headers.get("content-type"), "application/pdf");
+  const pages = await inspect(Buffer.from(await decorated.arrayBuffer()));
+  assert.ok(pages.length >= 3);
+  for (const [index, page] of pages.entries()) {
+    assert.match(page.text, /Zevantaa Resume Builder QA/);
+    assert.match(page.text, new RegExp(`Page ${index + 1} of ${pages.length}`));
+  }
 });

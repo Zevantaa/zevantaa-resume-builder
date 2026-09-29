@@ -119,8 +119,11 @@ returned as generic errors without leaking candidate content.
 
 The existing `/admin/pdf-render-test` is a temporary manual QA harness, not a
 production template. Its POST-only `/admin/pdf-render-test/download` endpoint
-rechecks active admin access and accepts only three fixed fictional scenario
-keys. It rejects cross-origin requests with a mismatched `Origin`, returns the
+rechecks active admin access and accepts only four fixed fictional scenario
+keys. The `header-footer` scenario reuses the multi-page fixture, adds the
+`Zevantaa Resume Builder QA` header and `Page X of Y` footer, and uses the
+direct HTTP download helper for visual review. It rejects cross-origin requests
+with a mismatched `Origin`, returns the
 PDF directly to the authorized browser, and exposes no public file URL,
 storage path or service-role key. The route is not in normal admin navigation.
 

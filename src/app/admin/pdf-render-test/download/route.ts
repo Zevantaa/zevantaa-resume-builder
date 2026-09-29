@@ -10,6 +10,7 @@ const names: Record<PdfRenderQaScenario, string> = {
   "one-page": "Development_QA_One_Page.pdf",
   "multi-page": "Development_QA_Multi_Page.pdf",
   unicode: "Development_QA_Unicode.pdf",
+  "header-footer": "Development_QA_Header_Footer.pdf",
 };
 
 /** Admin-only POST harness. No candidate ID, profile data, or storage path is accepted. */

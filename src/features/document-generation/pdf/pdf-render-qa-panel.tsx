@@ -69,6 +69,19 @@ export function PdfRenderQaPanel() {
           )}
         </section>
       ))}
+      <section className="dashboard-workspace-panel">
+        <div className="dashboard-module-heading">
+          <h2 className="type-heading-3">Header/Footer QA</h2>
+          <p className="type-supporting text-text-muted">
+            The fictional multi-page fixture with a repeating header and Page X of Y footer.
+            Check every page for clear separation from the body text.
+          </p>
+        </div>
+        <form action="/admin/pdf-render-test/download" method="post">
+          <input type="hidden" name="scenario" value="header-footer" />
+          <button className="auth-submit type-button" type="submit">Test header/footer PDF</button>
+        </form>
+      </section>
       <p className="type-supporting text-text-muted" role="status" aria-live="polite">
         {isPending ? "Generating a temporary PDF…" : "PDFs are generated in memory and are not saved to your account."}
       </p>

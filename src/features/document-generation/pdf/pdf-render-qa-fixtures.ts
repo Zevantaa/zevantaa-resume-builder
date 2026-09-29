@@ -10,6 +10,15 @@ const longBullet = "Coordinated a fictional cross-functional planning exercise, 
 
 /** Fictional, static renderer inputs. Never reads or mutates a candidate profile. */
 export function createPdfRenderQaModel(scenario: PdfRenderQaScenario): PdfDocumentModel {
+  if (scenario === "header-footer") {
+    return {
+      ...createPdfRenderQaModel("multi-page"),
+      title: "Development QA Header and Footer PDF",
+      header: { text: "Zevantaa Resume Builder QA" },
+      footer: { pageNumbers: "current-of-total" },
+    };
+  }
+
   const introduction: PdfDocumentModel["sections"] = [
     { id: "identity", blocks: [
       { kind: "heading", level: 1, text: "Rohan Kapoor" },
