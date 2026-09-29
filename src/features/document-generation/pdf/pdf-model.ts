@@ -1,0 +1,29 @@
+import type { EntityId } from "@/types/core";
+
+/** Transient layout input assembled from reviewed DocumentData by a template. */
+export interface PdfDocumentModel {
+  sourceProfileId: EntityId;
+  title?: string;
+  sections: PdfSection[];
+}
+
+export interface PdfSection {
+  id: string;
+  title?: string;
+  blocks: PdfBlock[];
+  breakBefore?: boolean;
+}
+
+export interface PdfContactItem {
+  text: string;
+  href?: string;
+}
+
+export type PdfBlock =
+  | { kind: "heading"; text: string; level?: 1 | 2; keepWithNext?: boolean }
+  | { kind: "paragraph"; text: string; small?: boolean; keepWithNext?: boolean }
+  | { kind: "bullets"; items: string[] }
+  | { kind: "contact-row"; items: PdfContactItem[] }
+  | { kind: "entry"; title: string; subtitle?: string; date?: string; location?: string; description?: string; bullets?: string[]; keepTogether?: boolean }
+  | { kind: "columns"; left: PdfBlock[]; right: PdfBlock[] }
+  | { kind: "page-break" };

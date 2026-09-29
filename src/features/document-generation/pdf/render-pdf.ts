@@ -1,0 +1,160 @@
+import "server-only";
+
+import path from "node:path";
+import { Document, Font, Link, Page, Text, View, renderToBuffer } from "@react-pdf/renderer";
+import { jsx } from "react/jsx-runtime";
+import { cloneElement, type ComponentProps, type ReactElement, type ReactNode } from "react";
+
+import type { PdfBlock, PdfContactItem, PdfDocumentModel, PdfSection } from "./pdf-model";
+import { resolvePdfTheme, type PdfTheme, type PdfThemeOverrides } from "./pdf-theme";
+
+const fontPath = (name: string) => path.join(process.cwd(), "public", "fonts", name);
+Font.register({ family: "Zevantaa PDF Latin", fonts: [
+  { src: fontPath("noto-sans-latin-regular.woff"), fontWeight: 400 },
+  { src: fontPath("noto-sans-latin-bold.woff"), fontWeight: 700 },
+] });
+Font.register({ family: "Zevantaa PDF Latin Ext", fonts: [
+  { src: fontPath("noto-sans-latin-ext-regular.woff"), fontWeight: 400 },
+  { src: fontPath("noto-sans-latin-ext-bold.woff"), fontWeight: 700 },
+] });
+Font.register({ family: "Zevantaa PDF Devanagari", fonts: [
+  { src: fontPath("noto-sans-devanagari-regular.woff"), fontWeight: 400 },
+  { src: fontPath("noto-sans-devanagari-bold.woff"), fontWeight: 700 },
+] });
+
+const hasText = (value: string | undefined): value is string => Boolean(value?.trim());
+
+/** Keep glyph runs in a bundled font rather than relying on host OS fallback. */
+function textRuns(value: string, defaultFamily: string): ReactNode[] {
+  const runs: { text: string; fontFamily: string }[] = [];
+  for (const char of value) {
+    const code = char.codePointAt(0)!;
+    const fontFamily = code >= 0x0900 && code <= 0x097f ? "Zevantaa PDF Devanagari"
+      : code >= 0x0100 && code <= 0x024f ? "Zevantaa PDF Latin Ext" : defaultFamily;
+    const last = runs.at(-1);
+    if (last?.fontFamily === fontFamily) last.text += char;
+    else runs.push({ text: char, fontFamily });
+  }
+  return runs.map((run, index) => jsx(Text, { style: { fontFamily: run.fontFamily }, children: run.text }, index));
+}
+
+function text(value: string, style: Record<string, string | number>, theme: PdfTheme, key: string, minPresenceAhead = 0) {
+  return jsx(Text, { style, minPresenceAhead, orphans: 2, widows: 2,
+    children: textRuns(value, theme.typography.fontFamily) }, key);
+}
+
+function safeHref(href: string | undefined): string | null {
+  if (!href) return null;
+  try {
+    const parsed = new URL(href);
+    return ["https:", "mailto:", "tel:"].includes(parsed.protocol) ? href : null;
+  } catch { return null; }
+}
+
+function bulletItems(items: readonly string[] | undefined, theme: PdfTheme, key: string) {
+  const lines = (items ?? []).filter(hasText);
+  if (!lines.length) return null;
+  return jsx(View, { style: { marginTop: theme.typography.paragraphGap / 2 }, children: lines.map((item, index) =>
+    text(`•  ${item}`, { fontSize: theme.typography.bodySize, lineHeight: theme.typography.lineHeight,
+      marginLeft: theme.typography.bulletIndent, marginBottom: theme.typography.paragraphGap / 2,
+      color: theme.textColor }, theme, `${key}-bullet-${index}`)) }, key);
+}
+
+function shortEntry(block: Extract<PdfBlock, { kind: "entry" }>, theme: PdfTheme): boolean {
+  if (block.keepTogether === false) return false;
+  const all = [block.title, block.subtitle, block.date, block.location, block.description, ...(block.bullets ?? [])].filter(hasText);
+  const width = 595 - theme.margins.left - theme.margins.right;
+  const charsPerLine = Math.max(20, Math.floor(width / (theme.typography.bodySize * 0.55)));
+  const lines = all.reduce((count, value) => count + Math.ceil(value.length / charsPerLine), 0);
+  const height = lines * theme.typography.bodySize * theme.typography.lineHeight +
+    (block.bullets?.length ?? 0) * theme.typography.paragraphGap;
+  return height < (842 - theme.margins.top - theme.margins.bottom) * 0.35;
+}
+
+function contactItem(item: PdfContactItem, theme: PdfTheme, key: string) {
+  const content = text(item.text, { fontSize: theme.typography.smallSize, color: theme.mutedColor }, theme, `${key}-text`);
+  const href = safeHref(item.href);
+  return href ? jsx(Link, { src: href, children: content }, key) : jsx(View, { children: content }, key);
+}
+
+function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
+  const type = theme.typography;
+  if (block.kind === "page-break") return jsx(View, { break: true, style: { height: 0 } }, key);
+  if (block.kind === "heading") return hasText(block.text) ? text(block.text,
+    { fontSize: block.level === 1 ? type.heading1Size : type.heading2Size, fontWeight: 700,
+      lineHeight: type.lineHeight, color: theme.textColor, marginBottom: type.paragraphGap },
+    theme, key, block.keepWithNext === false ? 0 : type.bodySize * type.lineHeight * 2) : null;
+  if (block.kind === "paragraph") return hasText(block.text) ? text(block.text,
+    { fontSize: block.small ? type.smallSize : type.bodySize, lineHeight: type.lineHeight,
+      color: theme.textColor, marginBottom: type.paragraphGap }, theme, key,
+    block.keepWithNext ? type.bodySize * type.lineHeight * 2 : 0) : null;
+  if (block.kind === "bullets") return bulletItems(block.items, theme, key);
+  if (block.kind === "contact-row") {
+    const items = block.items.filter((item) => hasText(item.text));
+    return items.length ? jsx(View, { style: { flexDirection: "row", flexWrap: "wrap", gap: 8,
+      marginBottom: type.paragraphGap }, children: items.map((item, index) => contactItem(item, theme, `${key}-${index}`)) }, key) : null;
+  }
+  if (block.kind === "columns") {
+    const left = block.left.map((item, index) => renderBlock(item, theme, `${key}-l-${index}`)).filter(Boolean);
+    const right = block.right.map((item, index) => renderBlock(item, theme, `${key}-r-${index}`)).filter(Boolean);
+    return left.length || right.length ? jsx(View, { style: { flexDirection: "row", justifyContent: "space-between" }, children: [
+      jsx(View, { style: { width: "48%" }, children: left }, `${key}-left`),
+      jsx(View, { style: { width: "48%" }, children: right }, `${key}-right`),
+    ] }, key) : null;
+  }
+  if (!hasText(block.title)) return null;
+  const lead = jsx(View, { style: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+    minPresenceAhead: type.bodySize * type.lineHeight * 2,
+    children: [
+      text(block.title, { fontSize: type.bodySize, fontWeight: 700, lineHeight: type.lineHeight,
+        color: theme.textColor, flex: 1 }, theme, `${key}-title`),
+      hasText(block.date) ? text(block.date, { fontSize: type.smallSize, color: theme.mutedColor,
+        lineHeight: type.lineHeight, textAlign: "right", maxWidth: 110 }, theme, `${key}-date`) : null,
+    ] }, `${key}-lead`);
+  return jsx(View, { wrap: !shortEntry(block, theme), style: { marginBottom: type.paragraphGap * 1.5 }, children: [
+    lead,
+    hasText(block.subtitle) ? text(block.subtitle, { fontSize: type.smallSize, color: theme.mutedColor,
+      lineHeight: type.lineHeight }, theme, `${key}-subtitle`) : null,
+    hasText(block.location) ? text(block.location, { fontSize: type.smallSize, color: theme.mutedColor,
+      lineHeight: type.lineHeight }, theme, `${key}-location`) : null,
+    hasText(block.description) ? text(block.description, { fontSize: type.bodySize, lineHeight: type.lineHeight,
+      color: theme.textColor, marginTop: type.paragraphGap / 2 }, theme, `${key}-description`) : null,
+    bulletItems(block.bullets, theme, `${key}-bullets`),
+  ] }, key);
+}
+
+function renderSection(section: PdfSection, theme: PdfTheme, key: string): ReactNode[] {
+  const blocks: ReactNode[] = [];
+  const title = hasText(section.title) ? text(section.title,
+    { fontSize: theme.typography.heading2Size, fontWeight: 700, lineHeight: theme.typography.lineHeight,
+      color: theme.textColor, marginBottom: theme.typography.paragraphGap }, theme,
+    `${key}-section-title`, theme.typography.bodySize * theme.typography.lineHeight * 2) : null;
+  let breakNext = section.breakBefore === true && !title;
+  section.blocks.forEach((block, index) => {
+    if (block.kind === "page-break") { breakNext = true; return; }
+    const rendered = renderBlock(block, theme, `${key}-${index}`);
+    if (!rendered) return;
+    blocks.push(breakNext ? cloneElement(rendered as ReactElement<{ break?: boolean }>, { break: true }) : rendered);
+    breakNext = false;
+  });
+  if (!blocks.length) return [];
+  return [
+    ...(title ? [section.breakBefore ? cloneElement(title as ReactElement<{ break?: boolean }>, { break: true }) : title] : []),
+    ...blocks,
+    jsx(View, { style: { height: theme.typography.sectionGap } }, `${key}-gap`),
+  ];
+}
+
+/** Server-only, in-memory PDF render. Caller must supply already-authorized data. */
+export async function renderPdfDocument(model: PdfDocumentModel, overrides: PdfThemeOverrides = {}): Promise<Buffer> {
+  const theme = resolvePdfTheme(overrides);
+  const sections = model.sections.flatMap((section, index) => renderSection(section, theme, `section-${index}`));
+  const page = jsx(Page, { size: "A4", wrap: true,
+    style: { paddingTop: theme.margins.top, paddingRight: theme.margins.right,
+      paddingBottom: theme.margins.bottom, paddingLeft: theme.margins.left,
+      fontFamily: theme.typography.fontFamily, fontSize: theme.typography.bodySize,
+      color: theme.textColor }, children: sections });
+  const document = jsx(Document, { title: model.title, creator: "Zevantaa Resume Builder",
+    creationDate: new Date(0), modificationDate: new Date(0), children: page });
+  return renderToBuffer(document as ReactElement<ComponentProps<typeof Document>>);
+}
