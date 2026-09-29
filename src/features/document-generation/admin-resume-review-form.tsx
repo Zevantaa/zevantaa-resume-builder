@@ -26,7 +26,7 @@ export function AdminResumeReviewForm({ userId, sourceHash, proposals }: {
       <div className="resume-review-fields">
         {Object.entries(proposal.fields).map(([key, value]) => <label className="form-field" key={key}>
           <span className="type-label form-label">{key.replace(/([A-Z])/g, " $1")}</span>
-          {key === "text" ? <textarea className="form-control form-textarea" name={`field:${proposal.id}:${key}`} defaultValue={value} maxLength={5000} />
+          {["text", "description", "highlights"].includes(key) ? <textarea className="form-control form-textarea" name={`field:${proposal.id}:${key}`} defaultValue={value} maxLength={5000} />
             : <input className="form-control" name={`field:${proposal.id}:${key}`} defaultValue={value} maxLength={5000} />}
         </label>)}
       </div>

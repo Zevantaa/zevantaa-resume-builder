@@ -44,12 +44,13 @@ TypeScript aggregate.
   location, `YYYY-MM` dates, optional candidate-supplied `grade_result`, and
   highlights. `grade_result` is the one new content field needed to preserve a
   result distinctly without hiding it in free-text highlights. End month cannot
-  precede start when both are supplied. A year-only source should remain
-  unrepresented as a month until the candidate confirms the month; do not invent
+  precede start when both are supplied. DOC-02 live QA added optional
+  `completion_year` for an explicitly stated year-only completion; do not invent
   `-01` or another placeholder month.
 - Skills store a name, optional category, and order. This supports ATS keywords
   and display without inventing an unverified proficiency/scoring taxonomy.
 - Certifications store name, issuer, optional `YYYY-MM` issue/expiry months,
+  optional exact `issue_year`/`expiry_year` where only a year was stated,
   optional credential ID/URL, and order. Expiry cannot precede issue when both
   are supplied. No expiry or credential identifier is fabricated.
 

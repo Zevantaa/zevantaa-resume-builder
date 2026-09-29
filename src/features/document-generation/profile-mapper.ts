@@ -99,6 +99,7 @@ export function mapCandidateProfileToDocumentData(
       ...(hasText(item.fieldOfStudy) ? { fieldOfStudy: item.fieldOfStudy } : {}),
       ...(hasText(item.startDate) ? { startDate: item.startDate } : {}),
       ...(hasText(item.endDate) ? { endDate: item.endDate } : {}),
+      ...(item.completionYear !== undefined ? { completionYear: item.completionYear } : {}),
       ...(hasText(item.location) ? { location: item.location } : {}),
       ...(hasText(item.gradeResult) ? { gradeResult: item.gradeResult } : {}),
       highlights: bullets(item.highlights),
@@ -118,7 +119,9 @@ export function mapCandidateProfileToDocumentData(
       id: item.id, sortOrder: item.sortOrder, name: item.name,
       issuingOrganization: item.issuingOrganization,
       ...(hasText(item.issuedOn) ? { issuedOn: item.issuedOn } : {}),
+      ...(item.issueYear !== undefined ? { issueYear: item.issueYear } : {}),
       ...(hasText(item.expiresOn) ? { expiresOn: item.expiresOn } : {}),
+      ...(item.expiryYear !== undefined ? { expiryYear: item.expiryYear } : {}),
       ...(hasText(item.credentialId) ? { credentialId: item.credentialId } : {}),
       ...(hasText(item.credentialUrl) ? { credentialUrl: item.credentialUrl } : {}),
     }];

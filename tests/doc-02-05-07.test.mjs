@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { test } from "node:test";
+import mammoth from "mammoth";
+import { docxFixture } from "./fixtures/extraction-fixtures.mjs";
+import { liveQaResumeText } from "./fixtures/live-qa-resume.mjs";
 
 const mock = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 registerHooks({
@@ -21,6 +24,7 @@ registerHooks({
 
 const { parseResumeReview } = await import("../src/features/document-generation/resume-review-parser.ts");
 const { confirmResumeReviewAction } = await import("../src/features/document-generation/confirm-resume-review-action.ts");
+const { normalizeExtractedText } = await import("../src/features/document-generation/normalize-extracted-text.ts");
 const text = `Professional Summary\nFictional operations analyst.\n\nEmployment History\nAnalyst | Imaginary Harbour Ltd | 2020-01 – 2023-04\nManager | Fictional Blue Kite | 2023-05 – Present\n\nEducation\nBSc Computing | Fictional North College | 2016-09 – 2019-06\n\nSkills\nReporting, Process design\n\nCertifications\nSafety Certificate | Fictional Skills Board | 2022-03\n\nLanguages\nEnglish, Hindi\n\nProjects\nProject: Fictional reporting project\n\nAdditional Information\nVolunteer work`;
 
 test("recognized sections map to ordered review proposals without invented fields", () => {
@@ -29,9 +33,10 @@ test("recognized sections map to ordered review proposals without invented field
     "summary", "employment", "employment", "education", "skills", "skills",
     "certifications", "languages", "languages", "projects", "additional",
   ]);
-  assert.deepEqual(draft.proposals[1].fields, {
-    jobTitle: "Analyst", employerName: "Imaginary Harbour Ltd", startDate: "2020-01", endDate: "2023-04", isCurrentRole: "false",
-  });
+  assert.equal(draft.proposals[1].fields.jobTitle, "Analyst");
+  assert.equal(draft.proposals[1].fields.employerName, "Imaginary Harbour Ltd");
+  assert.equal(draft.proposals[1].fields.startDate, "2020-01");
+  assert.equal(draft.proposals[1].fields.endDate, "2023-04");
   assert.equal(draft.proposals[2].fields.isCurrentRole, "true");
   assert.equal(draft.proposals[2].fields.endDate, "");
   assert.equal(draft.proposals[3].fields.qualification, "BSc Computing");
@@ -47,8 +52,56 @@ test("ambiguous dates, partial entries, missing headings and duplicate headings 
   assert.equal(parseResumeReview("Fictional person with an unclear resume").proposals.length, 0);
   assert.equal(parseResumeReview("Summary\nA supplied sentence only").proposals[0].fields.text, "A supplied sentence only");
   const unusual = parseResumeReview("Education\nDegree | Imaginary College | Spring 2019\nCertifications\nSafety | Fictional Board | April 2022");
-  assert.equal(unusual.proposals.length, 0);
+  assert.equal(unusual.proposals.length, 1);
   assert.ok(unusual.warnings.some((warning) => warning.includes("education line")));
+  const language = parseResumeReview("Languages\nEnglish | Working proficiency | Hindi");
+  assert.deepEqual(language.proposals.map((item) => item.fields.name), ["English", "Hindi"]);
+  assert.ok(language.warnings.some((warning) => warning.includes("unsupported proficiency")));
+});
+
+test("live-QA DOCX shape proposes all supported sections in source order without warnings", () => {
+  const draft = parseResumeReview(liveQaResumeText);
+  const counts = Object.fromEntries(["summary", "skills", "employment", "education", "certifications", "projects", "languages", "additional"].map(
+    (section) => [section, draft.proposals.filter((item) => item.section === section).length],
+  ));
+  assert.deepEqual(counts, { summary: 1, skills: 8, employment: 3, education: 2, certifications: 2, projects: 1, languages: 3, additional: 1 });
+  assert.deepEqual(draft.warnings, []);
+  assert.deepEqual([...draft.proposals.map((item) => item.sourceLines[0])].sort((a, b) => a - b), draft.proposals.map((item) => item.sourceLines[0]));
+  const jobs = draft.proposals.filter((item) => item.section === "employment");
+  assert.equal(jobs[0].fields.location, "Chandigarh");
+  assert.equal(jobs[0].fields.startDate, "2022-07");
+  assert.equal(jobs[0].fields.isCurrentRole, "true");
+  assert.equal(jobs[0].fields.endDate, "");
+  assert.equal(jobs[0].fields.highlights.split("\n").length, 2);
+  assert.equal(jobs[1].fields.location, "");
+  assert.equal(jobs[1].fields.endDate, "2022-06");
+  const education = draft.proposals.filter((item) => item.section === "education");
+  assert.equal(education[0].fields.completionYear, "2017");
+  assert.equal(education[0].fields.endDate, "");
+  assert.equal(education[0].fields.gradeResult, "CGPA: 8.1/10");
+  assert.equal(education[1].fields.endDate, "2015-05");
+  const certs = draft.proposals.filter((item) => item.section === "certifications");
+  assert.equal(certs[0].fields.issueYear, "2021");
+  assert.equal(certs[0].fields.issuedOn, "");
+  assert.equal(certs[1].fields.issuedOn, "2020-03");
+  const project = draft.proposals.find((item) => item.section === "projects");
+  assert.equal(project.fields.name, "Retail reporting improvement");
+  assert.match(project.fields.highlights, /reporting checklist/);
+  assert.match(project.fields.description, /review notes/);
+  const languages = draft.proposals.filter((item) => item.section === "languages");
+  assert.deepEqual(languages.map((item) => item.fields.name), ["English", "Hindi", "Punjabi"]);
+  assert.equal(languages[0].fields.proficiency, "fluent");
+  assert.equal(languages[1].fields.proficiency, "");
+});
+
+test("Mammoth paragraph spacing does not split one project or create bullet warnings", async () => {
+  const bytes = docxFixture({ paragraphs: liveQaResumeText.split("\n").filter(Boolean) });
+  const extracted = await mammoth.extractRawText({ buffer: bytes });
+  const draft = parseResumeReview(normalizeExtractedText(extracted.value));
+  assert.equal(draft.proposals.filter((item) => item.section === "projects").length, 1);
+  assert.equal(draft.proposals.filter((item) => item.section === "employment").length, 3);
+  assert.equal(draft.proposals.filter((item) => item.section === "skills").length, 8);
+  assert.deepEqual(draft.warnings, []);
 });
 
 const fixtureReview = () => {
@@ -87,7 +140,7 @@ test("explicit confirmation and source hash are required before any persistence"
   assert.equal((await confirmResumeReviewAction("client-1", {}, data)).ok, false);
   data.set("confirmReview", "yes"); data.set("sourceHash", "stale");
   assert.equal((await confirmResumeReviewAction("client-1", {}, data)).ok, false);
-  assert.equal(calls.some((call) => call.name === "confirm_resume_review"), false);
+  assert.equal(calls.some((call) => call.name === "confirm_resume_review_v2"), false);
 });
 
 test("approved canonical data uses server-resolved profile/file IDs, never browser ownership fields", async () => {
@@ -96,12 +149,31 @@ test("approved canonical data uses server-resolved profile/file IDs, never brows
   data.set("candidateProfileId", "forged-profile"); data.set("sourceFileId", "forged-file");
   data.set("field:summary:0:text", "Administrator-reviewed fictional summary");
   assert.equal((await confirmResumeReviewAction("client-1", {}, data)).ok, true);
-  const rpc = calls.find((call) => call.name === "confirm_resume_review");
+  const rpc = calls.find((call) => call.name === "confirm_resume_review_v2");
   assert.equal(rpc.args.p_profile_id, "profile-1");
   assert.equal(rpc.args.p_source_file_id, "file-1");
   assert.equal(rpc.args.p_approved.length, 2);
   assert.equal(rpc.args.p_approved[0].fields.text, "Administrator-reviewed fictional summary");
   assert.equal("candidateProfileId" in rpc.args.p_approved[0], false);
+});
+
+test("review confirmation passes bullets, location, grades and exact year-only dates without dropping them", async () => {
+  const { calls, review } = setup();
+  review.draft = parseResumeReview(liveQaResumeText);
+  const selected = review.draft.proposals.filter((item) => ["employment", "education", "certifications", "projects", "languages"].includes(item.section));
+  assert.equal((await confirmResumeReviewAction("client-1", {}, form(review, selected))).ok, true);
+  const approved = calls.find((call) => call.name === "confirm_resume_review_v2").args.p_approved;
+  const job = approved.find((item) => item.section === "employment");
+  assert.equal(job.fields.location, "Chandigarh");
+  assert.match(job.fields.highlights, /monthly operating reviews/);
+  const school = approved.find((item) => item.section === "education");
+  assert.equal(school.fields.completionYear, "2017");
+  assert.equal(school.fields.gradeResult, "CGPA: 8.1/10");
+  const certificate = approved.find((item) => item.section === "certifications");
+  assert.equal(certificate.fields.issueYear, "2021");
+  const project = approved.find((item) => item.section === "projects");
+  assert.match(project.fields.description, /review notes/);
+  assert.match(project.fields.highlights, /reporting checklist/);
 });
 
 test("client role denial stops review/save before privileged access", async () => {
@@ -121,7 +193,7 @@ test("failed extraction, prior review, and invalid edited date never persist", a
   const data = form(review, [review.draft.proposals[1]]);
   data.set(`field:${review.draft.proposals[1].id}:startDate`, "Spring 2020");
   assert.equal((await confirmResumeReviewAction("client-1", {}, data)).ok, false);
-  assert.equal(calls.some((call) => call.name === "confirm_resume_review"), false);
+  assert.equal(calls.some((call) => call.name === "confirm_resume_review_v2"), false);
 });
 
 test("migration persists provenance and canonical resume sections but never admin-owned contact fields", () => {
@@ -133,4 +205,12 @@ test("migration persists provenance and canonical resume sections but never admi
   assert.match(sql, /enable row level security/);
   assert.match(sql, /revoke all on function public\.confirm_resume_review/);
   assert.doesNotMatch(sql, /update public\.candidate_profiles set (?:full_name|primary_email|mobile_number|whatsapp_number|linkedin_url|current_location|relocation_preference|selected_package_code)/);
+  const enhanced = readFileSync(new URL("../supabase/migrations/20260929000300_doc_02_06_live_parser_fields.sql", import.meta.url), "utf8");
+  assert.match(enhanced, /completion_year smallint/);
+  assert.match(enhanced, /issue_year smallint/);
+  assert.match(enhanced, /profile_work_experiences set/);
+  assert.match(enhanced, /profile_projects set/);
+  assert.match(enhanced, /with ordinality/);
+  assert.match(enhanced, /public\.confirm_resume_review\(/);
+  assert.doesNotMatch(enhanced, /update public\.candidate_profiles set/);
 });

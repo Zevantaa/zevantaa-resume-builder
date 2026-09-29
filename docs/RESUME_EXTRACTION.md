@@ -54,13 +54,17 @@ role independently.
 
 The deterministic parser recognizes known summary, employment, education,
 skills, certifications, languages, projects and additional-section headings.
-It preserves source line numbers and order. Employment requires an explicit
-`Job title | Employer | YYYY-MM – YYYY-MM/Present` line. Education and
-certifications require two explicit parts and accept optional `YYYY-MM` dates.
-Skills and languages split only beneath recognized headings; projects require
-an explicit `Project:` or bullet-prefixed name. Ambiguous lines,
-partial employment, unusual dates, unknown headings and missing sections warn
-without guessing facts. The administrator can accept/reject individual
+It preserves source line numbers and order. Employment accepts an explicit
+`Job title | Employer | [Location |] Mon YYYY - Mon YYYY/Present` header,
+normalizes months to `YYYY-MM`, and attaches following bullets to that job.
+Education and certifications accept stated year-only or month-year dates;
+year-only values are stored separately rather than inventing January. Explicit
+grades and expiry dates are preserved. Skills split under common skills
+headings, languages split on list separators with only supported explicit
+proficiency, and a project title owns following bullets/description. Document
+header lines before the first recognized section are ignored without warnings.
+Ambiguous entries warn once rather than flagging every attached bullet. The
+administrator can accept/reject individual
 proposals and edit approved values before confirmation. Such edits are
 admin-entered facts, not inferred by the parser. Existing child rows are
 appended, not replaced. Only an explicitly selected summary can update the
@@ -76,8 +80,12 @@ facts. A unique profile/file pair prevents a second import of that source.
 Child audit notes reference the review and source file. The original upload
 and full extracted text are not changed or persisted. Approved facts can be
 traced to the private source via the review record; unselected proposals can be
-reconstructed by re-extracting the unchanged file. Apply the migration before
-manual confirmation QA; without it confirmation fails closed.
+reconstructed by re-extracting the unchanged file. The forward-only
+`20260929000300_doc_02_06_live_parser_fields.sql` migration adds exact-year
+columns and a `confirm_resume_review_v2` wrapper that atomically persists
+reviewed locations, bullets, descriptions, grades, years, supported language
+proficiency and project text. Apply both review migrations before confirmation
+QA; without them confirmation fails closed.
 
 ## Malformed-file QA (DOC-02-07)
 

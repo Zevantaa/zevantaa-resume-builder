@@ -9,12 +9,14 @@ import type { ResumeReviewProposal } from "./resume-review-parser";
 export type ReviewSaveState = { message: string; ok: boolean };
 
 const fieldsBySection: Record<ResumeReviewProposal["section"], readonly string[]> = {
-  summary: ["text"], employment: ["jobTitle", "employerName", "startDate", "endDate", "isCurrentRole"],
-  education: ["qualification", "institutionName", "startDate", "endDate"], skills: ["name"],
-  certifications: ["name", "issuingOrganization", "issuedOn", "expiresOn"],
-  languages: ["name"], projects: ["name"], additional: ["heading"],
+  summary: ["text"], employment: ["jobTitle", "employerName", "location", "startDate", "endDate", "isCurrentRole", "description", "highlights"],
+  education: ["qualification", "institutionName", "startDate", "endDate", "completionYear", "gradeResult"], skills: ["name"],
+  certifications: ["name", "issuingOrganization", "issuedOn", "issueYear", "expiresOn", "expiryYear"],
+  languages: ["name", "proficiency"], projects: ["name", "description", "highlights"], additional: ["heading", "description"],
 };
 const month = /^\d{4}-(0[1-9]|1[0-2])$/;
+const year = /^\d{4}$/;
+const languageProficiency = new Set(["", "basic", "conversational", "professional-working", "fluent", "native-or-bilingual"]);
 
 function reviewedEntries(formData: FormData, proposals: ResumeReviewProposal[]): ResumeReviewProposal[] | null {
   const approved: ResumeReviewProposal[] = [];
@@ -32,11 +34,15 @@ function reviewedEntries(formData: FormData, proposals: ResumeReviewProposal[]):
         (fields.isCurrentRole === "true" && fields.endDate) || (fields.endDate && fields.endDate < fields.startDate))) return null;
     if (proposal.section === "education" && (!fields.qualification || !fields.institutionName ||
         (fields.startDate && !month.test(fields.startDate)) || (fields.endDate && !month.test(fields.endDate)) ||
+        (fields.completionYear && !year.test(fields.completionYear)) || (fields.completionYear && fields.endDate) ||
         (fields.startDate && fields.endDate && fields.endDate < fields.startDate))) return null;
     if (proposal.section === "certifications" && (!fields.name || !fields.issuingOrganization ||
         (fields.issuedOn && !month.test(fields.issuedOn)) || (fields.expiresOn && !month.test(fields.expiresOn)) ||
+        (fields.issueYear && !year.test(fields.issueYear)) || (fields.expiryYear && !year.test(fields.expiryYear)) ||
+        (fields.issuedOn && fields.issueYear) || (fields.expiresOn && fields.expiryYear) ||
         (fields.issuedOn && fields.expiresOn && fields.expiresOn < fields.issuedOn))) return null;
     if (["skills", "languages", "projects"].includes(proposal.section) && !fields.name) return null;
+    if (proposal.section === "languages" && !languageProficiency.has(fields.proficiency)) return null;
     if (proposal.section === "additional" && !fields.heading) return null;
     if (proposal.section === "summary" && !fields.text) return null;
     approved.push({ ...proposal, fields });
@@ -56,7 +62,7 @@ export async function confirmResumeReviewAction(userId: string, _previous: Revie
   const approved = reviewedEntries(formData, review.draft.proposals);
   if (!approved?.length) return { ok: false, message: "Select at least one proposed entry and check its values." };
   // The RPC is one database transaction: provenance and every approved canonical write succeed together.
-  const { error } = await createSupabaseAdminClient().rpc("confirm_resume_review", {
+  const { error } = await createSupabaseAdminClient().rpc("confirm_resume_review_v2", {
     p_profile_id: review.client.candidateProfileId,
     p_source_file_id: review.extraction.sourceFileId,
     p_extractor: review.extraction.extractor,

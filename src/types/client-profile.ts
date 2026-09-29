@@ -60,6 +60,8 @@ export interface EducationEntry extends OrderedProfileItem {
   fieldOfStudy?: string;
   startDate?: YearMonth;
   endDate?: YearMonth;
+  /** Exact completion year when only a year was supplied; never infer a month. */
+  completionYear?: number;
   location?: string;
   /** Candidate-supplied grade, classification, GPA, or result, if relevant. */
   gradeResult?: string;
@@ -75,7 +77,10 @@ export interface CertificationEntry extends OrderedProfileItem {
   name: string;
   issuingOrganization: string;
   issuedOn?: YearMonth;
+  /** Exact issue year when only a year was supplied. */
+  issueYear?: number;
   expiresOn?: YearMonth;
+  expiryYear?: number;
   credentialId?: string;
   credentialUrl?: string;
 }
