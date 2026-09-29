@@ -33,7 +33,7 @@ export class IntakeFileValidationError extends Error {
   }
 }
 
-function hasSignature(bytes: Uint8Array, extension: string): boolean {
+export function hasSupportedFileSignature(bytes: Uint8Array, extension: string): boolean {
   const buffer = Buffer.from(bytes);
   if (extension === "pdf") {
     const header = buffer.subarray(0, 8).toString("ascii");
@@ -205,7 +205,7 @@ export function validateIntakeFileMetadata(
 export async function validateIntakeFile(file: File, purpose: FilePurpose) {
   const metadata = validateIntakeFileMetadata(file, purpose);
   const bytes = new Uint8Array(await file.arrayBuffer());
-  if (bytes.length !== metadata.sizeBytes || !hasSignature(bytes, metadata.extension)) {
+  if (bytes.length !== metadata.sizeBytes || !hasSupportedFileSignature(bytes, metadata.extension)) {
     throw new IntakeFileValidationError("The file content does not match the selected format.");
   }
   return { bytes, metadata };

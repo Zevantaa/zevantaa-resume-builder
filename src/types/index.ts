@@ -60,3 +60,10 @@ export type {
   ResumeFormatFamily,
   V1PackageDefinition,
 } from "./package";
+export type {
+  ResumeExtractionFailureReason,
+  ResumeExtractionResult,
+  ResumeExtractionStatus,
+  ResumeExtractionWarning,
+  ResumeExtractor,
+} from "./resume-extraction";
