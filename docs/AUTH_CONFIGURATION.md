@@ -122,14 +122,21 @@ Apply the FND-05-03 migration before opening `/admin/clients/new`. The migration
 adds the one-to-one candidate link and account status to `public.user_roles`.
 Its role/profile check is `NOT VALID` so a pre-existing unlinked test-client row
 does not block deployment; PostgreSQL still enforces it for new or updated rows.
+Apply `20260929000100_admin_owned_profile_onboarding.sql` before using the new
+candidate-creation option. It permits a candidate to exist without an uploaded
+source resume; the first client upload fills the private file reference.
 
 The form and its server action both sit behind authoritative admin checks. The
-server-only service creates and confirms the Supabase Auth email, writes the
-`client` role and candidate link together, and attempts to delete the new Auth
-user if that database insert fails. The temporary password is shown only in the
-successful response and is never logged or stored by the application. An
-`active` client can enter `/client`; a `disabled` account is rejected by
-server-side portal authorization.
+server-only service creates and confirms the Supabase Auth email, creates or
+updates the candidate's core profile and package, then writes the `client`
+role and candidate link. Failed steps attempt to restore the profile and remove
+the new Auth user. The temporary password is shown only in the successful
+response and is never logged or stored by the application. A copyable welcome
+message includes it, but manual email/WhatsApp draft links omit it; deliver
+the password separately through a secure channel. Set `NEXT_PUBLIC_APP_URL`
+to the public application origin before provisioning. An `active` client can
+enter `/client`; a `disabled` account is rejected by server-side portal
+authorization.
 
 For V1, transmit the temporary password through an approved secure channel. The
 client can use the existing recovery flow to replace it. Production recovery

@@ -4,18 +4,24 @@ import { useActionState, useState } from "react";
 
 import { InlineAlert, SelectField, TextInput } from "@/components/ui";
 
-import type { CandidateAccountOption } from "./client-account-types";
+import type { CandidateAccountOption, PackageAssignmentOption } from "./client-account-types";
+import { AdminProfileFields } from "./admin-profile-fields";
 import { initialClientAccountFormState } from "./client-account-types";
 import { createClientAccountAction } from "./create-client-account-action";
 
-export function ClientAccountForm({ candidates }: { candidates: CandidateAccountOption[] }) {
+export function ClientAccountForm({ candidates, packages }: { candidates: CandidateAccountOption[]; packages: PackageAssignmentOption[] }) {
   const [state, formAction, isPending] = useActionState(
     createClientAccountAction,
     initialClientAccountFormState,
   );
   const [candidateId, setCandidateId] = useState("");
   const [credentialMode, setCredentialMode] = useState("generated");
+  const [copyStatus, setCopyStatus] = useState("");
   const selectedCandidate = candidates.find(({ id }) => id === candidateId);
+  const defaultProfile = selectedCandidate ?? (candidateId === "new" ? {
+    name: "", email: "", mobileNumber: "", whatsappNumber: "", linkedinUrl: "",
+    currentLocation: "", relocationPreference: "not-specified", packageCode: "",
+  } : null);
 
   return (
     <form action={formAction} className="client-account-form">
@@ -32,6 +38,19 @@ export function ClientAccountForm({ candidates }: { candidates: CandidateAccount
           <span className="credential-result">
             Temporary password: <code>{state.credentials.temporaryPassword}</code>
           </span>
+          <span>Copy the full message only to a secure channel. Email and WhatsApp links deliberately omit the password.</span>
+          <textarea aria-label="Welcome message" className="form-control credential-message" readOnly value={state.credentials.welcomeMessage} />
+          <button className="auth-secondary-button type-button" type="button" onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(state.credentials!.welcomeMessage);
+              setCopyStatus("Welcome message copied. Treat the clipboard as sensitive.");
+            } catch {
+              setCopyStatus("Copy failed. Select the message text manually.");
+            }
+          }}>Copy welcome message</button>
+          <span role="status">{copyStatus}</span>
+          <a className="auth-text-link" href={state.credentials.emailLink}>Open manual email draft (no password)</a>
+          {state.credentials.whatsappLink && <a className="auth-text-link" href={state.credentials.whatsappLink} target="_blank" rel="noopener noreferrer">Open manual WhatsApp draft (no password)</a>}
         </InlineAlert>
       ) : state.status === "error" && state.message ? (
         <InlineAlert variant="error">{state.message}</InlineAlert>
@@ -47,6 +66,7 @@ export function ClientAccountForm({ candidates }: { candidates: CandidateAccount
         value={candidateId}
       >
         <option value="">Select a candidate profile</option>
+        <option value="new">Create a new candidate profile</option>
         {candidates.map((candidate) => (
           <option key={candidate.id} value={candidate.id}>
             {candidate.name} ({candidate.email})
@@ -54,18 +74,19 @@ export function ClientAccountForm({ candidates }: { candidates: CandidateAccount
         ))}
       </SelectField>
 
-      <TextInput
-        autoComplete="off"
-        error={state.fieldErrors?.email}
-        helperText="Uses the selected candidate profile's primary email."
-        id="client-email"
-        label="Client email"
-        name="email"
-        readOnly
-        required
-        type="email"
-        value={selectedCandidate?.email ?? ""}
-      />
+      {defaultProfile && (
+        <AdminProfileFields key={candidateId} packages={packages} errors={state.fieldErrors}
+          values={{
+            fullName: defaultProfile.name,
+            email: defaultProfile.email,
+            mobileNumber: defaultProfile.mobileNumber,
+            whatsappNumber: defaultProfile.whatsappNumber,
+            linkedinUrl: defaultProfile.linkedinUrl,
+            currentLocation: defaultProfile.currentLocation,
+            relocationPreference: defaultProfile.relocationPreference,
+            packageCode: defaultProfile.packageCode,
+          }} />
+      )}
 
       <SelectField
         id="credential-mode"
@@ -107,7 +128,7 @@ export function ClientAccountForm({ candidates }: { candidates: CandidateAccount
 
       <button
         className="type-button auth-submit"
-        disabled={isPending || candidates.length === 0}
+        disabled={isPending || !candidateId}
         type="submit"
       >
         {isPending ? "Creating account…" : "Create client account"}

@@ -8,7 +8,6 @@ import type {
 } from "@/types/client-profile";
 
 import { resolveLinkedClientProfile } from "./contact-profile-service";
-import type { NormalizedProfileDetails } from "./profile-details-validation";
 
 export type ClientPackageOption = {
   code: V1PackageCode;
@@ -60,29 +59,4 @@ export async function getClientProfileDetails(): Promise<ClientProfileDetails | 
       targetMarkets: definition.target_markets as TargetMarket[],
     })),
   };
-}
-
-export async function saveClientProfileDetails(
-  values: NormalizedProfileDetails,
-): Promise<"saved" | "missing"> {
-  const linked = await resolveLinkedClientProfile();
-  if (!linked) return "missing";
-
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("candidate_profiles")
-    .update({
-      linkedin_url: values.linkedinUrl,
-      current_location: values.currentLocation,
-      relocation_preference: values.relocationPreference,
-      updated_at: new Date().toISOString(),
-      updated_by_user_id: linked.userId,
-    })
-    .eq("id", linked.profileId)
-    .is("archived_at", null)
-    .select("id")
-    .maybeSingle();
-
-  if (error) throw new Error("The intake details could not be saved.");
-  return data ? "saved" : "missing";
 }

@@ -5,9 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { saveClientIntake } from "./client-intake-service";
 import type { IntakeActionState } from "./client-intake-types";
-import { validateContactProfile } from "./contact-profile-validation";
 import { IntakeFileValidationError, validateIntakeFileMetadata } from "./intake-file-validation";
-import { validateProfileDetails } from "./profile-details-validation";
 
 function selectedFile(value: FormDataEntryValue | null): File | null {
   if (value === null) return null;
@@ -21,23 +19,19 @@ export async function saveClientIntakeAction(
 ): Promise<IntakeActionState> {
   await requireApplicationRole("client");
 
-  if (["profileId", "candidateProfileId", "candidate_profile_id", "packageCode", "selectedPackage", "selectedPackageCode", "selected_package_code", "targetMarkets", "target_markets"].some((key) => formData.has(key))) {
-    return { status: "error", message: "Profile identity and package assignment cannot be changed here." };
+  if ([
+    "profileId", "candidateProfileId", "candidate_profile_id",
+    "fullName", "full_name", "primaryEmail", "primary_email", "email",
+    "mobileNumber", "mobile_number", "whatsappNumber", "whatsapp_number", "sameAsMobile",
+    "linkedinUrl", "linkedin_url", "currentLocation", "current_location",
+    "relocationPreference", "relocation_preference",
+    "packageCode", "selectedPackage", "selectedPackageCode", "selected_package_code",
+    "targetMarkets", "target_markets",
+  ].some((key) => formData.has(key))) {
+    return { status: "error", message: "Profile identity and administratively managed details cannot be changed here." };
   }
 
-  const contact = validateContactProfile({
-    fullName: String(formData.get("fullName") ?? ""),
-    primaryEmail: String(formData.get("primaryEmail") ?? ""),
-    mobileNumber: String(formData.get("mobileNumber") ?? ""),
-    whatsappNumber: String(formData.get("whatsappNumber") ?? ""),
-    sameAsMobile: formData.get("sameAsMobile") === "on",
-  });
-  const details = validateProfileDetails({
-    linkedinUrl: String(formData.get("linkedinUrl") ?? ""),
-    currentLocation: String(formData.get("currentLocation") ?? ""),
-    relocationPreference: String(formData.get("relocationPreference") ?? ""),
-  });
-  const errors: Record<string, string> = { ...contact.errors, ...details.errors };
+  const errors: Record<string, string> = {};
   let resume: File | null = null;
   let photo: File | null = null;
   try {
@@ -52,12 +46,13 @@ export async function saveClientIntakeAction(
   } catch (error) {
     errors.photo = error instanceof IntakeFileValidationError ? error.message : "Choose a valid photograph.";
   }
+  if (!resume && !photo && Object.keys(errors).length === 0) {
+    errors.resume = "Choose a resume or photograph to upload.";
+  }
   if (Object.keys(errors).length) return { status: "error", errors, message: "Review the highlighted fields and try again." };
 
   try {
     const result = await saveClientIntake({
-      contact: contact.values,
-      details: details.values,
       resume,
       photo,
     });
@@ -68,7 +63,7 @@ export async function saveClientIntakeAction(
     if (result === "saved-with-warning") {
       return { status: "warning", savedAt: Date.now(), message: "Your intake was saved, but a previous file's history status could not be updated. Contact Zevantaa support if the file list looks incorrect." };
     }
-    return { status: "success", savedAt: Date.now(), message: "Your intake details and selected files were saved. No document processing has started." };
+    return { status: "success", savedAt: Date.now(), message: "Your selected files were saved. No document processing has started." };
   } catch (error) {
     if (error instanceof IntakeFileValidationError && error.field) {
       return { status: "error", errors: { [error.field]: error.message }, message: "Review the highlighted file and try again." };

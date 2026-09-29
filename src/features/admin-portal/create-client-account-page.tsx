@@ -3,10 +3,10 @@ import Link from "next/link";
 import { InlineAlert, SectionCard } from "@/components/ui";
 
 import { ClientAccountForm } from "./client-account-form";
-import { listEligibleCandidateProfiles } from "./client-account-service";
+import { getPackageOptions, listEligibleCandidateProfiles } from "./client-account-service";
 
 export async function CreateClientAccountPage() {
-  const candidates = await listEligibleCandidateProfiles();
+  const [candidates, packages] = await Promise.all([listEligibleCandidateProfiles(), getPackageOptions()]);
 
   return (
     <div className="dashboard-page">
@@ -17,8 +17,8 @@ export async function CreateClientAccountPage() {
             <h1 className="type-heading-1 text-text">Create client account</h1>
           </div>
           <p className="type-body text-text-muted">
-            Provision email/password access and link it to an existing candidate
-            profile.
+            Create a new candidate or select an existing unlinked profile, review
+            core details, assign a package, and provision email/password access.
           </p>
         </header>
 
@@ -26,12 +26,8 @@ export async function CreateClientAccountPage() {
           description="Credentials are created in Supabase Auth through a trusted server action."
           title="Account details"
         >
-          {candidates.length === 0 ? (
-            <InlineAlert variant="warning">
-              No active candidate profiles are available for account creation.
-            </InlineAlert>
-          ) : null}
-          <ClientAccountForm candidates={candidates} />
+          {candidates.length === 0 ? <InlineAlert variant="information">No existing candidate profiles are available. Create a new profile below.</InlineAlert> : null}
+          <ClientAccountForm candidates={candidates} packages={packages} />
         </SectionCard>
 
         <Link

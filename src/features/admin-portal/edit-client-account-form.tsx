@@ -3,11 +3,12 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { InlineAlert, SelectField, TextInput } from "@/components/ui";
+import { InlineAlert, SelectField } from "@/components/ui";
 
 import type { ProvisionedClientDetail } from "./client-account-types";
 import { initialEditClientAccountFormState } from "./client-account-types";
 import { editClientAccountAction } from "./edit-client-account-action";
+import { AdminProfileFields } from "./admin-profile-fields";
 
 export function EditClientAccountForm({
   client,
@@ -39,32 +40,17 @@ export function EditClientAccountForm({
         </InlineAlert>
       ) : null}
 
-      <TextInput
-        autoComplete="email"
-        defaultValue={client.email}
-        error={state.fieldErrors?.email}
-        helperText="Updates both the Supabase Auth sign-in and linked candidate email."
-        id="client-email"
-        label="Client email"
-        name="email"
-        required
-        type="email"
-      />
-
-      <SelectField
-        defaultValue={client.packageCode}
-        error={state.fieldErrors?.packageCode}
-        id="package-code"
-        label="Assigned package"
-        name="packageCode"
-        required
-      >
-        {client.packages.map((packageOption) => (
-          <option key={packageOption.code} value={packageOption.code}>
-            {packageOption.displayName}
-          </option>
-        ))}
-      </SelectField>
+      <AdminProfileFields packages={client.packages} errors={state.fieldErrors}
+        values={{
+          fullName: client.fullName,
+          email: client.email,
+          mobileNumber: client.mobileNumber,
+          whatsappNumber: client.whatsappNumber,
+          linkedinUrl: client.linkedinUrl,
+          currentLocation: client.currentLocation,
+          relocationPreference: client.relocationPreference,
+          packageCode: client.packageCode,
+        }} />
 
       <SelectField
         error={state.fieldErrors?.accountStatus}

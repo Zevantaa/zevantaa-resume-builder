@@ -179,12 +179,19 @@ const oldResumeId = "44444444-4444-4444-8444-444444444444";
 const oldPhotoId = "55555555-5555-4555-8555-555555555555";
 function setupService() {
   const rows = new Map([
-    [oldResumeId, { id: oldResumeId, candidate_profile_id: ownId, purpose: "source-resume", original_file_name: "old.pdf", status: "available", version_number: 1 }],
-    [oldPhotoId, { id: oldPhotoId, candidate_profile_id: ownId, purpose: "gcc-profile-photo", original_file_name: "old.png", status: "available", version_number: 1 }],
+    [oldResumeId, { id: oldResumeId, candidate_profile_id: ownId, purpose: "source-resume", original_file_name: "old.pdf", mime_type: "application/pdf", status: "available", version_number: 1 }],
+    [oldPhotoId, { id: oldPhotoId, candidate_profile_id: ownId, purpose: "gcc-profile-photo", original_file_name: "old.png", mime_type: "image/png", status: "available", version_number: 1 }],
   ]);
   const written = [];
   const uploaded = [];
-  const profile = { id: ownId, existing_resume_file_id: oldResumeId, gcc_photo_file_id: oldPhotoId };
+  const profile = {
+    id: ownId,
+    full_name: "Admin Managed Name",
+    primary_email: "admin-managed@example.invalid",
+    selected_package_code: "indian-domestic",
+    existing_resume_file_id: oldResumeId,
+    gcc_photo_file_id: oldPhotoId,
+  };
   const query = (table) => {
     const criteria = {};
     let mode = "read";
@@ -249,17 +256,18 @@ test("replacement links only own profile, increments versions and keeps history"
   assert.equal(rows.get(oldResumeId).status, "replaced");
   assert.equal(rows.get(oldPhotoId).status, "replaced");
   assert.deepEqual(await getClientIntakeFiles(), {
-    resume: { originalFileName: "new.pdf", status: "available" },
-    photo: { originalFileName: "new.png", status: "available" },
+    resume: { originalFileName: "new.pdf", mimeType: "application/pdf", status: "available" },
+    photo: { originalFileName: "new.png", mimeType: "image/png", status: "available" },
   });
-  assert.equal(profile.full_name, values.contact.fullName);
-  assert.equal(profile.current_location, values.details.currentLocation);
+  assert.equal(profile.full_name, "Admin Managed Name");
+  assert.equal(profile.primary_email, "admin-managed@example.invalid");
+  assert.equal(profile.selected_package_code, "indian-domestic");
 });
 
 test("loading files reveals only display metadata, not storage paths", async () => {
   setupService();
   const files = await getClientIntakeFiles();
-  assert.deepEqual(files, { resume: { originalFileName: "old.pdf", status: "available" }, photo: { originalFileName: "old.png", status: "available" } });
+  assert.deepEqual(files, { resume: { originalFileName: "old.pdf", mimeType: "application/pdf", status: "available" }, photo: { originalFileName: "old.png", mimeType: "image/png", status: "available" } });
   assert.equal(JSON.stringify(files).includes("candidate-intake-private"), false);
 });
 
@@ -292,6 +300,20 @@ test("a missing source resume receives a field-level error before any write", as
   assert.deepEqual(uploaded, []);
 });
 
+test("first private resume upload links a newly provisioned profile without changing admin fields", async () => {
+  const { written, uploaded, profile } = setupService();
+  profile.existing_resume_file_id = null;
+  assert.equal(await saveClientIntake({ resume: file("first.pdf", "application/pdf", PDF), photo: null }), "saved");
+  const row = written.find((item) => item.table === "file_records");
+  assert.equal(row.value.version_number, 1);
+  assert.equal(row.value.replaces_file_id, null);
+  assert.equal(row.value.candidate_profile_id, ownId);
+  assert.equal(profile.existing_resume_file_id, row.value.id);
+  assert.equal(profile.full_name, "Admin Managed Name");
+  assert.equal(profile.selected_package_code, "indian-domestic");
+  assert.equal(uploaded.length, 1);
+});
+
 test("a non-available resume record does not satisfy the required upload", async () => {
   const { written, rows } = setupService();
   rows.get(oldResumeId).status = "failed";
@@ -304,38 +326,28 @@ test("a non-available resume record does not satisfy the required upload", async
 
 function validForm() {
   const form = new FormData();
-  form.set("fullName", "Fiction Example");
-  form.set("primaryEmail", "fiction@example.invalid");
-  form.set("mobileNumber", "+919999999999");
-  form.set("whatsappNumber", "");
-  form.set("linkedinUrl", "linkedin.com/in/fiction-example");
-  form.set("currentLocation", "Kolkata, India");
-  form.set("relocationPreference", "open");
+  form.set("photo", file("portrait.png", "image/png", PNG));
   return form;
 }
 
-test("server action gives field-level errors for every required intake field", async () => {
+test("server action rejects every administratively locked field", async () => {
   setupService();
-  for (const [field, invalid] of [
-    ["fullName", ""],
-    ["primaryEmail", "not-an-email"],
-    ["mobileNumber", ""],
-    ["currentLocation", ""],
-    ["relocationPreference", "invalid"],
+  for (const field of [
+    "fullName", "primaryEmail", "mobileNumber", "whatsappNumber",
+    "linkedinUrl", "currentLocation", "relocationPreference",
+    "packageCode", "targetMarkets", "candidateProfileId",
   ]) {
     const form = validForm();
-    form.set(field, invalid);
+    form.set(field, "tampered");
     const result = await saveClientIntakeAction({ status: "idle" }, form);
     assert.equal(result.status, "error", field);
-    assert.equal(typeof result.errors?.[field], "string", field);
+    assert.match(result.message, /administratively managed/i, field);
   }
 });
 
-test("WhatsApp, LinkedIn, and GCC photo remain optional", async () => {
+test("photo-only replacement succeeds without submitting locked profile fields", async () => {
   setupService();
   const form = validForm();
-  form.set("whatsappNumber", "");
-  form.set("linkedinUrl", "");
   assert.equal((await saveClientIntakeAction({ status: "idle" }, form)).status, "success");
 });
 
@@ -382,12 +394,11 @@ test("intake action rejects browser-supplied profile ID and package mutation", a
   assert.equal((await saveClientIntakeAction({ status: "idle" }, form)).status, "error");
 });
 
-test("intake action retains prior field validation and accepts valid combined save", async () => {
+test("intake action requires a file and accepts an upload-only save", async () => {
   setupService();
-  const form = validForm();
-  form.set("mobileNumber", "bad");
-  assert.equal((await saveClientIntakeAction({ status: "idle" }, form)).errors.mobileNumber !== undefined, true);
-  form.set("mobileNumber", "+919999999999");
+  const form = new FormData();
+  assert.equal((await saveClientIntakeAction({ status: "idle" }, form)).errors.resume !== undefined, true);
+  form.set("resume", file("resume.pdf", "application/pdf", PDF));
   assert.equal((await saveClientIntakeAction({ status: "idle" }, form)).status, "success");
   assert.equal(globalThis.__intakeQa.revalidated, "/client/profile");
 });

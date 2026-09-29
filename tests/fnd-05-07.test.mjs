@@ -53,7 +53,7 @@ registerHooks({
       return { url: actionServiceModule, shortCircuit: true };
     }
     if (
-      specifier.startsWith("./") &&
+      (specifier.startsWith("./") || specifier.startsWith("../")) &&
       context.parentURL?.endsWith(".ts") &&
       !/\.[cm]?[jt]s$/.test(specifier)
     ) {
@@ -81,10 +81,27 @@ const { signInWithPassword, signOut } = await import(
 
 const candidateId = "11111111-1111-4111-8111-111111111111";
 const userId = "22222222-2222-4222-8222-222222222222";
+process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
+
+const core = {
+  fullName: "Fictional Candidate",
+  email: "fictional@example.invalid",
+  mobileNumber: "+919876543210",
+  whatsappNumber: "",
+  linkedinUrl: "",
+  currentLocation: "Kolkata, India",
+  relocationPreference: "not-specified",
+  packageCode: "indian-domestic",
+};
+const profile = {
+  ...core,
+  whatsappNumber: null,
+  linkedinUrl: null,
+};
 
 function form(values) {
   const data = new FormData();
-  for (const [key, value] of Object.entries(values)) data.set(key, value);
+  for (const [key, value] of Object.entries({ ...core, ...values })) data.set(key, value);
   return data;
 }
 
@@ -96,6 +113,11 @@ function setup() {
         id: candidateId,
         full_name: "Fictional Candidate",
         primary_email: "fictional@example.invalid",
+        mobile_number: "+919876543210",
+        whatsapp_number: null,
+        linkedin_url: null,
+        current_location: "Kolkata, India",
+        relocation_preference: "not-specified",
         selected_package_code: "indian-domestic",
         target_markets: ["indian-domestic"],
         archived_at: null,
@@ -104,12 +126,14 @@ function setup() {
     packages: [
       {
         code: "indian-domestic",
+        display_name: "Indian Domestic",
         target_markets: ["indian-domestic"],
         is_active: true,
         archived_at: null,
       },
       {
         code: "gcc-middle-east",
+        display_name: "GCC / Middle East",
         target_markets: ["gcc-middle-east"],
         is_active: true,
         archived_at: null,
@@ -117,6 +141,8 @@ function setup() {
     ],
     roles: [],
     authCreateCalls: 0,
+    failRoleInsert: false,
+    failRoleUpdate: false,
   };
 
   function query(table) {
@@ -135,13 +161,28 @@ function setup() {
       is(key, value) { filters.push((row) => row[key] === value); return this; },
       update(values) { updateValues = values; return this; },
       insert(values) {
+        if (table === "user_roles" && state.failRoleInsert) {
+          return Promise.resolve({ error: { code: "linkage_failed" } });
+        }
         records.push({ ...values });
         return Promise.resolve({ error: null });
+      },
+      delete() {
+        return {
+          eq(key, value) {
+            const index = records.findIndex((row) => row[key] === value);
+            if (index >= 0) records.splice(index, 1);
+            return Promise.resolve({ error: null });
+          },
+        };
       },
       maybeSingle() { return Promise.resolve(execute(true)); },
       then(resolve, reject) { return Promise.resolve(execute(false)).then(resolve, reject); },
     };
     function execute(single) {
+      if (table === "user_roles" && updateValues && state.failRoleUpdate) {
+        return { data: null, error: { code: "role_update_failed" } };
+      }
       const found = records.filter((row) => filters.every((filter) => filter(row)));
       if (updateValues) found.forEach((row) => Object.assign(row, updateValues));
       return { data: single ? found[0] ?? null : found, error: null };
@@ -221,6 +262,133 @@ test("generated credentials create a confirmed, linked client without a database
   });
   assert.ok(!JSON.stringify(state.roles).includes(result.credentials.temporaryPassword));
   assert.ok(!JSON.stringify(state.candidates).includes(result.credentials.temporaryPassword));
+  assert.match(result.credentials.welcomeMessage, /Fictional Candidate/);
+  assert.match(result.credentials.welcomeMessage, /Indian Domestic/);
+  assert.ok(!result.credentials.emailLink.includes(result.credentials.temporaryPassword));
+  assert.ok(!result.credentials.whatsappLink?.includes(result.credentials.temporaryPassword));
+});
+
+test("admin provisioning persists all authoritative fields on the existing profile", async () => {
+  const state = setup();
+  const result = await createClientAccountAction({ status: "idle" }, form({
+    candidateProfileId: candidateId,
+    fullName: "  Fictional   Updated  ",
+    email: "updated@example.invalid",
+    mobileNumber: "+44 7700 900123",
+    whatsappNumber: "+44 7700 900456",
+    linkedinUrl: "linkedin.com/in/fictional-updated?trk=qa",
+    currentLocation: "  London,   United Kingdom ",
+    relocationPreference: "conditional",
+    packageCode: "gcc-middle-east",
+    credentialMode: "generated",
+    accountStatus: "active",
+  }));
+  assert.equal(result.status, "success");
+  assert.equal(state.candidates.length, 1);
+  assert.equal(state.roles[0].candidate_profile_id, candidateId);
+  assert.equal(state.candidates[0].full_name, "Fictional Updated");
+  assert.equal(state.candidates[0].primary_email, "updated@example.invalid");
+  assert.equal(state.candidates[0].mobile_number, "+447700900123");
+  assert.equal(state.candidates[0].whatsapp_number, "+447700900456");
+  assert.equal(state.candidates[0].linkedin_url, "https://linkedin.com/in/fictional-updated");
+  assert.equal(state.candidates[0].current_location, "London, United Kingdom");
+  assert.equal(state.candidates[0].relocation_preference, "conditional");
+  assert.equal(state.candidates[0].selected_package_code, "gcc-middle-east");
+  assert.deepEqual(state.candidates[0].target_markets, ["gcc-middle-east"]);
+  assert.equal(state.authUsers[0].email, "updated@example.invalid");
+  assert.match(result.credentials.welcomeMessage, /GCC \/ Middle East/);
+  assert.ok(result.credentials.whatsappLink.startsWith("https://wa.me/447700900456?"));
+  assert.ok(!result.credentials.whatsappLink.includes(result.credentials.temporaryPassword));
+});
+
+test("admin can provision a new candidate before the first private resume upload", async () => {
+  const state = setup();
+  const result = await createClientAccountAction({ status: "idle" }, form({
+    candidateProfileId: "new",
+    fullName: "New Fictional Client",
+    email: "new-fictional@example.invalid",
+    mobileNumber: "+447700900321",
+    currentLocation: "London, United Kingdom",
+    relocationPreference: "open",
+    packageCode: "gcc-middle-east",
+    credentialMode: "generated",
+    accountStatus: "active",
+  }));
+  assert.equal(result.status, "success");
+  assert.equal(state.candidates.length, 2);
+  const created = state.candidates[1];
+  assert.equal(created.existing_resume_file_id, null);
+  assert.equal(created.full_name, "New Fictional Client");
+  assert.equal(created.selected_package_code, "gcc-middle-east");
+  assert.equal(state.roles[0].candidate_profile_id, created.id);
+  assert.equal(state.authUsers[0].email, created.primary_email);
+});
+
+test("failed new-candidate linkage removes the new profile and Auth user", async () => {
+  const state = setup();
+  state.failRoleInsert = true;
+  const result = await createClientAccountAction({ status: "idle" }, form({
+    candidateProfileId: "new",
+    fullName: "Rollback Fiction",
+    email: "rollback-fiction@example.invalid",
+    mobileNumber: "+447700900321",
+    currentLocation: "London, United Kingdom",
+    packageCode: "indian-domestic",
+    credentialMode: "generated",
+    accountStatus: "active",
+  }));
+  assert.equal(result.status, "error");
+  assert.equal(state.candidates.length, 1);
+  assert.equal(state.authUsers.length, 0);
+  assert.equal(state.roles.length, 0);
+});
+
+test("invalid core fields and inactive package are rejected before account creation", async () => {
+  const state = setup();
+  const invalid = await createClientAccountAction({ status: "idle" }, form({
+    candidateProfileId: candidateId,
+    fullName: "",
+    mobileNumber: "bad",
+    linkedinUrl: "https://example.invalid/in/not-linkedin",
+    currentLocation: "",
+    relocationPreference: "unknown",
+    credentialMode: "generated",
+    accountStatus: "active",
+  }));
+  assert.equal(invalid.status, "error");
+  for (const key of ["fullName", "mobileNumber", "linkedinUrl", "currentLocation", "relocationPreference"]) {
+    assert.equal(typeof invalid.fieldErrors[key], "string");
+  }
+  assert.equal(state.authCreateCalls, 0);
+  const invalidPackage = await createClientAccountAction({ status: "idle" }, form({
+    candidateProfileId: candidateId,
+    packageCode: "not-a-package",
+    credentialMode: "generated",
+    accountStatus: "active",
+  }));
+  assert.equal(invalidPackage.status, "error");
+  assert.equal(state.authCreateCalls, 0);
+});
+
+test("failed role linkage restores candidate data and removes the new Auth user", async () => {
+  const state = setup();
+  state.failRoleInsert = true;
+  const before = structuredClone(state.candidates[0]);
+  const result = await createClientAccountAction({ status: "idle" }, form({
+    candidateProfileId: candidateId,
+    fullName: "Changed Fiction",
+    email: "changed@example.invalid",
+    packageCode: "gcc-middle-east",
+    credentialMode: "generated",
+    accountStatus: "active",
+  }));
+  assert.equal(result.status, "error");
+  assert.equal(state.authUsers.length, 0);
+  assert.equal(state.roles.length, 0);
+  for (const key of ["full_name", "primary_email", "mobile_number", "whatsapp_number", "linkedin_url", "current_location", "relocation_preference", "selected_package_code"]) {
+    assert.equal(state.candidates[0][key], before[key], key);
+  }
+  assert.deepEqual(state.candidates[0].target_markets, before.target_markets);
 });
 
 test("duplicate email and candidate linkage are rejected", async () => {
@@ -229,7 +397,7 @@ test("duplicate email and candidate linkage are rejected", async () => {
   const input = {
     accountStatus: "active",
     candidateProfileId: candidateId,
-    email: "fictional@example.invalid",
+    profile,
     temporaryPassword: "ValidPassword1!",
   };
   assert.deepEqual(await provisionClientAccount(input), { code: "duplicate-email", ok: false });
@@ -259,7 +427,7 @@ test("missing candidate is rejected and disabled provisioning records disabled s
   const input = {
     accountStatus: "disabled",
     candidateProfileId: candidateId,
-    email: "fictional@example.invalid",
+    profile,
     temporaryPassword: "ValidPassword1!",
   };
   state.candidates.length = 0;
@@ -269,11 +437,16 @@ test("missing candidate is rejected and disabled provisioning records disabled s
     id: candidateId,
     full_name: "Fictional Candidate",
     primary_email: "fictional@example.invalid",
+    mobile_number: "+919876543210",
+    whatsapp_number: null,
+    linkedin_url: null,
+    current_location: "Kolkata, India",
+    relocation_preference: "not-specified",
     selected_package_code: "indian-domestic",
     target_markets: ["indian-domestic"],
     archived_at: null,
   });
-  assert.deepEqual(await provisionClientAccount(input), { ok: true });
+  assert.deepEqual(await provisionClientAccount(input), { ok: true, packageName: "Indian Domestic" });
   assert.equal(state.roles[0].account_status, "disabled");
 });
 
@@ -283,14 +456,13 @@ test("provisioning and edits require an admin role", async () => {
   await assert.rejects(() => provisionClientAccount({
     accountStatus: "active",
     candidateProfileId: candidateId,
-    email: "fictional@example.invalid",
+    profile,
     temporaryPassword: "ValidPassword1!",
   }), /access denied/);
   await assert.rejects(() => updateClientAccount({
     accountStatus: "disabled",
     confirmDeactivation: true,
-    email: "fictional@example.invalid",
-    packageCode: "gcc-middle-east",
+    profile: { ...profile, packageCode: "gcc-middle-east" },
     userId,
   }), /access denied/);
   assert.equal(state.authCreateCalls, 0);
@@ -302,7 +474,13 @@ test("package, email and status edits preserve the client/profile link", async (
   state.roles.push({ user_id: userId, role_code: "client", candidate_profile_id: candidateId, account_status: "active" });
   const changed = await editClientAccountAction({ status: "idle" }, form({
     userId,
+    fullName: "Fictional Revised",
     email: "changed@example.invalid",
+    mobileNumber: "+44 7700 900123",
+    whatsappNumber: "+44 7700 900456",
+    linkedinUrl: "linkedin.com/in/fictional-revised",
+    currentLocation: "London, United Kingdom",
+    relocationPreference: "open",
     packageCode: "gcc-middle-east",
     accountStatus: "disabled",
     confirmDeactivation: "on",
@@ -312,6 +490,12 @@ test("package, email and status edits preserve the client/profile link", async (
   assert.equal(state.roles[0].candidate_profile_id, candidateId);
   assert.equal(state.authUsers[0].email, "changed@example.invalid");
   assert.equal(state.candidates[0].primary_email, "changed@example.invalid");
+  assert.equal(state.candidates[0].full_name, "Fictional Revised");
+  assert.equal(state.candidates[0].mobile_number, "+447700900123");
+  assert.equal(state.candidates[0].whatsapp_number, "+447700900456");
+  assert.equal(state.candidates[0].linkedin_url, "https://linkedin.com/in/fictional-revised");
+  assert.equal(state.candidates[0].current_location, "London, United Kingdom");
+  assert.equal(state.candidates[0].relocation_preference, "open");
   assert.equal(state.candidates[0].selected_package_code, "gcc-middle-east");
   assert.deepEqual(state.candidates[0].target_markets, ["gcc-middle-east"]);
 
@@ -325,17 +509,41 @@ test("package, email and status edits preserve the client/profile link", async (
   assert.equal(state.roles[0].account_status, "active");
 });
 
+test("failed status update rolls back edited core fields, package and Auth email", async () => {
+  const state = setup();
+  state.authUsers.push({ id: userId, email: "fictional@example.invalid" });
+  state.roles.push({ user_id: userId, role_code: "client", candidate_profile_id: candidateId, account_status: "active" });
+  state.failRoleUpdate = true;
+  const before = structuredClone(state.candidates[0]);
+  const result = await editClientAccountAction({ status: "idle" }, form({
+    userId,
+    fullName: "Temporary Change",
+    email: "temporary@example.invalid",
+    mobileNumber: "+447700900123",
+    packageCode: "gcc-middle-east",
+    accountStatus: "disabled",
+    confirmDeactivation: "on",
+  }));
+  assert.equal(result.status, "error");
+  for (const key of ["full_name", "primary_email", "mobile_number", "current_location", "relocation_preference", "selected_package_code"]) {
+    assert.equal(state.candidates[0][key], before[key], key);
+  }
+  assert.deepEqual(state.candidates[0].target_markets, before.target_markets);
+  assert.equal(state.authUsers[0].email, "fictional@example.invalid");
+  assert.equal(state.roles[0].account_status, "active");
+});
+
 test("invalid package and missing deactivation confirmation leave records untouched", async () => {
   const state = setup();
   state.authUsers.push({ id: userId, email: "fictional@example.invalid" });
   state.roles.push({ user_id: userId, role_code: "client", candidate_profile_id: candidateId, account_status: "active" });
   assert.deepEqual(await updateClientAccount({
     accountStatus: "active", confirmDeactivation: false,
-    email: "fictional@example.invalid", packageCode: "invalid", userId,
+    profile: { ...profile, packageCode: "invalid" }, userId,
   }), { code: "invalid-package", ok: false });
   assert.deepEqual(await updateClientAccount({
     accountStatus: "disabled", confirmDeactivation: false,
-    email: "fictional@example.invalid", packageCode: "indian-domestic", userId,
+    profile, userId,
   }), { code: "confirmation-required", ok: false });
   assert.equal(state.roles[0].account_status, "active");
   assert.equal(state.candidates[0].selected_package_code, "indian-domestic");
@@ -352,7 +560,7 @@ test("duplicate email edit leaves Auth, package, status and linkage unchanged", 
   });
   assert.deepEqual(await updateClientAccount({
     accountStatus: "active", confirmDeactivation: false,
-    email: "taken@example.invalid", packageCode: "gcc-middle-east", userId,
+    profile: { ...profile, email: "taken@example.invalid", packageCode: "gcc-middle-east" }, userId,
   }), { code: "duplicate-email", ok: false });
   assert.equal(state.authUsers[0].email, "fictional@example.invalid");
   assert.equal(state.candidates[0].selected_package_code, "indian-domestic");

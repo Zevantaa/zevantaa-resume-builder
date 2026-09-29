@@ -38,7 +38,7 @@ export async function ClientDashboardPage() {
               <p className="type-supporting text-text-muted">Assigned by Zevantaa. Contact the administrator for package changes.</p>
             </div>
             <Link className="type-button dashboard-primary-link" href="/client/profile">Open my intake <span aria-hidden="true">→</span></Link>
-            <p className="type-supporting text-text-muted">Contact, LinkedIn and mobility details are available now. Uploads and later sections are not active yet.</p>
+            <p className="type-supporting text-text-muted">Review Zevantaa-managed details and upload or replace your source resume and optional GCC photograph.</p>
           </section>
 
           <div className="dashboard-output-column">

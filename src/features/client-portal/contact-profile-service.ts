@@ -4,7 +4,6 @@ import { requireApplicationRole } from "@/features/authentication/authorization"
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-import type { NormalizedContactProfile } from "./contact-profile-validation";
 import type { ClientContactProfile } from "./contact-profile-types";
 
 type LinkedClientProfile = {
@@ -101,36 +100,4 @@ export async function getClientDashboardSummary(): Promise<ClientDashboardSummar
     packageName: definition?.display_name ?? profile.selected_package_code,
     targetMarkets: profile.target_markets,
   };
-}
-
-export async function saveClientContactProfile(
-  values: NormalizedContactProfile,
-): Promise<"saved" | "missing"> {
-  const linked = await resolveLinkedClientProfile();
-
-  if (!linked) {
-    return "missing";
-  }
-
-  const supabase = createSupabaseAdminClient();
-  const { data: profile, error } = await supabase
-    .from("candidate_profiles")
-    .update({
-      full_name: values.fullName,
-      primary_email: values.primaryEmail,
-      mobile_number: values.mobileNumber,
-      whatsapp_number: values.whatsappNumber,
-      updated_at: new Date().toISOString(),
-      updated_by_user_id: linked.userId,
-    })
-    .eq("id", linked.profileId)
-    .is("archived_at", null)
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    throw new Error("The client profile could not be saved.");
-  }
-
-  return profile ? "saved" : "missing";
 }

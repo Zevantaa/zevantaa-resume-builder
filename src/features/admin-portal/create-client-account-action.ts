@@ -2,8 +2,9 @@
 
 import type { ClientAccountFormState } from "./client-account-types";
 import { provisionClientAccount } from "./client-account-service";
+import { validateAdminProfile } from "./admin-profile-validation";
+import { createWelcomeMessage, getClientPortalUrl } from "./welcome-message";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
 
 function generateTemporaryPassword() {
@@ -38,7 +39,9 @@ const errorMessages = {
   "auth-creation": "The authentication account could not be created. Try again.",
   "duplicate-email": "An account already exists for this email address.",
   "duplicate-profile": "This candidate profile already has a client account.",
-  "email-mismatch": "The email must match the selected candidate profile.",
+  "invalid-package": "Select a valid active Zevantaa package.",
+  "profile-update": "The candidate profile could not be updated. The new Auth user was removed.",
+  "reconciliation-required": "Provisioning could not be fully rolled back. Review the linked profile and Auth user before retrying.",
   linkage: "The account could not be linked. The new Auth user was removed safely.",
   "linkage-cleanup":
     "Account linkage failed and cleanup could not be confirmed. Review Supabase Auth before retrying.",
@@ -50,18 +53,23 @@ export async function createClientAccountAction(
   formData: FormData,
 ): Promise<ClientAccountFormState> {
   const candidateProfileId = String(formData.get("candidateProfileId") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const { errors: profileErrors, values: profile } = validateAdminProfile({
+    fullName: String(formData.get("fullName") ?? ""),
+    email: String(formData.get("email") ?? ""),
+    mobileNumber: String(formData.get("mobileNumber") ?? ""),
+    whatsappNumber: String(formData.get("whatsappNumber") ?? ""),
+    linkedinUrl: String(formData.get("linkedinUrl") ?? ""),
+    currentLocation: String(formData.get("currentLocation") ?? ""),
+    relocationPreference: String(formData.get("relocationPreference") ?? ""),
+    packageCode: String(formData.get("packageCode") ?? ""),
+  });
   const credentialMode = formData.get("credentialMode");
   const accountStatus = formData.get("accountStatus");
   const suppliedPassword = String(formData.get("temporaryPassword") ?? "");
-  const fieldErrors: NonNullable<ClientAccountFormState["fieldErrors"]> = {};
+  const fieldErrors: NonNullable<ClientAccountFormState["fieldErrors"]> = { ...profileErrors };
 
   if (!candidateProfileId) {
     fieldErrors.candidateProfileId = "Select a candidate profile.";
-  }
-
-  if (!EMAIL_PATTERN.test(email)) {
-    fieldErrors.email = "Enter a valid email address.";
   }
 
   if (accountStatus !== "active" && accountStatus !== "disabled") {
@@ -81,6 +89,10 @@ export async function createClientAccountAction(
   if (Object.keys(fieldErrors).length > 0) {
     return { fieldErrors, status: "error" };
   }
+  const portalUrl = getClientPortalUrl();
+  if (!portalUrl) {
+    return { message: "Configure NEXT_PUBLIC_APP_URL before provisioning client credentials.", status: "error" };
+  }
 
   let result;
 
@@ -88,7 +100,7 @@ export async function createClientAccountAction(
     result = await provisionClientAccount({
       accountStatus: accountStatus as "active" | "disabled",
       candidateProfileId,
-      email,
+      profile,
       temporaryPassword,
     });
   } catch {
@@ -103,7 +115,11 @@ export async function createClientAccountAction(
   }
 
   return {
-    credentials: { email, temporaryPassword },
+    credentials: {
+      email: profile.email,
+      temporaryPassword,
+      ...createWelcomeMessage(profile, temporaryPassword, portalUrl, result.packageName, accountStatus as "active" | "disabled"),
+    },
     message: "Client account created and linked successfully.",
     status: "success",
   };

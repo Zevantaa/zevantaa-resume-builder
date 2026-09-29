@@ -1,10 +1,13 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { requireApplicationRole } from "@/features/authentication/authorization";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import type {
   CandidateAccountOption,
+  AdminProfileFields,
   ClientAccountStatus,
   PackageAssignmentOption,
   ProvisionedClientDetail,
@@ -14,17 +17,19 @@ import type {
 type ProvisionClientAccountInput = {
   accountStatus: ClientAccountStatus;
   candidateProfileId: string;
-  email: string;
+  profile: AdminProfileFields;
   temporaryPassword: string;
 };
 
 export type ProvisionClientAccountResult =
-  | { ok: true }
+  | { ok: true; packageName: string }
   | {
       code:
         | "duplicate-email"
         | "duplicate-profile"
-        | "email-mismatch"
+        | "invalid-package"
+        | "profile-update"
+        | "reconciliation-required"
         | "missing-candidate"
         | "auth-creation"
         | "linkage"
@@ -35,8 +40,7 @@ export type ProvisionClientAccountResult =
 type UpdateClientAccountInput = {
   accountStatus: ClientAccountStatus;
   confirmDeactivation: boolean;
-  email: string;
-  packageCode: string;
+  profile: AdminProfileFields;
   userId: string;
 };
 
@@ -55,7 +59,34 @@ export type UpdateClientAccountResult =
       ok: false;
     };
 
-async function getPackageOptions(): Promise<PackageAssignmentOption[]> {
+function profileValues(profile: AdminProfileFields, targetMarkets: string[]) {
+  return {
+    full_name: profile.fullName,
+    primary_email: profile.email,
+    mobile_number: profile.mobileNumber,
+    whatsapp_number: profile.whatsappNumber,
+    linkedin_url: profile.linkedinUrl,
+    current_location: profile.currentLocation,
+    relocation_preference: profile.relocationPreference,
+    selected_package_code: profile.packageCode,
+    target_markets: targetMarkets,
+  };
+}
+
+async function emailUsedByAnotherProfile(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  candidateProfileId: string,
+  email: string,
+): Promise<boolean | null> {
+  const { data, error } = await supabase.from("candidate_profiles")
+    .select("primary_email")
+    .neq("id", candidateProfileId)
+    .is("archived_at", null);
+  if (error) return null;
+  return (data ?? []).some((candidate) => candidate.primary_email.trim().toLowerCase() === email);
+}
+
+export async function getPackageOptions(): Promise<PackageAssignmentOption[]> {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("package_definitions")
@@ -145,7 +176,7 @@ export async function getProvisionedClient(
     await Promise.all([
       supabase
         .from("candidate_profiles")
-        .select("full_name, selected_package_code")
+        .select("full_name, primary_email, mobile_number, whatsapp_number, linkedin_url, current_location, relocation_preference, selected_package_code")
         .eq("id", role.candidate_profile_id)
         .is("archived_at", null)
         .maybeSingle(),
@@ -166,6 +197,11 @@ export async function getProvisionedClient(
     candidateProfileId: role.candidate_profile_id,
     email: authData.user.email,
     fullName: profile.full_name,
+    mobileNumber: profile.mobile_number,
+    whatsappNumber: profile.whatsapp_number ?? "",
+    linkedinUrl: profile.linkedin_url ?? "",
+    currentLocation: profile.current_location,
+    relocationPreference: profile.relocation_preference,
     packageCode: profile.selected_package_code,
     packageName,
     packages,
@@ -181,7 +217,7 @@ export async function listEligibleCandidateProfiles(): Promise<
 
   const { data, error } = await supabase
     .from("candidate_profiles")
-    .select("id, full_name, primary_email")
+    .select("id, full_name, primary_email, mobile_number, whatsapp_number, linkedin_url, current_location, relocation_preference, selected_package_code")
     .is("archived_at", null)
     .order("full_name");
 
@@ -193,50 +229,61 @@ export async function listEligibleCandidateProfiles(): Promise<
     email: profile.primary_email,
     id: profile.id,
     name: profile.full_name,
+    mobileNumber: profile.mobile_number,
+    whatsappNumber: profile.whatsapp_number ?? "",
+    linkedinUrl: profile.linkedin_url ?? "",
+    currentLocation: profile.current_location,
+    relocationPreference: profile.relocation_preference,
+    packageCode: profile.selected_package_code,
   }));
 }
 
 export async function provisionClientAccount({
   accountStatus,
   candidateProfileId,
-  email,
+  profile,
   temporaryPassword,
 }: ProvisionClientAccountInput): Promise<ProvisionClientAccountResult> {
-  await requireApplicationRole("admin");
+  const adminContext = await requireApplicationRole("admin");
   const supabase = createSupabaseAdminClient();
+  const creatingProfile = candidateProfileId === "new";
+  const linkedProfileId = creatingProfile ? randomUUID() : candidateProfileId;
+  let candidateSnapshot: Record<string, unknown> | null = null;
+  if (!creatingProfile) {
+    const { data: candidate, error: candidateError } = await supabase
+      .from("candidate_profiles")
+      .select("full_name, primary_email, mobile_number, whatsapp_number, linkedin_url, current_location, relocation_preference, selected_package_code, target_markets")
+      .eq("id", linkedProfileId)
+      .is("archived_at", null)
+      .maybeSingle();
+    if (candidateError || !candidate) return { code: "missing-candidate", ok: false };
+    candidateSnapshot = { ...candidate, target_markets: [...candidate.target_markets] };
 
-  const { data: candidate, error: candidateError } = await supabase
-    .from("candidate_profiles")
-    .select("id, primary_email")
-    .eq("id", candidateProfileId)
+    const { data: existingLink, error: linkLookupError } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("candidate_profile_id", linkedProfileId)
+      .maybeSingle();
+    if (linkLookupError) return { code: "linkage", ok: false };
+    if (existingLink) return { code: "duplicate-profile", ok: false };
+  }
+
+  const { data: selectedPackage, error: packageError } = await supabase
+    .from("package_definitions")
+    .select("code, display_name, target_markets")
+    .eq("code", profile.packageCode)
+    .eq("is_active", true)
     .is("archived_at", null)
     .maybeSingle();
+  if (packageError || !selectedPackage) return { code: "invalid-package", ok: false };
 
-  if (candidateError || !candidate) {
-    return { code: "missing-candidate", ok: false };
-  }
-
-  if (candidate.primary_email.trim().toLowerCase() !== email) {
-    return { code: "email-mismatch", ok: false };
-  }
-
-  const { data: existingLink, error: linkLookupError } = await supabase
-    .from("user_roles")
-    .select("user_id")
-    .eq("candidate_profile_id", candidateProfileId)
-    .maybeSingle();
-
-  if (linkLookupError) {
-    return { code: "linkage", ok: false };
-  }
-
-  if (existingLink) {
-    return { code: "duplicate-profile", ok: false };
-  }
+  const duplicate = await emailUsedByAnotherProfile(supabase, linkedProfileId, profile.email);
+  if (duplicate === null) return { code: "profile-update", ok: false };
+  if (duplicate) return { code: "duplicate-email", ok: false };
 
   const { data: authData, error: authError } =
     await supabase.auth.admin.createUser({
-      email,
+      email: profile.email,
       email_confirm: true,
       password: temporaryPassword,
     });
@@ -252,23 +299,56 @@ export async function provisionClientAccount({
     return { code: "auth-creation", ok: false };
   }
 
+  const profileWrite = creatingProfile
+    ? await supabase.from("candidate_profiles").insert({
+        id: linkedProfileId,
+        ...profileValues(profile, selectedPackage.target_markets),
+        existing_resume_file_id: null,
+        created_by_user_id: adminContext.userId,
+        updated_by_user_id: adminContext.userId,
+      })
+    : await supabase.from("candidate_profiles")
+        .update({
+          ...profileValues(profile, selectedPackage.target_markets),
+          updated_at: new Date().toISOString(),
+          updated_by_user_id: adminContext.userId,
+        })
+        .eq("id", linkedProfileId)
+        .is("archived_at", null)
+        .select("id")
+        .maybeSingle();
+  if (profileWrite.error || (!creatingProfile && !profileWrite.data)) {
+    const { error: cleanupError } = await supabase.auth.admin.deleteUser(authData.user.id);
+    return { code: cleanupError ? "reconciliation-required" : "profile-update", ok: false };
+  }
+
   const { error: roleError } = await supabase.from("user_roles").insert({
     account_status: accountStatus,
-    candidate_profile_id: candidateProfileId,
+    candidate_profile_id: linkedProfileId,
     role_code: "client",
     user_id: authData.user.id,
   });
 
   if (!roleError) {
-    return { ok: true };
+    return { ok: true, packageName: selectedPackage.display_name };
   }
+
+  const { error: profileRollbackError } = creatingProfile
+    ? await supabase.from("candidate_profiles").delete().eq("id", linkedProfileId)
+    : await supabase.from("candidate_profiles")
+        .update({
+          ...candidateSnapshot,
+          updated_at: new Date().toISOString(),
+          updated_by_user_id: adminContext.userId,
+        })
+        .eq("id", linkedProfileId);
 
   const { error: cleanupError } = await supabase.auth.admin.deleteUser(
     authData.user.id,
   );
 
   return {
-    code: cleanupError ? "linkage-cleanup" : "linkage",
+    code: profileRollbackError ? "reconciliation-required" : cleanupError ? "linkage-cleanup" : "linkage",
     ok: false,
   };
 }
@@ -276,8 +356,7 @@ export async function provisionClientAccount({
 export async function updateClientAccount({
   accountStatus,
   confirmDeactivation,
-  email,
-  packageCode,
+  profile: changes,
   userId,
 }: UpdateClientAccountInput): Promise<UpdateClientAccountResult> {
   const adminContext = await requireApplicationRole("admin");
@@ -305,14 +384,14 @@ export async function updateClientAccount({
   const [profileResult, packageResult, authResult] = await Promise.all([
     supabase
       .from("candidate_profiles")
-      .select("primary_email, selected_package_code, target_markets")
+      .select("full_name, primary_email, mobile_number, whatsapp_number, linkedin_url, current_location, relocation_preference, selected_package_code, target_markets")
       .eq("id", candidateProfileId)
       .is("archived_at", null)
       .maybeSingle(),
     supabase
       .from("package_definitions")
       .select("code, target_markets")
-      .eq("code", packageCode)
+      .eq("code", changes.packageCode)
       .eq("is_active", true)
       .is("archived_at", null)
       .maybeSingle(),
@@ -330,33 +409,26 @@ export async function updateClientAccount({
   if (packageResult.error || !selectedPackage) {
     return { code: "invalid-package", ok: false };
   }
+  const profileSnapshot = {
+    ...profile,
+    target_markets: [...profile.target_markets],
+  };
 
   const previousEmail = authUser.email.trim().toLowerCase();
-  const emailChanged = previousEmail !== email;
+  const emailChanged = previousEmail !== changes.email;
 
   if (emailChanged) {
-    const { error: duplicateProfileError, data: otherProfiles } =
-      await supabase
-        .from("candidate_profiles")
-        .select("primary_email")
-        .neq("id", candidateProfileId)
-        .is("archived_at", null);
-
-    if (duplicateProfileError) {
+    const duplicate = await emailUsedByAnotherProfile(supabase, candidateProfileId, changes.email);
+    if (duplicate === null) {
       return { code: "profile-update", ok: false };
     }
-
-    if (
-      (otherProfiles ?? []).some(
-        (candidate) => candidate.primary_email.trim().toLowerCase() === email,
-      )
-    ) {
+    if (duplicate) {
       return { code: "duplicate-email", ok: false };
     }
 
     const { error: authUpdateError } =
       await supabase.auth.admin.updateUserById(userId, {
-        email,
+        email: changes.email,
         email_confirm: true,
       });
 
@@ -375,9 +447,7 @@ export async function updateClientAccount({
   const { data: updatedProfile, error: profileUpdateError } = await supabase
     .from("candidate_profiles")
     .update({
-      primary_email: email,
-      selected_package_code: selectedPackage.code,
-      target_markets: selectedPackage.target_markets,
+      ...profileValues(changes, selectedPackage.target_markets),
       updated_at: new Date().toISOString(),
       updated_by_user_id: adminContext.userId,
     })
@@ -420,9 +490,7 @@ export async function updateClientAccount({
   const { error: profileRollbackError } = await supabase
     .from("candidate_profiles")
     .update({
-      primary_email: profile.primary_email,
-      selected_package_code: profile.selected_package_code,
-      target_markets: profile.target_markets,
+      ...profileSnapshot,
       updated_at: new Date().toISOString(),
       updated_by_user_id: adminContext.userId,
     })

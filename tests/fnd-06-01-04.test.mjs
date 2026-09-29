@@ -48,7 +48,7 @@ registerHooks({
 const { validateContactProfile } = await import(
   "../src/features/client-portal/contact-profile-validation.ts"
 );
-const { getClientContactProfile, saveClientContactProfile } = await import(
+const { getClientContactProfile } = await import(
   "../src/features/client-portal/contact-profile-service.ts"
 );
 const { saveContactProfileAction } = await import(
@@ -201,56 +201,33 @@ test("required and malformed fields are rejected", () => {
   assert.ok(validateContactProfile(validInput({ mobileNumber: "+0000000000" })).errors.mobileNumber);
 });
 
-test("load and save use only the authenticated client's linked profile", async () => {
+test("read-only contact details load only the authenticated client's linked profile", async () => {
   const state = setup();
   const loaded = await getClientContactProfile();
   assert.equal(loaded.primaryEmail, "candidate@example.invalid");
-  const result = await saveClientContactProfile(
-    validateContactProfile(validInput()).values,
-  );
-  assert.equal(result, "saved");
-  assert.equal(state.writes, 1);
-  assert.equal(state.profiles.get(profileId).primary_email, "candidate@example.invalid");
+  assert.equal(state.writes, 0);
   assert.equal(state.profiles.get(otherProfileId).primary_email, "other@example.invalid");
-  assert.equal(state.profiles.get(profileId).mobile_number, "+919876543210");
 });
 
-test("unlinked and non-client callers cannot update another profile", async () => {
+test("unlinked and non-client callers cannot read another profile", async () => {
   const state = setup();
   state.linkedProfileId = null;
-  assert.equal(
-    await saveClientContactProfile(validateContactProfile(validInput()).values),
-    "missing",
-  );
+  assert.equal(await getClientContactProfile(), null);
   assert.equal(state.writes, 0);
   state.currentRole = "admin";
   await assert.rejects(() => getClientContactProfile(), /access denied/);
-  await assert.rejects(
-    () => saveClientContactProfile(validateContactProfile(validInput()).values),
-    /access denied/,
-  );
   assert.equal(state.writes, 0);
 });
 
-test("server action validates input and sends only the four contact fields", async () => {
+test("legacy contact action rejects direct mutations", async () => {
   const state = setup();
-  const invalid = await saveContactProfileAction({ status: "idle" }, form({
-    fullName: "X",
-    primaryEmail: "bad",
-    mobileNumber: "12",
-    whatsappNumber: "",
-  }));
-  assert.equal(invalid.status, "error");
-  assert.equal(state.savedActionValues, null);
-
-  const valid = await saveContactProfileAction({ status: "idle" }, form({
+  const attempted = await saveContactProfileAction({ status: "idle" }, form({
     ...validInput(),
     sameAsMobile: "on",
     candidateProfileId: otherProfileId,
   }));
-  assert.equal(valid.status, "success");
-  assert.deepEqual(Object.keys(state.savedActionValues).sort(), [
-    "fullName", "mobileNumber", "primaryEmail", "whatsappNumber",
-  ]);
-  assert.equal(state.savedActionValues.whatsappNumber, "+919876543210");
+  assert.equal(attempted.status, "error");
+  assert.match(attempted.message, /administrator/i);
+  assert.equal(state.savedActionValues, null);
+  assert.equal(state.writes, 0);
 });

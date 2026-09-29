@@ -19,8 +19,8 @@ export async function ClientProfilePage() {
             <p className="type-label dashboard-kicker">Profile & intake</p>
             <h1 className="type-heading-1 text-text">Your candidate profile</h1>
             <p className="type-body text-text-muted">
-              Keep your contact and mobility details current, and provide your
-              source resume. Your package remains managed by Zevantaa.
+              Review your Zevantaa-managed details and upload your private source
+              resume or optional GCC photograph.
             </p>
           </div>
 
@@ -30,7 +30,7 @@ export async function ClientProfilePage() {
                 Personal contact information
               </h2>
               <p className="type-supporting text-text-muted">
-                Review these details carefully before saving.
+                These details are read-only in the client portal.
               </p>
             </div>
             {profile && details && files ? (

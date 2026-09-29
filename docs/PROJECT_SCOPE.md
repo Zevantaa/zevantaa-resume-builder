@@ -57,6 +57,8 @@ Three formats are in scope:
 
 ## ATS score
 - Basic indicative score from 0–100.
+- 90 is the optimization/pass benchmark, not a minimum displayed score.
+- Never force a score upward with `Math.max(score, 90)` or an equivalent floor.
 - Calculated using internal keyword and formatting rules.
 - Must not be represented as a third-party ATS provider score or guarantee of selection.
 

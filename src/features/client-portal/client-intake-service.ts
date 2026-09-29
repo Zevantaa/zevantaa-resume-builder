@@ -7,12 +7,10 @@ import type { FilePurpose } from "@/types/file-upload";
 
 import { resolveLinkedClientProfile } from "./contact-profile-service";
 import { IntakeFileValidationError, validateIntakeFile } from "./intake-file-validation";
-import type { NormalizedContactProfile } from "./contact-profile-validation";
-import type { NormalizedProfileDetails } from "./profile-details-validation";
 
 const INTAKE_BUCKET = "candidate-intake-private";
 
-type CurrentFile = { originalFileName: string; status: string };
+type CurrentFile = { originalFileName: string; mimeType: string; status: string };
 export type ClientIntakeFiles = { resume: CurrentFile | null; photo: CurrentFile | null };
 
 type FileRow = {
@@ -20,6 +18,7 @@ type FileRow = {
   candidate_profile_id: string;
   purpose: FilePurpose;
   original_file_name: string;
+  mime_type: string;
   status: string;
   version_number: number;
 };
@@ -33,7 +32,7 @@ async function loadCurrentFile(
   if (!fileId) return null;
   const { data, error } = await supabase
     .from("file_records")
-    .select("id, candidate_profile_id, purpose, original_file_name, status, version_number")
+    .select("id, candidate_profile_id, purpose, original_file_name, mime_type, status, version_number")
     .eq("id", fileId)
     .eq("candidate_profile_id", profileId)
     .eq("purpose", purpose)
@@ -60,14 +59,13 @@ export async function getClientIntakeFiles(): Promise<ClientIntakeFiles | null> 
   ]);
   const display = (row: FileRow | null): CurrentFile | null => row && ({
     originalFileName: row.original_file_name,
+    mimeType: row.mime_type,
     status: row.status,
   });
   return { resume: display(resume), photo: display(photo) };
 }
 
 export type IntakeSaveValues = {
-  contact: NormalizedContactProfile;
-  details: NormalizedProfileDetails;
   resume: File | null;
   photo: File | null;
 };
@@ -92,7 +90,6 @@ export async function saveClientIntake(values: IntakeSaveValues): Promise<"saved
   if ((!oldResume || oldResume.status !== "available") && !values.resume) {
     throw new IntakeFileValidationError("Upload a source resume to continue.", "resume");
   }
-  if (!oldResume) throw new Error("The linked source resume record is unavailable.");
 
   // Validate all supplied bytes before writing anything to Storage or Postgres.
   const [resumeUpload, photoUpload] = await Promise.all([
@@ -147,21 +144,16 @@ export async function saveClientIntake(values: IntakeSaveValues): Promise<"saved
     let update = supabase
       .from("candidate_profiles")
       .update({
-        full_name: values.contact.fullName,
-        primary_email: values.contact.primaryEmail,
-        mobile_number: values.contact.mobileNumber,
-        whatsapp_number: values.contact.whatsappNumber,
-        linkedin_url: values.details.linkedinUrl,
-        current_location: values.details.currentLocation,
-        relocation_preference: values.details.relocationPreference,
         existing_resume_file_id: resumeId,
         gcc_photo_file_id: photoId,
         updated_at: new Date().toISOString(),
         updated_by_user_id: linked.userId,
       })
       .eq("id", linked.profileId)
-      .eq("existing_resume_file_id", oldResume!.id)
       .is("archived_at", null);
+    update = oldResume
+      ? update.eq("existing_resume_file_id", oldResume.id)
+      : update.is("existing_resume_file_id", null);
     update = oldPhoto ? update.eq("gcc_photo_file_id", oldPhoto.id) : update.is("gcc_photo_file_id", null);
     const { data: saved, error: saveError } = await update.select("id").maybeSingle();
     if (saveError || !saved) throw new Error("The intake could not be saved. Reload and try again.");

@@ -25,7 +25,7 @@ export async function ClientListPage() {
             <p className="type-label text-text-muted">Admin portal</p>
             <h1 className="type-heading-1 text-text">Client accounts</h1>
             <p className="type-body text-text-muted">
-              Open a provisioned client to manage access and package assignment.
+              Open a provisioned client to manage core profile details, access and package assignment.
             </p>
           </div>
           <Link

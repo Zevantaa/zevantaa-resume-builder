@@ -26,8 +26,11 @@ items in `(sort_order, id)` order for deterministic display; equal sort orders
 are allowed so existing data can be reordered without a uniqueness conflict.
 All child foreign keys restrict physical profile deletion. Existing RLS and
 profile/auth ownership linkage remain unchanged. The current `/client/profile`
-intake edits contact/location and uploads only; it does not yet edit these
-structured resume sections.
+intake shows administratively managed core fields read-only and permits only
+source-resume and optional GCC-photo uploads; it does not yet edit these
+structured resume sections. New admin-created profiles may have no source resume
+until their first client upload, so `existingResume` is optional in the
+TypeScript aggregate.
 
 ## Section semantics
 

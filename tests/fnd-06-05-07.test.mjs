@@ -52,7 +52,7 @@ registerHooks({
 const { validateProfileDetails } = await import(
   "../src/features/client-portal/profile-details-validation.ts"
 );
-const { getClientProfileDetails, saveClientProfileDetails } = await import(
+const { getClientProfileDetails } = await import(
   "../src/features/client-portal/profile-details-service.ts"
 );
 const { saveProfileDetailsAction } = await import(
@@ -219,28 +219,23 @@ test("profile details load with all seven database package definitions", async (
   assert.equal(state.writes, 0);
 });
 
-test("linked client can persist LinkedIn, location and relocation without changing package", async () => {
+test("linked client sees professional link and mobility without writing", async () => {
   const state = setup();
-  const values = validateProfileDetails(validInput()).values;
-  assert.equal(await saveClientProfileDetails(values), "saved");
-  assert.equal(state.writes, 1);
-  assert.equal(state.profiles.get(profileId).linkedin_url, values.linkedinUrl);
+  const details = await getClientProfileDetails();
+  assert.equal(details.linkedinUrl, "");
+  assert.equal(state.writes, 0);
   assert.equal(state.profiles.get(profileId).current_location, "Kolkata, India");
-  assert.equal(state.profiles.get(profileId).relocation_preference, "conditional");
+  assert.equal(state.profiles.get(profileId).relocation_preference, "not-specified");
   assert.equal(state.profiles.get(profileId).selected_package_code, "indian-domestic");
   assert.equal(state.profiles.get(otherId).current_location, "Pune, India");
-  assert.ok(!("selected_package_code" in state.lastWrite));
-  assert.ok(!("target_markets" in state.lastWrite));
 });
 
-test("unlinked and non-client callers cannot read or update another profile", async () => {
+test("unlinked and non-client callers cannot read another profile", async () => {
   const state = setup();
   state.linkedProfileId = null;
   assert.equal(await getClientProfileDetails(), null);
-  assert.equal(await saveClientProfileDetails(validateProfileDetails(validInput()).values), "missing");
   state.role = "admin";
   await assert.rejects(() => getClientProfileDetails(), /access denied/);
-  await assert.rejects(() => saveClientProfileDetails(validateProfileDetails(validInput()).values), /access denied/);
   assert.equal(state.writes, 0);
 });
 
@@ -262,26 +257,13 @@ test("client action rejects valid or invalid package changes before any write", 
   assert.equal(state.writes, 0);
 });
 
-test("client action validates before saving and preserves its trusted field allowlist", async () => {
+test("legacy details action rejects direct field mutations", async () => {
   const state = setup();
-  const invalid = await saveProfileDetailsAction({ status: "idle" }, form(validInput({
-    linkedinUrl: "https://example.com/in/not-linkedin",
-    currentLocation: "",
-    relocationPreference: "unknown",
-  })));
-  assert.equal(invalid.status, "error");
-  assert.deepEqual(Object.keys(invalid.errors).sort(), [
-    "currentLocation", "linkedinUrl", "relocationPreference",
-  ]);
-  assert.equal(state.writes, 0);
-
-  const saved = await saveProfileDetailsAction({ status: "idle" }, form({
+  const attempted = await saveProfileDetailsAction({ status: "idle" }, form({
     ...validInput(),
     candidateProfileId: otherId,
   }));
-  assert.equal(saved.status, "success");
-  assert.equal(state.writes, 1);
-  assert.deepEqual(Object.keys(state.lastWrite).sort(), [
-    "currentLocation", "linkedinUrl", "relocationPreference",
-  ]);
+  assert.equal(attempted.status, "error");
+  assert.match(attempted.message, /administrator/i);
+  assert.equal(state.writes, 0);
 });

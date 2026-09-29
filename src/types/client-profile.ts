@@ -133,7 +133,8 @@ export interface CandidateProfile extends TimestampAuditFields {
   selectedPackage: V1PackageCode;
   targetMarkets: TargetMarket[];
 
-  existingResume: PrivateFileReference<
+  /** Absent until the client makes the first private source-resume upload. */
+  existingResume?: PrivateFileReference<
     ResumeFileMimeType,
     ResumeFileExtension
   >;

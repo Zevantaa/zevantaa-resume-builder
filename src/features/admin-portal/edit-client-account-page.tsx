@@ -35,7 +35,7 @@ export async function EditClientAccountPage({ userId }: { userId: string }) {
 
         <SectionCard
           description="Account changes preserve the existing Auth user and candidate-profile link."
-          title="Access and package"
+          title="Client profile, access and package"
         >
           <EditClientAccountForm client={client} />
         </SectionCard>

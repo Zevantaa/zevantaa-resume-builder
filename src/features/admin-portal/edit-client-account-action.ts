@@ -5,8 +5,8 @@ import type {
   EditClientAccountFormState,
 } from "./client-account-types";
 import { updateClientAccount } from "./client-account-service";
+import { validateAdminProfile } from "./admin-profile-validation";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const errorMessages = {
@@ -26,21 +26,21 @@ export async function editClientAccountAction(
   formData: FormData,
 ): Promise<EditClientAccountFormState> {
   const userId = String(formData.get("userId") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const packageCode = String(formData.get("packageCode") ?? "").trim();
+  const { errors: profileErrors, values: profile } = validateAdminProfile({
+    fullName: String(formData.get("fullName") ?? ""),
+    email: String(formData.get("email") ?? ""),
+    mobileNumber: String(formData.get("mobileNumber") ?? ""),
+    whatsappNumber: String(formData.get("whatsappNumber") ?? ""),
+    linkedinUrl: String(formData.get("linkedinUrl") ?? ""),
+    currentLocation: String(formData.get("currentLocation") ?? ""),
+    relocationPreference: String(formData.get("relocationPreference") ?? ""),
+    packageCode: String(formData.get("packageCode") ?? ""),
+  });
   const rawAccountStatus = formData.get("accountStatus");
-  const fieldErrors: NonNullable<EditClientAccountFormState["fieldErrors"]> = {};
+  const fieldErrors: NonNullable<EditClientAccountFormState["fieldErrors"]> = { ...profileErrors };
 
   if (!UUID_PATTERN.test(userId)) {
     return { message: errorMessages["not-found"], status: "error" };
-  }
-
-  if (!EMAIL_PATTERN.test(email)) {
-    fieldErrors.email = "Enter a valid email address.";
-  }
-
-  if (!packageCode) {
-    fieldErrors.packageCode = "Select a package.";
   }
 
   if (rawAccountStatus !== "active" && rawAccountStatus !== "disabled") {
@@ -57,8 +57,7 @@ export async function editClientAccountAction(
     const result = await updateClientAccount({
       accountStatus,
       confirmDeactivation: formData.get("confirmDeactivation") === "on",
-      email,
-      packageCode,
+      profile,
       userId,
     });
 

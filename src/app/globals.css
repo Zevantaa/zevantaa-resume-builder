@@ -1150,6 +1150,10 @@ body {
 .client-intake-file-block p { margin: 0; overflow-wrap: anywhere; }
 .client-intake-file-block input[type="file"] { height: auto; }
 .client-intake-file-block input[type="file"]::file-selector-button { margin-right: var(--space-3); padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--form-control-radius); background: var(--surface-muted); color: var(--text); font: inherit; cursor: pointer; }
+.extraction-test-button { width: fit-content; }
+.extraction-test-warnings { margin: 0; padding-left: var(--space-6); }
+.extraction-test-preview { max-height: 32rem; overflow: auto; padding: var(--space-4); border: 1px solid var(--border); border-radius: var(--card-radius); background: var(--surface-muted); color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.credential-message { width: 100%; min-height: 12rem; white-space: pre-wrap; }
 @media (min-width: 40rem) {
   .dashboard-sidebar { display: block; visibility: visible; }
   .dashboard-masthead .dashboard-menu-toggle { display: none; }
