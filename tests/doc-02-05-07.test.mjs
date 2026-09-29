@@ -94,6 +94,40 @@ test("live-QA DOCX shape proposes all supported sections in source order without
   assert.equal(languages[1].fields.proficiency, "");
 });
 
+test("plain and bullet-prefixed certifications preserve explicit year or month with no inferred expiry", () => {
+  const source = `CERTIFICATIONS\nLean Six Sigma Green Belt | Quality Council Training Institute | 2021\n• Advanced Excel for Business Reporting | SkillEdge Academy | Mar 2020`;
+  const draft = parseResumeReview(source);
+  const certificates = draft.proposals.filter((item) => item.section === "certifications");
+  assert.equal(certificates.length, 2);
+  assert.equal(draft.warnings.some((warning) => warning.includes("certification")), false);
+  assert.deepEqual(certificates[0].fields, {
+    name: "Lean Six Sigma Green Belt", issuingOrganization: "Quality Council Training Institute",
+    issuedOn: "", issueYear: "2021", expiresOn: "", expiryYear: "",
+  });
+  assert.deepEqual(certificates[1].fields, {
+    name: "Advanced Excel for Business Reporting", issuingOrganization: "SkillEdge Academy",
+    issuedOn: "2020-03", issueYear: "", expiresOn: "", expiryYear: "",
+  });
+  assert.deepEqual(certificates.map((item) => item.sourceLines), [[2], [3]]);
+});
+
+test("bullet-prefixed live-QA certification lines restore 21 proposals without changing other sections", () => {
+  const source = liveQaResumeText.replace(
+    "Lean Six Sigma Green Belt | Quality Council Training Institute | 2021\nRetail Operations Certificate | Fictional Learning Centre | Mar 2020",
+    "• Lean Six Sigma Green Belt | Quality Council Training Institute | 2021\n• Retail Operations Certificate | Fictional Learning Centre | Mar 2020",
+  );
+  const draft = parseResumeReview(source);
+  assert.equal(draft.proposals.length, 21);
+  assert.equal(draft.proposals.filter((item) => item.section === "certifications").length, 2);
+  assert.deepEqual(draft.warnings, []);
+});
+
+test("ambiguous or incomplete certification lines remain unresolved", () => {
+  const draft = parseResumeReview("CERTIFICATIONS\n• Certificate without issuer | 2021\n• Certificate | Issuer | Spring 2020");
+  assert.equal(draft.proposals.filter((item) => item.section === "certifications").length, 0);
+  assert.equal(draft.warnings.filter((warning) => warning.includes("ambiguous entry")).length, 2);
+});
+
 test("Mammoth paragraph spacing does not split one project or create bullet warnings", async () => {
   const bytes = docxFixture({ paragraphs: liveQaResumeText.split("\n").filter(Boolean) });
   const extracted = await mammoth.extractRawText({ buffer: bytes });

@@ -87,7 +87,7 @@ function parseEducation(value: string): Record<string, string> | null {
 
 function parseCertification(value: string): Record<string, string> | null {
   const fields = parts(value);
-  if (fields.length < 2 || fields.length > 4 || !fields[0] || !fields[1]) return null;
+  if (fields.length < 2 || fields.length > 4 || !fields[0] || !fields[1] || dateValue(fields[1])) return null;
   let issuedOn = ""; let issueYear = ""; let expiresOn = ""; let expiryYear = "";
   for (const field of fields.slice(2)) {
     const expiry = field.match(/^(?:expires?|expiry|valid until)\s*:\s*(.+)$/i);
@@ -170,8 +170,8 @@ export function parseResumeReview(text: string): ResumeReviewDraft {
       }
     } else if (section === "education" || section === "certifications") {
       for (const { value, line } of meaningful) {
-        if (bullet.test(value)) continue;
-        const fields = section === "education" ? parseEducation(value) : parseCertification(value);
+        if (section === "education" && bullet.test(value)) continue;
+        const fields = section === "education" ? parseEducation(value) : parseCertification(withoutBullet(value));
         if (fields) add(section, [line], fields);
         else warnings.push(`${section} line ${line}: ambiguous entry left unresolved.`);
       }
