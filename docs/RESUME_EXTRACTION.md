@@ -1,11 +1,9 @@
-# Resume text extraction (DOC-02-01–04)
+# Resume text extraction and admin review (DOC-02-01–07)
 
-This is a server-only, in-memory text-extraction foundation. It reads an
-authenticated client's **current private source resume** and returns ephemeral
-text plus structured status. It does not persist extracted text, parse resume
-sections, update `candidate_profiles`, score ATS, or generate documents.
-The reviewed structured candidate profile remains the authority for all later
-outputs; extraction is only raw source material for a later review step.
+This server-only foundation reads a private source resume and returns ephemeral
+text plus structured status. The admin review workflow can now propose
+structured data; only explicit confirmation writes approved values to the
+canonical candidate profile. It does not score ATS or generate documents.
 
 ## Libraries and formats
 
@@ -45,7 +43,48 @@ object key. Failed or unsupported extraction is **not** an empty successful
 resume. The original uploaded object and file record are never modified. The
 raw text can contain confidential candidate data: callers must keep it on
 trusted server paths, avoid logging it, and not expose it to other clients.
-There is no route or UI trigger in this batch.
+The protected `/admin/clients/[userId]/resume-review` route resolves a
+provisioned client to its linked profile server-side and reuses the private
+file checks and extractor. The existing client QA route cannot confirm data.
+Neither route accepts a browser-supplied profile ID, file ID, bucket or path.
+The admin layout and confirmation action require an active authoritative admin
+role independently.
+
+## Admin review and provenance (DOC-02-05–06)
+
+The deterministic parser recognizes known summary, employment, education,
+skills, certifications, languages, projects and additional-section headings.
+It preserves source line numbers and order. Employment requires an explicit
+`Job title | Employer | YYYY-MM – YYYY-MM/Present` line. Education and
+certifications require two explicit parts and accept optional `YYYY-MM` dates.
+Skills and languages split only beneath recognized headings; projects require
+an explicit `Project:` or bullet-prefixed name. Ambiguous lines,
+partial employment, unusual dates, unknown headings and missing sections warn
+without guessing facts. The administrator can accept/reject individual
+proposals and edit approved values before confirmation. Such edits are
+admin-entered facts, not inferred by the parser. Existing child rows are
+appended, not replaced. Only an explicitly selected summary can update the
+canonical summary; admin-owned contact, login, location, relocation and package
+fields are untouched.
+
+The new migration creates `profile_resume_reviews` with RLS and a service-role-
+only `confirm_resume_review` function. In one database transaction it locks the
+profile, checks its current private source and active admin role, records the
+source file ID, extractor, normalized-text SHA-256, selected approved entries
+and source lines, actor and confirmation time, and writes the approved canonical
+facts. A unique profile/file pair prevents a second import of that source.
+Child audit notes reference the review and source file. The original upload
+and full extracted text are not changed or persisted. Approved facts can be
+traced to the private source via the review record; unselected proposals can be
+reconstructed by re-extracting the unchanged file. Apply the migration before
+manual confirmation QA; without it confirmation fails closed.
+
+## Malformed-file QA (DOC-02-07)
+
+Malformed DOC/DOCX/PDF, encrypted PDF, unsupported MIME, image-only PDF and
+insufficient text retain structured failure outcomes. They cannot be confirmed
+as successful extraction. Tests cover those outcomes, ambiguous structure,
+admin confirmation and profile isolation.
 
 ## Normalization and outcomes
 
@@ -71,9 +110,9 @@ generic warning. Parser exception text is not returned or logged.
 - Complex multi-column reading order, DOCX text boxes/shapes, legacy DOC edge
   cases, and PDF layout reconstruction can be imperfect. Text extraction does
   not validate the truth of any statement in a source resume.
-- No semantic section detection, candidate-fact mapping, profile writes,
-  extraction persistence, UI/API invocation, ATS logic, or templates are added.
-  Those belong to later tracker tasks, beginning with DOC-02-05.
+- This is strict rule-based mapping, not semantic understanding. Complex
+  layouts and narrative-only histories need manual handling in a later task.
+  OCR, ATS logic, templates, rendering and DOC-03 remain deferred.
 
 Tests use fictional in-memory DOCX/PDF documents and a generic MIT-licensed
 OLE DOC parser fixture described in `tests/fixtures/README.md`; they do not

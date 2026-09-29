@@ -18,7 +18,7 @@ export interface ResumeExtractionWarning {
   message: string;
 }
 
-/** Ephemeral output only: never persist raw text or parsed facts in this batch. */
+/** In-memory extraction output. Review confirmation stores only a digest and approved entries. */
 export interface ResumeExtractionResult {
   sourceFileId: EntityId | null;
   sourceMimeType: string | null;

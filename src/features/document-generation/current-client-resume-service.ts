@@ -17,11 +17,17 @@ export async function extractCurrentClientSourceResume(): Promise<ResumeExtracti
   const linked = await resolveLinkedClientProfile();
   if (!linked) return extractionFailure(null, null, null, "source-unavailable");
 
+  return extractProfileSourceResume(linked.profileId);
+}
+
+/** Internal only: the profile ID must first be resolved by an authorized server path. */
+export async function extractProfileSourceResume(profileId: string): Promise<ResumeExtractionResult> {
+
   const supabase = createSupabaseAdminClient();
   const { data: profile, error: profileError } = await supabase
     .from("candidate_profiles")
     .select("existing_resume_file_id")
-    .eq("id", linked.profileId)
+    .eq("id", profileId)
     .is("archived_at", null)
     .maybeSingle();
   if (profileError || !profile?.existing_resume_file_id) {
@@ -33,7 +39,7 @@ export async function extractCurrentClientSourceResume(): Promise<ResumeExtracti
     .from("file_records")
     .select("id, candidate_profile_id, purpose, status, access_level, mime_type, file_extension, size_bytes, stored_file_name, storage_bucket_name, storage_object_key")
     .eq("id", fileId)
-    .eq("candidate_profile_id", linked.profileId)
+    .eq("candidate_profile_id", profileId)
     .eq("purpose", "source-resume")
     .eq("status", "available")
     .is("archived_at", null)
@@ -43,8 +49,8 @@ export async function extractCurrentClientSourceResume(): Promise<ResumeExtracti
   }
 
   const expectedName = `${file.id}.${file.file_extension}`;
-  const expectedKey = `${linked.profileId}/source-resume/${expectedName}`;
-  if (file.candidate_profile_id !== linked.profileId || file.purpose !== "source-resume" ||
+  const expectedKey = `${profileId}/source-resume/${expectedName}`;
+  if (file.candidate_profile_id !== profileId || file.purpose !== "source-resume" ||
       file.status !== "available" || file.access_level !== "private" ||
       file.storage_bucket_name !== PRIVATE_BUCKET || file.stored_file_name !== expectedName ||
       file.storage_object_key !== expectedKey || !Number.isSafeInteger(file.size_bytes) ||

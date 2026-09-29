@@ -40,6 +40,10 @@ export async function EditClientAccountPage({ userId }: { userId: string }) {
           <EditClientAccountForm client={client} />
         </SectionCard>
 
+        <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/resume-review`}>
+          Review current source resume
+        </Link>
+
         <Link className="type-label admin-table-link" href="/admin/clients">
           Return to client accounts
         </Link>
