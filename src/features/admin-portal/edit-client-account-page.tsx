@@ -44,6 +44,10 @@ export async function EditClientAccountPage({ userId }: { userId: string }) {
           Review current source resume
         </Link>
 
+        <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/global-ats`}>
+          Review Global ATS resume readiness
+        </Link>
+
         <Link className="type-label admin-table-link" href="/admin/clients">
           Return to client accounts
         </Link>

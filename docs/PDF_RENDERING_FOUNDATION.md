@@ -94,8 +94,9 @@ validated in this batch and require suitable licensed fonts/QA, not silent
 substitution. This is a known foundation limit, not a completed market layout.
 
 PDF metadata dates are fixed so identical inputs produce byte-identical output
-in the tested runtime. No final resume or cover-letter templates, ATS scoring,
-public file URLs or DOC-04 work are included.
+in the tested runtime. This common layer contains no final layout, ATS scoring
+or public file URL. The first production layout, Global ATS Resume, is described
+separately in `GLOBAL_ATS_RESUME.md`.
 
 ## Filename and transient HTTP download
 
