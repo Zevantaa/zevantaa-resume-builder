@@ -1,6 +1,7 @@
 import { requireApplicationRole } from "@/features/authentication/authorization";
 import { createLongGlobalAtsQaProfile } from "@/features/document-generation/global-ats-qa-fixture";
 import { buildGlobalAtsResumeModel } from "@/features/document-generation/global-ats-resume";
+import { buildDomesticResumeModel, isDomesticDesignId } from "@/features/document-generation/domestic-resumes";
 import { createPdfRenderQaModel } from "@/features/document-generation/pdf/pdf-render-qa-fixtures";
 import type { PdfRenderQaScenario } from "@/features/document-generation/pdf/pdf-render-qa-types";
 import { renderPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
@@ -32,11 +33,18 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     return new Response("Invalid PDF QA request.", { status: 400 });
   }
-  if (typeof scenario !== "string" || (scenario !== "global-ats-long" && !Object.hasOwn(names, scenario))) {
+  const domesticDesign = typeof scenario === "string" && scenario.startsWith("domestic-") ? scenario.slice(9) : "";
+  if (typeof scenario !== "string" || (scenario !== "global-ats-long" && !isDomesticDesignId(domesticDesign) && !Object.hasOwn(names, scenario))) {
     return new Response("Unknown PDF QA scenario.", { status: 400 });
   }
 
   try {
+    if (isDomesticDesignId(domesticDesign)) {
+      const profile = createLongGlobalAtsQaProfile();
+      const output = buildDomesticResumeModel(mapCandidateProfileToDocumentData(profile, "resume"), domesticDesign);
+      const filename = buildPdfFilename({ candidateName: profile.fullName, output: `domestic-resume-${domesticDesign}` });
+      return await renderPdfDownloadResponse(output.model, filename, output.theme);
+    }
     if (scenario === "global-ats-long") {
       const profile = createLongGlobalAtsQaProfile();
       const model = buildGlobalAtsResumeModel(mapCandidateProfileToDocumentData(profile, "resume"));

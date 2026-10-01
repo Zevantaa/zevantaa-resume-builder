@@ -79,6 +79,16 @@ export function PdfRenderQaPanel() {
           <button className="auth-submit type-button" type="submit">Download Long Global ATS Resume</button>
         </form>
       </section>
+      <section className="dashboard-workspace-panel layout-stack">
+        <div className="dashboard-module-heading">
+          <h2 className="type-heading-3">Domestic resume suite QA</h2>
+          <p className="type-supporting text-text-muted">Compare all five real domestic designs using the same long fictional candidate. Each PDF is transient and admin-only.</p>
+        </div>
+        {(["1", "2", "3", "4", "5"] as const).map((design) => <form action="/admin/pdf-render-test/download" key={design} method="post">
+          <input name="scenario" type="hidden" value={`domestic-${design}`} />
+          <button className="type-button" type="submit">Download Domestic Resume {design} QA PDF</button>
+        </form>)}
+      </section>
       <section className="dashboard-workspace-panel">
         <div className="dashboard-module-heading">
           <h2 className="type-heading-3">Header/Footer QA</h2>

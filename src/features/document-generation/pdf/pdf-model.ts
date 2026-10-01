@@ -22,6 +22,7 @@ export interface PdfSection {
   title?: string;
   blocks: PdfBlock[];
   breakBefore?: boolean;
+  headingStyle?: "plain" | "ruled" | "accent" | "uppercase";
 }
 
 export interface PdfContactItem {
@@ -31,6 +32,8 @@ export interface PdfContactItem {
 
 export type PdfBlock =
   | { kind: "heading"; text: string; level?: 1 | 2; keepWithNext?: boolean }
+  | { kind: "banner"; title: string; subtitle?: string }
+  | { kind: "rule" }
   | { kind: "paragraph"; text: string; small?: boolean; keepWithNext?: boolean }
   | { kind: "bullets"; items: string[] }
   | { kind: "contact-row"; items: PdfContactItem[] }

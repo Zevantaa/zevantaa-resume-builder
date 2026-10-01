@@ -82,6 +82,17 @@ function contactItem(item: PdfContactItem, theme: PdfTheme, key: string) {
 function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
   const type = theme.typography;
   if (block.kind === "page-break") return jsx(View, { break: true, style: { height: 0 } }, key);
+  if (block.kind === "rule") return jsx(View, { style: { borderBottomWidth: 1, borderBottomColor: theme.accentColor,
+    marginBottom: type.paragraphGap * 1.5 } }, key);
+  if (block.kind === "banner") return hasText(block.title) ? jsx(View, { style: {
+    backgroundColor: theme.accentColor, paddingHorizontal: 15, paddingVertical: 12,
+    marginBottom: type.paragraphGap * 1.5,
+  }, children: [
+    text(block.title, { fontSize: type.heading1Size, fontWeight: 700, lineHeight: type.lineHeight,
+      color: "#FFFFFF" }, theme, `${key}-title`),
+    hasText(block.subtitle) ? text(block.subtitle, { fontSize: type.smallSize, lineHeight: type.lineHeight,
+      color: "#FFFFFF", marginTop: 4 }, theme, `${key}-subtitle`) : null,
+  ] }, key) : null;
   if (block.kind === "heading") return hasText(block.text) ? text(block.text,
     { fontSize: block.level === 1 ? type.heading1Size : type.heading2Size, fontWeight: 700,
       lineHeight: type.lineHeight, color: theme.textColor, marginBottom: type.paragraphGap },
@@ -127,9 +138,15 @@ function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
 
 function renderSection(section: PdfSection, theme: PdfTheme, key: string): ReactNode[] {
   const blocks: ReactNode[] = [];
+  const headingStyle = section.headingStyle ?? "plain";
   const title = hasText(section.title) ? text(section.title,
     { fontSize: theme.typography.heading2Size, fontWeight: 700, lineHeight: theme.typography.lineHeight,
-      color: theme.textColor, marginBottom: theme.typography.paragraphGap }, theme,
+      color: headingStyle === "accent" ? theme.accentColor : theme.textColor,
+      marginBottom: theme.typography.paragraphGap,
+      ...(headingStyle === "ruled" ? { borderBottomWidth: 0.7, borderBottomColor: theme.accentColor, paddingBottom: 3 } : {}),
+      ...(headingStyle === "accent" ? { borderLeftWidth: 3, borderLeftColor: theme.accentColor, paddingLeft: 7 } : {}),
+      ...(headingStyle === "uppercase" ? { textTransform: "uppercase" } : {}),
+    }, theme,
     `${key}-section-title`, theme.typography.bodySize * theme.typography.lineHeight * 2) : null;
   let breakNext = section.breakBefore === true && !title;
   section.blocks.forEach((block, index) => {

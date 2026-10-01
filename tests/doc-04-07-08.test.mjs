@@ -15,6 +15,9 @@ registerHooks({ resolve(specifier, context, nextResolve) {
     const relative = specifier.replace("@/features/document-generation/", "");
     return nextResolve(new URL(`../src/features/document-generation/${relative}.ts`, import.meta.url).href, context);
   }
+  if (specifier.startsWith("@/types/")) {
+    return nextResolve(new URL(`../src/types/${specifier.split("/").at(-1)}.ts`, import.meta.url).href, context);
+  }
   if (specifier.startsWith("./") && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
     return nextResolve(`${specifier}.ts`, context);
   }

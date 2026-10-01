@@ -15,12 +15,14 @@ export interface PdfTheme {
   typography: PdfTypography;
   textColor: string;
   mutedColor: string;
+  accentColor: string;
 }
 export type PdfThemeOverrides = {
   margins?: Partial<PdfMargins>;
   typography?: Partial<PdfTypography>;
   textColor?: string;
   mutedColor?: string;
+  accentColor?: string;
 };
 
 export const DEFAULT_PDF_THEME: Readonly<PdfTheme> = {
@@ -38,6 +40,7 @@ export const DEFAULT_PDF_THEME: Readonly<PdfTheme> = {
   },
   textColor: "#0B132B",
   mutedColor: "#4B5563",
+  accentColor: "#0B132B",
 };
 
 /** A4 in points. Bound settings so a caller cannot create a clipped page. */
@@ -53,5 +56,6 @@ export function resolvePdfTheme(overrides: PdfThemeOverrides = {}): PdfTheme {
   }
   if (typography.lineHeight < 1 || typography.lineHeight > 2) throw new RangeError("PDF line height must be between 1 and 2.");
   return { margins, typography, textColor: overrides.textColor ?? DEFAULT_PDF_THEME.textColor,
-    mutedColor: overrides.mutedColor ?? DEFAULT_PDF_THEME.mutedColor };
+    mutedColor: overrides.mutedColor ?? DEFAULT_PDF_THEME.mutedColor,
+    accentColor: overrides.accentColor ?? DEFAULT_PDF_THEME.accentColor };
 }
