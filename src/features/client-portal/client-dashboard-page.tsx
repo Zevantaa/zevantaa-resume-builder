@@ -1,13 +1,15 @@
 import Link from "next/link";
 
 import { InlineAlert, StatusBadge } from "@/components/ui";
+import { IndicativeAtsPanel } from "@/features/document-generation/indicative-ats-panel";
 
 import { getClientDashboardSummary } from "./contact-profile-service";
+import { getCurrentClientAtsScore } from "./client-ats-score-service";
 import { TARGET_MARKET_LABELS } from "./target-market-labels";
 import type { TargetMarket } from "@/types/client-profile";
 
 export async function ClientDashboardPage() {
-  const summary = await getClientDashboardSummary();
+  const [summary, score] = await Promise.all([getClientDashboardSummary(), getCurrentClientAtsScore()]);
 
   return (
     <div className="dashboard-page dashboard-workspace-page">
@@ -42,14 +44,7 @@ export async function ClientDashboardPage() {
           </section>
 
           <div className="dashboard-output-column">
-            <section aria-labelledby="ats-heading" className="dashboard-ats-band">
-              <div>
-                <span className="type-label">Module 02 · ATS output</span>
-                <h2 className="type-heading-3" id="ats-heading">Global ATS optimization</h2>
-                <p className="type-supporting">The internal indicative score and ATS resume are not calculated or generated yet.</p>
-              </div>
-              <div className="dashboard-ats-score" aria-label="ATS score not available">—<span>Score pending</span></div>
-            </section>
+            {score ? <IndicativeAtsPanel result={score} /> : null}
             <section aria-labelledby="outputs-heading" className="dashboard-workspace-panel dashboard-outputs-panel">
               <div className="dashboard-module-heading">
                 <span className="type-label dashboard-kicker">Module 02 · Output workspace</span>

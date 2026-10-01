@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 
 import { InlineAlert, SectionCard } from "@/components/ui";
 import { loadAdminCandidateProfile } from "@/features/document-generation/admin-global-ats-service";
+import { calculateIndicativeAtsScore } from "@/features/document-generation/indicative-ats-score";
+import { IndicativeAtsPanel } from "@/features/document-generation/indicative-ats-panel";
 import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
 
 export const runtime = "nodejs";
@@ -13,6 +15,7 @@ export default async function AdminGlobalAtsPage({ params }: PageProps<"/admin/c
   const profile = await loadAdminCandidateProfile(userId);
   if (!profile) notFound();
   const mapping = mapCandidateProfileToDocumentData(profile, "resume");
+  const score = calculateIndicativeAtsScore(mapping);
 
   return <div className="dashboard-page"><div className="layout-container-readable layout-stack">
     <header className="layout-stack">
@@ -20,9 +23,10 @@ export default async function AdminGlobalAtsPage({ params }: PageProps<"/admin/c
       <h1 className="type-heading-1">Global ATS Resume for {profile.fullName}</h1>
       <p className="type-body text-text-muted">
         This admin review path generates a single-column PDF from the saved structured profile. It does not parse the source upload,
-        rewrite candidate facts, calculate an ATS score, or persist a generated document.
+        rewrite candidate facts or persist a generated document. The internal indicative score is calculated from the current saved profile.
       </p>
     </header>
+    <IndicativeAtsPanel result={score} />
     <SectionCard title="Profile readiness" description="Only reviewed canonical data is eligible for PDF output.">
       {mapping.findings.length ? mapping.findings.map((finding, index) =>
         <InlineAlert key={`${finding.code}-${index}`} variant={finding.severity === "error" ? "error" : "warning"}>

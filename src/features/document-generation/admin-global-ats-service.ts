@@ -35,8 +35,12 @@ export async function loadAdminCandidateProfile(userId: string): Promise<Candida
     .select("candidate_profile_id").eq("user_id", userId).eq("role_code", "client").maybeSingle();
   if (roleError) throw new Error("Candidate linkage could not be loaded.");
   if (!role?.candidate_profile_id) return null;
-  const profileId = role.candidate_profile_id;
+  return loadCandidateProfileById(role.candidate_profile_id);
+}
 
+/** Internal trusted loader; callers must authorize and resolve the linked ID first. */
+export async function loadCandidateProfileById(profileId: string): Promise<CandidateProfile | null> {
+  const db = createSupabaseAdminClient();
   const [profileResult, workResult, educationResult, skillResult, certificationResult,
     languageResult, projectResult, sectionResult] = await Promise.all([
     db.from("candidate_profiles").select("id, full_name, primary_email, mobile_number, whatsapp_number, linkedin_url, current_location, relocation_preference, selected_package_code, target_markets, professional_summary, created_at, updated_at")

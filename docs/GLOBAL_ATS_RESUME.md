@@ -83,4 +83,40 @@ font limitations documented in `PDF_RENDERING_FOUNDATION.md` still apply,
 especially to complex Indic shaping/copy order. PDF parsing behavior varies by
 ATS product, so real-world upload testing is still needed; no compatibility
 claim or score is made here. Candidate editing, client-facing generation,
-other resume layouts, cover letters and DOC-04-05 scoring are separate tasks.
+other resume layouts and cover letters are separate tasks.
+
+## Indicative internal score (DOC-04-05/06)
+
+The dashboard computes an indicative 0–100 score from the current reviewed
+canonical profile and the Global ATS PDF model. It is transient and never
+accepted from the browser or persisted. If the canonical mapper reports a
+required-data error, or if there is no reviewed employment, education or
+project entry, the score is **Not ready** and shows the reasons instead of a
+numeric value. The client overview, `/client/ats`, and the protected
+admin per-client Global ATS page use the same scoring and display components.
+
+| Dimension | Maximum | Deterministic inputs |
+| --- | ---: | --- |
+| Contact completeness | 15 | Stored name, primary email, mobile (4 each), location (3) |
+| Professional summary | 10 | Candidate-supplied text (5); at least 80 characters (another 5) |
+| Experience completeness | 25 | Any role (10); all roles have title/employer/start (5); all have supplied narrative/bullets (6); two or more roles (4) |
+| Education completeness | 10 | Any education (6); complete qualification/institution (2); explicit date/year on each (2) |
+| Skills coverage | 15 | One, four and eight individually stored skills (5 each) |
+| ATS formatting | 10 | Global ATS model has identity first, no running header/footer, and standard text sections |
+| Date consistency | 5 | At least one dated role/education entry and all supplied month dates are well-formed and ordered |
+| Optional profile depth | 10 | Supplied certifications (4), projects (3), languages (3) |
+
+Weights are centralized in `ATS_SCORE_WEIGHTS`; the total is 100. The score is
+the sum of earned points, with **no minimum or forced uplift**. `90` is the
+fixed optimization benchmark, not a floor. Display-only bands are below
+benchmark (<75), near benchmark (75–89), and meets benchmark (90–100).
+Reasons and improvement suggestions identify the exact deterministic gaps;
+they never add facts to the stored profile or PDF. Optional sections represent
+only 10 points and are not required to generate a score.
+
+This is an internal optimization indicator, **not a third-party ATS guarantee**.
+It does not assess subjective writing quality, job-description keyword match,
+actual vendor parsing, interview likelihood, or candidate suitability. A
+longer summary or more skills earns structural points only when those facts
+were genuinely supplied and reviewed. No universal ATS compatibility or
+guaranteed outcome is claimed.
