@@ -22,6 +22,21 @@ function paragraph(value: string | undefined, keepWithNext = false): PdfBlock[] 
   return hasText(value) ? [{ kind: "paragraph", text: value, keepWithNext }] : [];
 }
 
+/** Wrap only the presentation of a long URL; rejoining lines preserves every supplied character. */
+function urlParagraphs(value: string | undefined): PdfBlock[] {
+  if (!hasText(value)) return [];
+  const lines: string[] = [];
+  let remaining = value;
+  while (remaining.length > 68) {
+    const breakAt = Math.max(remaining.lastIndexOf("/", 68), remaining.lastIndexOf("-", 68));
+    const length = breakAt >= 32 ? breakAt + 1 : 68;
+    lines.push(remaining.slice(0, length));
+    remaining = remaining.slice(length);
+  }
+  if (remaining) lines.push(remaining);
+  return lines.map((line) => ({ kind: "paragraph", text: line, small: true }));
+}
+
 function bullets(values: readonly string[] | undefined): PdfBlock[] {
   const items = (values ?? []).filter(hasText);
   return items.length ? [{ kind: "bullets", items }] : [];
@@ -50,16 +65,16 @@ export function buildGlobalAtsResumeModel(mapping: DocumentDataMappingResult): P
     throw new GlobalAtsResumeNotReadyError(mapping.findings);
   }
 
-  const contact = joined([
+  const primaryContact = joined([
     data.identity.primaryEmail,
     data.identity.mobileNumber,
     data.identity.whatsappNumber && `WhatsApp: ${data.identity.whatsappNumber}`,
-    data.identity.linkedinUrl,
-    data.identity.currentLocation,
   ]);
   const identity: PdfSection = { id: "identity", blocks: [
     { kind: "heading", level: 1, text: data.identity.fullName },
-    ...paragraph(contact),
+    ...paragraph(primaryContact),
+    ...urlParagraphs(data.identity.linkedinUrl),
+    ...paragraph(data.identity.currentLocation),
   ] };
 
   const employment = (data.employment ?? []).flatMap((item): PdfBlock[] => [

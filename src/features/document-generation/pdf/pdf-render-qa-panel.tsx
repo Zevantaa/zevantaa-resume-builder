@@ -71,6 +71,16 @@ export function PdfRenderQaPanel() {
       ))}
       <section className="dashboard-workspace-panel">
         <div className="dashboard-module-heading">
+          <h2 className="type-heading-3">Long Global ATS Resume QA</h2>
+          <p className="type-supporting text-text-muted">Download the real Global ATS template built from a static fictional canonical profile. Check all pages for wrapping, bullets, headings, and selectable text.</p>
+        </div>
+        <form action="/admin/pdf-render-test/download" method="post">
+          <input type="hidden" name="scenario" value="global-ats-long" />
+          <button className="auth-submit type-button" type="submit">Download Long Global ATS Resume</button>
+        </form>
+      </section>
+      <section className="dashboard-workspace-panel">
+        <div className="dashboard-module-heading">
           <h2 className="type-heading-3">Header/Footer QA</h2>
           <p className="type-supporting text-text-muted">
             The fictional multi-page fixture with a repeating header and Page X of Y footer.

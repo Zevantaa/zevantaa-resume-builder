@@ -22,12 +22,12 @@ const OUTPUT_LABELS: Record<PdfOutputKind, string> = {
   "technology-startup-cover-letter": "Technology_Startup_Cover_Letter",
 };
 
-function safeStem(value: string, asciiOnly: boolean): string {
+function safeStem(value: string, asciiOnly: boolean, maxLength = 80): string {
   const normalized = value.normalize(asciiOnly ? "NFKD" : "NFKC");
   const withoutLatinAccents = asciiOnly ? normalized.replace(/\p{M}/gu, "") : normalized;
   const permitted = asciiOnly ? /[^A-Za-z0-9]+/g : /[^\p{L}\p{N}\p{M}]+/gu;
   return Array.from(withoutLatinAccents.replace(permitted, "_").replace(/^_+|_+$/g, ""))
-    .slice(0, 80).join("").replace(/[_\p{M}]+$/gu, "");
+    .slice(0, maxLength).join("").replace(/[_\p{M}]+$/gu, "");
 }
 
 /** Safe, deterministic download name; Unicode by default, ASCII fallback on request. */
@@ -48,6 +48,8 @@ export function buildPdfFilename(input: {
 
 /** Defend the HTTP boundary even when a future caller supplies a filename directly. */
 export function sanitizePdfDownloadFilename(value: string): string {
-  const stem = safeStem(value.replace(/\.pdf$/iu, ""), false) || "Document";
+  // The candidate stem is already bounded by buildPdfFilename. Leave room for
+  // the fixed output label instead of truncating it at the HTTP boundary.
+  const stem = safeStem(value.replace(/\.pdf$/iu, ""), false, 160) || "Document";
   return `${stem}.pdf`;
 }

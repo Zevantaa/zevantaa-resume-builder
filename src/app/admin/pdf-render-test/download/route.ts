@@ -1,7 +1,11 @@
 import { requireApplicationRole } from "@/features/authentication/authorization";
+import { createLongGlobalAtsQaProfile } from "@/features/document-generation/global-ats-qa-fixture";
+import { buildGlobalAtsResumeModel } from "@/features/document-generation/global-ats-resume";
 import { createPdfRenderQaModel } from "@/features/document-generation/pdf/pdf-render-qa-fixtures";
 import type { PdfRenderQaScenario } from "@/features/document-generation/pdf/pdf-render-qa-types";
 import { renderPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
+import { buildPdfFilename } from "@/features/document-generation/pdf/pdf-filename";
+import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,11 +32,17 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     return new Response("Invalid PDF QA request.", { status: 400 });
   }
-  if (typeof scenario !== "string" || !Object.hasOwn(names, scenario)) {
+  if (typeof scenario !== "string" || (scenario !== "global-ats-long" && !Object.hasOwn(names, scenario))) {
     return new Response("Unknown PDF QA scenario.", { status: 400 });
   }
 
   try {
+    if (scenario === "global-ats-long") {
+      const profile = createLongGlobalAtsQaProfile();
+      const model = buildGlobalAtsResumeModel(mapCandidateProfileToDocumentData(profile, "resume"));
+      const filename = buildPdfFilename({ candidateName: profile.fullName, output: "global-ats-resume" });
+      return await renderPdfDownloadResponse(model, filename);
+    }
     const selected = scenario as PdfRenderQaScenario;
     return await renderPdfDownloadResponse(createPdfRenderQaModel(selected), names[selected]);
   } catch {

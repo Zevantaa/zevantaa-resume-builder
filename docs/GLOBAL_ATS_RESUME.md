@@ -120,3 +120,44 @@ actual vendor parsing, interview likelihood, or candidate suitability. A
 longer summary or more skills earns structural points only when those facts
 were genuinely supplied and reviewed. No universal ATS compatibility or
 guaranteed outcome is claimed.
+
+## Final PDF stress and QA (DOC-04-07/08)
+
+The deterministic, fictional long-content fixture goes through the same
+canonical mapper, Global ATS builder and common PDF renderer as a real
+reviewed profile. It includes a long name and LinkedIn URL, extended summary,
+six jobs with long titles/employers/locations and four long bullets each, two
+education entries, 24 skills, certifications, a project, languages and an
+additional section. In the tested renderer it produces **five A4 pages**;
+there is no fixed page count or template-specific page break.
+
+Automated PDF.js checks cover physical page bounds, same-line text overlap,
+non-orphaned standard section headings, bullet markers, an employment entry
+continuing across pages, selectable/extractable contact and career text, source
+order, explicit month/year versus year-only dates, supplied results, omission
+of empty optional sections, and a safe filename. The minimal valid profile
+renders only identity and a supplied skills section on one page. No critical
+information is placed in a running header/footer; the Global ATS model uses
+text blocks in one column, without image-replacement text or decorative tables.
+
+The stress test exposed two boundary issues that were corrected: a long
+LinkedIn URL is now laid out as short plain-text lines without inserting a
+synthetic hyphen into the URL, and the HTTP filename sanitizer reserves room
+for the fixed `_Global_ATS_Resume` suffix after a long candidate name. The
+canonical URL and name are not changed by either presentation rule.
+
+For visual inspection, an active administrator can visit the existing,
+unnavigated `/admin/pdf-render-test` route and click **Download Long Global ATS
+Resume**. Its POST download uses static fictional facts, the production PDF
+download helper, a same-origin check and an active-admin role check. It does
+not read or persist a candidate record. The production per-client download
+separately reloads the linked canonical profile after the admin check and
+ignores posted candidate facts. Signed-out and client access are denied by
+the existing role boundary.
+
+Coordinate and extraction tests are not a substitute for visual review in
+multiple PDF viewers or a specific employer's ATS. Very unusual Unicode,
+complex Indic shaping, exceptionally long unbroken non-URL words, and vendor
+parser differences remain known limitations. The dashboard ATS score remains
+**internal and indicative only**, not a third-party certification or outcome
+guarantee. DOC-05 and other resume templates are not part of this QA batch.

@@ -11,6 +11,9 @@ registerHooks({ resolve(specifier, context, nextResolve) {
   if (specifier.startsWith("@/features/document-generation/pdf/")) {
     return nextResolve(new URL(`../src/features/document-generation/pdf/${specifier.split("/").at(-1)}.ts`, import.meta.url).href, context);
   }
+  if (specifier.startsWith("@/features/document-generation/")) {
+    return nextResolve(new URL(`../src/features/document-generation/${specifier.split("/").at(-1)}.ts`, import.meta.url).href, context);
+  }
   if (specifier.startsWith("./") && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
     return nextResolve(`${specifier}.ts`, context);
   }
