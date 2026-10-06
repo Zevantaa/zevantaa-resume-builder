@@ -23,7 +23,7 @@ export interface PdfSection {
   blocks: PdfBlock[];
   breakBefore?: boolean;
   headingStyle?: "plain" | "ruled" | "accent" | "uppercase";
-  /** Reserve enough room for the opening of a structured first entry. */
+  /** Render the section title and first structured entry's title/metadata as one opening block. */
   keepWithFirstEntry?: boolean;
 }
 
@@ -33,6 +33,7 @@ export interface PdfContactItem {
 }
 
 export type PdfBlock =
+  | { kind: "gcc-identity"; name: string; details: string[]; photoDataUri?: string }
   | { kind: "heading"; text: string; level?: 1 | 2; keepWithNext?: boolean }
   | { kind: "banner"; title: string; subtitle?: string }
   | { kind: "rule" }

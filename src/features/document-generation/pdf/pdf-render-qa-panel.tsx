@@ -89,6 +89,20 @@ export function PdfRenderQaPanel() {
           <button className="type-button" type="submit">Download Domestic Resume {design} QA PDF</button>
         </form>)}
       </section>
+      <section className="dashboard-workspace-panel layout-stack">
+        <div className="dashboard-module-heading">
+          <h2 className="type-heading-3">GCC resume QA</h2>
+          <p className="type-supporting text-text-muted">Private, fictional GCC layout tests. The photo is a programmatically generated non-person placeholder.</p>
+        </div>
+        {([
+          ["gcc-with-photo", "GCC Resume — with fictional photo"],
+          ["gcc-without-photo", "GCC Resume — without photo"],
+          ["gcc-long", "GCC Resume — long-content stress"],
+        ] as const).map(([scenario, label]) => <form action="/admin/pdf-render-test/download" key={scenario} method="post">
+          <input name="scenario" type="hidden" value={scenario} />
+          <button className="type-button" type="submit">{label}</button>
+        </form>)}
+      </section>
       <section className="dashboard-workspace-panel">
         <div className="dashboard-module-heading">
           <h2 className="type-heading-3">Header/Footer QA</h2>

@@ -17,6 +17,7 @@ export interface DocumentData {
     whatsappNumber?: string;
     linkedinUrl?: string;
     currentLocation?: string;
+    relocationPreference: CandidateProfile["relocationPreference"];
   };
   professionalSummary?: { text: string; source: "candidate-supplied" };
   employment?: WorkExperienceEntry[];
@@ -174,6 +175,7 @@ export function mapCandidateProfileToDocumentData(
       ...(hasText(profile.whatsappNumber) ? { whatsappNumber: profile.whatsappNumber } : {}),
       ...(hasText(profile.linkedinUrl) ? { linkedinUrl: profile.linkedinUrl } : {}),
       ...(hasText(profile.currentLocation) ? { currentLocation: profile.currentLocation } : {}),
+      relocationPreference: profile.relocationPreference,
     },
     ...(hasText(profile.professionalSummary) ? {
       professionalSummary: { text: profile.professionalSummary, source: "candidate-supplied" as const },

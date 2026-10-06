@@ -120,7 +120,7 @@ returned as generic errors without leaking candidate content.
 
 The existing `/admin/pdf-render-test` is a temporary manual QA harness, not a
 production template. Its POST-only `/admin/pdf-render-test/download` endpoint
-rechecks active admin access and accepts only four fixed fictional scenario
+rechecks active admin access and accepts only fixed fictional scenario
 keys. The `header-footer` scenario reuses the multi-page fixture, adds the
 `Zevantaa Resume Builder QA` header and `Page X of Y` footer, and uses the
 direct HTTP download helper for visual review. It rejects cross-origin requests

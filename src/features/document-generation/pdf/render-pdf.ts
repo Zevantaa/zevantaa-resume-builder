@@ -1,7 +1,7 @@
 import "server-only";
 
 import path from "node:path";
-import { Document, Font, Link, Page, Text, View, renderToBuffer } from "@react-pdf/renderer";
+import { Document, Font, Image, Link, Page, Text, View, renderToBuffer } from "@react-pdf/renderer";
 import { jsx } from "react/jsx-runtime";
 import { cloneElement, type ComponentProps, type ReactElement, type ReactNode } from "react";
 
@@ -79,8 +79,49 @@ function contactItem(item: PdfContactItem, theme: PdfTheme, key: string) {
   return href ? jsx(Link, { src: href, children: content }, key) : jsx(View, { children: content }, key);
 }
 
+function entryOpening(block: Extract<PdfBlock, { kind: "entry" }>, theme: PdfTheme, key: string): ReactNode[] {
+  const type = theme.typography;
+  return [
+    jsx(View, { style: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+      minPresenceAhead: type.bodySize * type.lineHeight * 2,
+      children: [
+        text(block.title, { fontSize: type.bodySize, fontWeight: 700, lineHeight: type.lineHeight,
+          color: theme.textColor, flex: 1 }, theme, `${key}-title`),
+        hasText(block.date) ? text(block.date, { fontSize: type.smallSize, color: theme.mutedColor,
+          lineHeight: type.lineHeight, textAlign: "right", maxWidth: 110 }, theme, `${key}-date`) : null,
+      ] }, `${key}-lead`),
+    hasText(block.subtitle) ? text(block.subtitle, { fontSize: type.smallSize, color: theme.mutedColor,
+      lineHeight: type.lineHeight }, theme, `${key}-subtitle`) : null,
+    hasText(block.location) ? text(block.location, { fontSize: type.smallSize, color: theme.mutedColor,
+      lineHeight: type.lineHeight }, theme, `${key}-location`) : null,
+  ];
+}
+
+function entryBody(block: Extract<PdfBlock, { kind: "entry" }>, theme: PdfTheme, key: string): ReactNode[] {
+  const type = theme.typography;
+  return [
+    hasText(block.description) ? text(block.description, { fontSize: type.bodySize, lineHeight: type.lineHeight,
+      color: theme.textColor, marginTop: type.paragraphGap / 2 }, theme, `${key}-description`) : null,
+    bulletItems(block.bullets, theme, `${key}-bullets`),
+  ];
+}
+
 function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
   const type = theme.typography;
+  if (block.kind === "gcc-identity") return jsx(View, { wrap: false, style: {
+    backgroundColor: "#0B132B", paddingHorizontal: 18, paddingVertical: 16,
+    marginBottom: type.paragraphGap * 2, flexDirection: "row", alignItems: "center", gap: 18,
+  }, children: [
+    jsx(View, { style: { flex: 1 }, children: [
+      text(block.name, { fontSize: type.heading1Size, fontWeight: 700, lineHeight: type.lineHeight,
+        color: "#FFFFFF", marginBottom: 6 }, theme, `${key}-name`),
+      ...block.details.filter(hasText).map((detail, index) => text(detail,
+        { fontSize: type.smallSize, lineHeight: type.lineHeight, color: "#FFFFFF", marginBottom: 3 },
+        theme, `${key}-detail-${index}`)),
+    ] }, `${key}-details`),
+    block.photoDataUri ? jsx(Image, { src: block.photoDataUri, cache: false,
+      style: { width: 80, height: 100 } }, `${key}-photo`) : null,
+  ] }, key);
   if (block.kind === "page-break") return jsx(View, { break: true, style: { height: 0 } }, key);
   if (block.kind === "rule") return jsx(View, { style: { borderBottomWidth: 1, borderBottomColor: theme.accentColor,
     marginBottom: type.paragraphGap * 1.5 } }, key);
@@ -116,23 +157,9 @@ function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
     ] }, key) : null;
   }
   if (!hasText(block.title)) return null;
-  const lead = jsx(View, { style: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
-    minPresenceAhead: type.bodySize * type.lineHeight * 2,
-    children: [
-      text(block.title, { fontSize: type.bodySize, fontWeight: 700, lineHeight: type.lineHeight,
-        color: theme.textColor, flex: 1 }, theme, `${key}-title`),
-      hasText(block.date) ? text(block.date, { fontSize: type.smallSize, color: theme.mutedColor,
-        lineHeight: type.lineHeight, textAlign: "right", maxWidth: 110 }, theme, `${key}-date`) : null,
-    ] }, `${key}-lead`);
   return jsx(View, { wrap: !shortEntry(block, theme), style: { marginBottom: type.paragraphGap * 1.5 }, children: [
-    lead,
-    hasText(block.subtitle) ? text(block.subtitle, { fontSize: type.smallSize, color: theme.mutedColor,
-      lineHeight: type.lineHeight }, theme, `${key}-subtitle`) : null,
-    hasText(block.location) ? text(block.location, { fontSize: type.smallSize, color: theme.mutedColor,
-      lineHeight: type.lineHeight }, theme, `${key}-location`) : null,
-    hasText(block.description) ? text(block.description, { fontSize: type.bodySize, lineHeight: type.lineHeight,
-      color: theme.textColor, marginTop: type.paragraphGap / 2 }, theme, `${key}-description`) : null,
-    bulletItems(block.bullets, theme, `${key}-bullets`),
+    ...entryOpening(block, theme, key),
+    ...entryBody(block, theme, key),
   ] }, key);
 }
 
@@ -147,10 +174,21 @@ function renderSection(section: PdfSection, theme: PdfTheme, key: string): React
       ...(headingStyle === "accent" ? { borderLeftWidth: 3, borderLeftColor: theme.accentColor, paddingLeft: 7 } : {}),
       ...(headingStyle === "uppercase" ? { textTransform: "uppercase" } : {}),
     }, theme,
-    `${key}-section-title`, theme.typography.bodySize * theme.typography.lineHeight *
-      (section.keepWithFirstEntry ? 6 : 2)) : null;
+    `${key}-section-title`, section.keepWithFirstEntry ? 0 :
+      theme.typography.bodySize * theme.typography.lineHeight * 2) : null;
+  const firstEntry = section.keepWithFirstEntry && title && section.blocks[0]?.kind === "entry"
+    ? section.blocks[0] : null;
+  if (firstEntry) {
+    // React-PDF can move an entire entry after minPresenceAhead has kept its section title.
+    // Keep only the title and job metadata indivisible; the description/bullets stay wrappable.
+    blocks.push(jsx(View, { wrap: false, break: section.breakBefore === true,
+      children: [title, ...entryOpening(firstEntry, theme, `${key}-0`)] }, `${key}-first-opening`));
+    blocks.push(jsx(View, { style: { marginBottom: theme.typography.paragraphGap * 1.5 },
+      children: entryBody(firstEntry, theme, `${key}-0`) }, `${key}-first-body`));
+  }
   let breakNext = section.breakBefore === true && !title;
-  section.blocks.forEach((block, index) => {
+  section.blocks.slice(firstEntry ? 1 : 0).forEach((block, offset) => {
+    const index = offset + (firstEntry ? 1 : 0);
     if (block.kind === "page-break") { breakNext = true; return; }
     const rendered = renderBlock(block, theme, `${key}-${index}`);
     if (!rendered) return;
@@ -159,7 +197,7 @@ function renderSection(section: PdfSection, theme: PdfTheme, key: string): React
   });
   if (!blocks.length) return [];
   return [
-    ...(title ? [section.breakBefore ? cloneElement(title as ReactElement<{ break?: boolean }>, { break: true }) : title] : []),
+    ...(!firstEntry && title ? [section.breakBefore ? cloneElement(title as ReactElement<{ break?: boolean }>, { break: true }) : title] : []),
     ...blocks,
     jsx(View, { style: { height: theme.typography.sectionGap } }, `${key}-gap`),
   ];

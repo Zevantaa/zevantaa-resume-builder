@@ -2,6 +2,8 @@ import { requireApplicationRole } from "@/features/authentication/authorization"
 import { createLongGlobalAtsQaProfile } from "@/features/document-generation/global-ats-qa-fixture";
 import { buildGlobalAtsResumeModel } from "@/features/document-generation/global-ats-resume";
 import { buildDomesticResumeModel, isDomesticDesignId } from "@/features/document-generation/domestic-resumes";
+import { createGccQaPhotoDataUri, createGccQaProfile } from "@/features/document-generation/gcc-qa-fixture";
+import { buildGccResumeModel } from "@/features/document-generation/gcc-resume";
 import { createPdfRenderQaModel } from "@/features/document-generation/pdf/pdf-render-qa-fixtures";
 import type { PdfRenderQaScenario } from "@/features/document-generation/pdf/pdf-render-qa-types";
 import { renderPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
@@ -34,11 +36,19 @@ export async function POST(request: Request): Promise<Response> {
     return new Response("Invalid PDF QA request.", { status: 400 });
   }
   const domesticDesign = typeof scenario === "string" && scenario.startsWith("domestic-") ? scenario.slice(9) : "";
-  if (typeof scenario !== "string" || (scenario !== "global-ats-long" && !isDomesticDesignId(domesticDesign) && !Object.hasOwn(names, scenario))) {
+  const gccScenario = scenario === "gcc-with-photo" || scenario === "gcc-without-photo" || scenario === "gcc-long";
+  if (typeof scenario !== "string" || (scenario !== "global-ats-long" && !gccScenario && !isDomesticDesignId(domesticDesign) && !Object.hasOwn(names, scenario))) {
     return new Response("Unknown PDF QA scenario.", { status: 400 });
   }
 
   try {
+    if (gccScenario) {
+      const profile = createGccQaProfile(scenario === "gcc-long");
+      const photoDataUri = scenario === "gcc-with-photo" ? await createGccQaPhotoDataUri() : undefined;
+      const output = buildGccResumeModel(mapCandidateProfileToDocumentData(profile, "resume"), photoDataUri);
+      return await renderPdfDownloadResponse(output.model,
+        buildPdfFilename({ candidateName: profile.fullName, output: "gcc-resume" }), output.theme);
+    }
     if (isDomesticDesignId(domesticDesign)) {
       const profile = createLongGlobalAtsQaProfile();
       const output = buildDomesticResumeModel(mapCandidateProfileToDocumentData(profile, "resume"), domesticDesign);

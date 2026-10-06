@@ -215,20 +215,19 @@ test("source boundaries keep secret keys and candidate data out of browser input
 });
 
 test("Domestic 2 keeps Professional Experience with the first role at page boundaries", async () => {
-  for (const [count, expectedPage] of [[50, 0], [60, 1]]) {
+  for (const count of [50, 60]) {
     const profile = normal();
     profile.professionalSummary = "Candidate-supplied fictional summary for pagination review. ".repeat(count);
     const output = buildDomesticResumeModel(mapCandidateProfileToDocumentData(profile, "resume"), "2");
     const experience = output.model.sections.find((section) => section.id === "experience");
     assert.equal(experience.keepWithFirstEntry, true);
-    assert.equal(experience.blocks[0].keepTogether, false);
     const pages = await inspect(await renderPdfDocument(output.model, output.theme));
     const headingPage = pages.findIndex((page) => page.text.includes("Professional Experience"));
     const rolePage = pages.findIndex((page) => page.text.includes("Regional Planning Division 1"));
-    assert.equal(headingPage, expectedPage);
+    assert.ok(headingPage >= 0);
     assert.equal(rolePage, headingPage, "Section heading must not be stranded without the first role.");
-    assert.ok(pages[headingPage].text.includes("Candidate-supplied fictional responsibilities for role 1"),
-      "A meaningful portion of the first role must stay with the heading.");
+    assert.ok(pages[headingPage].text.includes("Fictional International Distribution and Business Process Cooperative"),
+      "The first employer metadata must stay with the heading and role title.");
   }
   const mapping = mapCandidateProfileToDocumentData(normal(), "resume");
   for (const design of ["1", "3", "4", "5"]) {
@@ -236,4 +235,23 @@ test("Domestic 2 keeps Professional Experience with the first role at page bound
     assert.ok(output.model.sections.every((section) => !section.keepWithFirstEntry),
       `Domestic ${design} pagination settings remain unchanged.`);
   }
+});
+
+test("Domestic 2 stress PDF never orphans Professional Experience from its first role", async (t) => {
+  const profile = createLongGlobalAtsQaProfile();
+  const output = buildDomesticResumeModel(mapCandidateProfileToDocumentData(profile, "resume"), "2");
+  const pages = await inspect(await renderPdfDocument(output.model, output.theme));
+  t.diagnostic(`Domestic 2 exact stress fixture: ${pages.length} pages`);
+  assert.ok(pages.length >= 3);
+  const headingPage = pages.findIndex((page) => page.text.includes("Professional Experience"));
+  const firstRoleTitle = "Senior Fictional Operations and Supply Chain Programme Coordination Manager";
+  assert.ok(headingPage >= 0);
+  if (pages[0].text.includes("Professional Experience")) {
+    assert.ok(pages[0].text.includes(firstRoleTitle),
+      "Page 1 must not end with Professional Experience without the first role title.");
+  }
+  assert.ok(pages[headingPage].text.includes(firstRoleTitle),
+    `Professional Experience is orphaned on page ${headingPage + 1}; first role must appear on that page.`);
+  assert.ok(pages[headingPage].text.includes("Fictional International Distribution and Business Process Cooperative"),
+    "The first employer metadata must appear with the section heading and role title.");
 });

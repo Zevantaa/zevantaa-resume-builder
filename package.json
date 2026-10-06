@@ -17,6 +17,7 @@
     "pdfjs-dist": "5.4.624",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "sharp": "0.35.4",
     "word-extractor": "1.0.4"
   },
   "devDependencies": {
