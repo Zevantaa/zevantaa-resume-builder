@@ -56,6 +56,10 @@ export async function EditClientAccountPage({ userId }: { userId: string }) {
           Review and download GCC resume
         </Link>
 
+        <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/european-resume`}>
+          Review and download European resume
+        </Link>
+
         <Link className="type-label admin-table-link" href="/admin/clients">
           Return to client accounts
         </Link>

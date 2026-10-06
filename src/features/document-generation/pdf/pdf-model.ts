@@ -34,6 +34,7 @@ export interface PdfContactItem {
 
 export type PdfBlock =
   | { kind: "gcc-identity"; name: string; details: string[]; photoDataUri?: string }
+  | { kind: "european-identity"; name: string; contact: string[]; context: string[] }
   | { kind: "heading"; text: string; level?: 1 | 2; keepWithNext?: boolean }
   | { kind: "banner"; title: string; subtitle?: string }
   | { kind: "rule" }

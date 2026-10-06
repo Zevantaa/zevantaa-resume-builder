@@ -103,6 +103,19 @@ export function PdfRenderQaPanel() {
           <button className="type-button" type="submit">{label}</button>
         </form>)}
       </section>
+      <section className="dashboard-workspace-panel layout-stack">
+        <div className="dashboard-module-heading">
+          <h2 className="type-heading-3">European resume QA</h2>
+          <p className="type-supporting text-text-muted">Fixed fictional European-structured profiles. Check selectable text, opening metadata, and long-content page flow.</p>
+        </div>
+        {([
+          ["european-normal", "Download normal European resume QA PDF"],
+          ["european-long", "Download long European resume QA PDF"],
+        ] as const).map(([scenario, label]) => <form action="/admin/pdf-render-test/download" key={scenario} method="post">
+          <input name="scenario" type="hidden" value={scenario} />
+          <button className="type-button" type="submit">{label}</button>
+        </form>)}
+      </section>
       <section className="dashboard-workspace-panel">
         <div className="dashboard-module-heading">
           <h2 className="type-heading-3">Header/Footer QA</h2>

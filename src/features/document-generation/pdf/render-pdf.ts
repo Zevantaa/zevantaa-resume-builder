@@ -108,6 +108,24 @@ function entryBody(block: Extract<PdfBlock, { kind: "entry" }>, theme: PdfTheme,
 
 function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
   const type = theme.typography;
+  if (block.kind === "european-identity") return jsx(View, { wrap: false, style: {
+    flexDirection: "row", borderBottomWidth: 1, borderBottomColor: theme.accentColor,
+    paddingBottom: 12, marginBottom: type.paragraphGap * 2, gap: 18,
+  }, children: [
+    jsx(View, { style: { width: 102, borderRightWidth: 1, borderRightColor: "#CDD6DE", paddingRight: 12 },
+      children: text("PROFILE", { fontSize: type.smallSize, fontWeight: 700,
+        lineHeight: type.lineHeight, color: theme.accentColor }, theme, `${key}-label`) }, `${key}-rail`),
+    jsx(View, { style: { flex: 1 }, children: [
+      text(block.name, { fontSize: type.heading1Size, fontWeight: 700, lineHeight: type.lineHeight,
+        color: theme.textColor, marginBottom: 6 }, theme, `${key}-name`),
+      ...block.contact.filter(hasText).map((value, index) => text(value,
+        { fontSize: type.smallSize, lineHeight: type.lineHeight, color: theme.textColor, marginBottom: 2 },
+        theme, `${key}-contact-${index}`)),
+      ...block.context.filter(hasText).map((value, index) => text(value,
+        { fontSize: type.smallSize, lineHeight: type.lineHeight, color: theme.mutedColor, marginBottom: 2 },
+        theme, `${key}-context-${index}`)),
+    ] }, `${key}-content`),
+  ] }, key);
   if (block.kind === "gcc-identity") return jsx(View, { wrap: false, style: {
     backgroundColor: "#0B132B", paddingHorizontal: 18, paddingVertical: 16,
     marginBottom: type.paragraphGap * 2, flexDirection: "row", alignItems: "center", gap: 18,

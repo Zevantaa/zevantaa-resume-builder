@@ -4,6 +4,8 @@ import { buildGlobalAtsResumeModel } from "@/features/document-generation/global
 import { buildDomesticResumeModel, isDomesticDesignId } from "@/features/document-generation/domestic-resumes";
 import { createGccQaPhotoDataUri, createGccQaProfile } from "@/features/document-generation/gcc-qa-fixture";
 import { buildGccResumeModel } from "@/features/document-generation/gcc-resume";
+import { createEuropeanQaProfile } from "@/features/document-generation/european-qa-fixture";
+import { buildEuropeanResumeModel } from "@/features/document-generation/european-resume";
 import { createPdfRenderQaModel } from "@/features/document-generation/pdf/pdf-render-qa-fixtures";
 import type { PdfRenderQaScenario } from "@/features/document-generation/pdf/pdf-render-qa-types";
 import { renderPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
@@ -37,11 +39,18 @@ export async function POST(request: Request): Promise<Response> {
   }
   const domesticDesign = typeof scenario === "string" && scenario.startsWith("domestic-") ? scenario.slice(9) : "";
   const gccScenario = scenario === "gcc-with-photo" || scenario === "gcc-without-photo" || scenario === "gcc-long";
-  if (typeof scenario !== "string" || (scenario !== "global-ats-long" && !gccScenario && !isDomesticDesignId(domesticDesign) && !Object.hasOwn(names, scenario))) {
+  const europeanScenario = scenario === "european-normal" || scenario === "european-long";
+  if (typeof scenario !== "string" || (scenario !== "global-ats-long" && !gccScenario && !europeanScenario && !isDomesticDesignId(domesticDesign) && !Object.hasOwn(names, scenario))) {
     return new Response("Unknown PDF QA scenario.", { status: 400 });
   }
 
   try {
+    if (europeanScenario) {
+      const profile = createEuropeanQaProfile(scenario === "european-long");
+      const output = buildEuropeanResumeModel(mapCandidateProfileToDocumentData(profile, "resume"));
+      return await renderPdfDownloadResponse(output.model,
+        buildPdfFilename({ candidateName: profile.fullName, output: "europass-eu-resume" }), output.theme);
+    }
     if (gccScenario) {
       const profile = createGccQaProfile(scenario === "gcc-long");
       const photoDataUri = scenario === "gcc-with-photo" ? await createGccQaPhotoDataUri() : undefined;
