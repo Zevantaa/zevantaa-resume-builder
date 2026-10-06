@@ -46,7 +46,7 @@ function urlLines(value?: string): PdfBlock[] {
 function experience(item: WorkExperienceEntry): PdfBlock {
   return { kind: "entry", title: item.jobTitle, subtitle: item.employerName,
     date: range(item.startDate, item.endDate, item.currentRole), location: item.location,
-    description: item.description, bullets: item.highlights, keepTogether: false };
+    description: item.description, bullets: item.highlights, keepTogether: false, keepOpeningTogether: true };
 }
 function education(item: EducationEntry): PdfBlock {
   return { kind: "entry", title: item.qualification, subtitle: item.institutionName,

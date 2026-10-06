@@ -17,6 +17,8 @@ plain contact details and accent section headings. The career content is a
 full-width flow rather than narrow columns. White-on-dark identity text and
 dark-on-white body text remain legible in grayscale. No Zevantaa logo, rating
 bars, icons standing in for text, or image-based candidate text is added.
+Each employment title/date/employer/location opening stays on one page; its
+description and bullets can continue across later pages.
 
 The header uses stored name, current location, and the explicit relocation
 preference only. `not-specified` is omitted; `open`, `conditional`, and

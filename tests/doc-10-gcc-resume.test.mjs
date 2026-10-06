@@ -156,6 +156,20 @@ test("long GCC PDF flows through 3+ pages without missing sections or clipping",
   const photoPages = await inspect(await renderPdfDocument(withPhoto.model, withPhoto.theme));
   t.diagnostic(`GCC long-content stress with photo: ${photoPages.length} A4 pages`);
   assert.ok(photoPages.length >= 3);
+  for (const [variant, checkedPages] of [["without photo", pages], ["with photo", photoPages]]) {
+    assert.ok(!checkedPages[0].text.includes("Jan 2015 - Dec 2015") ||
+      checkedPages[0].text.includes("Planning Division 2"),
+    `${variant}: page 1 must not strand role 2's date without its title`);
+    for (const [index, role] of profile.workExperience.entries()) {
+      const date = index < 5 ? `Jan ${2014 + index} - Dec ${2014 + index}` : "Jan 2019 - Present";
+      // PDF.js may hyphenate "Regional" at a line break; the unique title suffix is stable.
+      const roleTitle = `Planning Division ${index + 1}`;
+      const datePages = checkedPages.filter((page) => page.text.includes(date));
+      assert.equal(datePages.length, 1, `${variant}: expected one date occurrence for ${role.jobTitle}`);
+      assert.ok(datePages[0].text.includes(roleTitle),
+        `${variant}: ${date} is stranded without the corresponding role title ${roleTitle}; page tail: ${datePages[0].text.slice(-500)}`);
+    }
+  }
   const text = pages.map((page) => page.text).join(" ");
   for (const phrase of ["Role 1, supplied bullet 1", "Role 6, supplied bullet 4",
     "Verified fictional operations skill 24", "Issued: May 2020", "Fictional Regional Reporting Project",

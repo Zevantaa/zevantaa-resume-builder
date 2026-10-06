@@ -157,6 +157,11 @@ function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
     ] }, key) : null;
   }
   if (!hasText(block.title)) return null;
+  if (block.keepOpeningTogether) return jsx(View, { wrap: true,
+    style: { marginBottom: type.paragraphGap * 1.5 }, children: [
+      jsx(View, { wrap: false, children: entryOpening(block, theme, key) }, `${key}-opening`),
+      ...entryBody(block, theme, key),
+    ] }, key);
   return jsx(View, { wrap: !shortEntry(block, theme), style: { marginBottom: type.paragraphGap * 1.5 }, children: [
     ...entryOpening(block, theme, key),
     ...entryBody(block, theme, key),

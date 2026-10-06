@@ -40,6 +40,6 @@ export type PdfBlock =
   | { kind: "paragraph"; text: string; small?: boolean; keepWithNext?: boolean }
   | { kind: "bullets"; items: string[] }
   | { kind: "contact-row"; items: PdfContactItem[] }
-  | { kind: "entry"; title: string; subtitle?: string; date?: string; location?: string; description?: string; bullets?: string[]; keepTogether?: boolean }
+  | { kind: "entry"; title: string; subtitle?: string; date?: string; location?: string; description?: string; bullets?: string[]; keepTogether?: boolean; keepOpeningTogether?: boolean }
   | { kind: "columns"; left: PdfBlock[]; right: PdfBlock[] }
   | { kind: "page-break" };
