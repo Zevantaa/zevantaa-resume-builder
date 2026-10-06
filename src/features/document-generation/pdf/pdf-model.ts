@@ -23,6 +23,8 @@ export interface PdfSection {
   blocks: PdfBlock[];
   breakBefore?: boolean;
   headingStyle?: "plain" | "ruled" | "accent" | "uppercase";
+  /** Reserve enough room for the opening of a structured first entry. */
+  keepWithFirstEntry?: boolean;
 }
 
 export interface PdfContactItem {

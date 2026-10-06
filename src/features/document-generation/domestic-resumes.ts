@@ -163,9 +163,14 @@ export function buildDomesticResume1(data: DocumentData): DomesticResumeOutput {
 
 /** Corporate identity band and compact, date-aligned entries. */
 export function buildDomesticResume2(data: DocumentData): DomesticResumeOutput {
+  const sections = standardSections(data, "accent", true).map((item): PdfSection =>
+    item.id === "experience" && item.blocks[0]?.kind === "entry"
+      ? { ...item, keepWithFirstEntry: true,
+          blocks: [{ ...item.blocks[0], keepTogether: false }, ...item.blocks.slice(1)] }
+      : item);
   return { model: model(data, "2", [
     { id: "identity", blocks: [{ kind: "banner", title: data.identity.fullName }, ...contact(data)] },
-    ...standardSections(data, "accent", true),
+    ...sections,
   ]), theme: { typography: { heading1Size: 20, heading2Size: 11, paragraphGap: 6, sectionGap: 15 },
     accentColor: "#123B50" } };
 }

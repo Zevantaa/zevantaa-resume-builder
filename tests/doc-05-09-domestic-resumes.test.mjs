@@ -213,3 +213,27 @@ test("source boundaries keep secret keys and candidate data out of browser input
   assert.doesNotMatch(read("src/features/document-generation/pdf/pdf-render-qa-panel.tsx"), /SUPABASE_SECRET_KEY|service_role/);
   assert.doesNotMatch(read("src/app/admin/layout.tsx"), /pdf-render-test/);
 });
+
+test("Domestic 2 keeps Professional Experience with the first role at page boundaries", async () => {
+  for (const [count, expectedPage] of [[50, 0], [60, 1]]) {
+    const profile = normal();
+    profile.professionalSummary = "Candidate-supplied fictional summary for pagination review. ".repeat(count);
+    const output = buildDomesticResumeModel(mapCandidateProfileToDocumentData(profile, "resume"), "2");
+    const experience = output.model.sections.find((section) => section.id === "experience");
+    assert.equal(experience.keepWithFirstEntry, true);
+    assert.equal(experience.blocks[0].keepTogether, false);
+    const pages = await inspect(await renderPdfDocument(output.model, output.theme));
+    const headingPage = pages.findIndex((page) => page.text.includes("Professional Experience"));
+    const rolePage = pages.findIndex((page) => page.text.includes("Regional Planning Division 1"));
+    assert.equal(headingPage, expectedPage);
+    assert.equal(rolePage, headingPage, "Section heading must not be stranded without the first role.");
+    assert.ok(pages[headingPage].text.includes("Candidate-supplied fictional responsibilities for role 1"),
+      "A meaningful portion of the first role must stay with the heading.");
+  }
+  const mapping = mapCandidateProfileToDocumentData(normal(), "resume");
+  for (const design of ["1", "3", "4", "5"]) {
+    const output = buildDomesticResumeModel(mapping, design);
+    assert.ok(output.model.sections.every((section) => !section.keepWithFirstEntry),
+      `Domestic ${design} pagination settings remain unchanged.`);
+  }
+});

@@ -147,7 +147,8 @@ function renderSection(section: PdfSection, theme: PdfTheme, key: string): React
       ...(headingStyle === "accent" ? { borderLeftWidth: 3, borderLeftColor: theme.accentColor, paddingLeft: 7 } : {}),
       ...(headingStyle === "uppercase" ? { textTransform: "uppercase" } : {}),
     }, theme,
-    `${key}-section-title`, theme.typography.bodySize * theme.typography.lineHeight * 2) : null;
+    `${key}-section-title`, theme.typography.bodySize * theme.typography.lineHeight *
+      (section.keepWithFirstEntry ? 6 : 2)) : null;
   let breakNext = section.breakBefore === true && !title;
   section.blocks.forEach((block, index) => {
     if (block.kind === "page-break") { breakNext = true; return; }
