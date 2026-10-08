@@ -1,5 +1,5 @@
 import type { EducationEntry, WorkExperienceEntry } from "@/types/client-profile";
-import { V1_PACKAGE_DEFINITIONS } from "@/types/package";
+import { packageAllowsOutput } from "./package-routing";
 
 import type { PdfBlock, PdfDocumentModel, PdfSection } from "./pdf/pdf-model";
 import type { PdfThemeOverrides } from "./pdf/pdf-theme";
@@ -136,8 +136,7 @@ export class DomesticResumeNotReadyError extends Error {
 }
 
 export function isDomesticPackageEligible(data: DocumentData): boolean {
-  const definition = V1_PACKAGE_DEFINITIONS.find((item) => item.code === data.packageContext.selectedPackage);
-  return Boolean(definition?.isActive && definition.resumeFormatFamilies.some((family) => family === "domestic"));
+  return packageAllowsOutput(data.packageContext.selectedPackage, "domestic-resume-1");
 }
 
 function ready(mapping: DocumentDataMappingResult): DocumentData {

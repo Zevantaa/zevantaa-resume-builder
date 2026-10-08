@@ -3,6 +3,7 @@ import { buildCoverLetterModel, CoverLetterNotReadyError, isCoverLetterType } fr
 import { renderPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
 import { buildPdfFilename } from "@/features/document-generation/pdf/pdf-filename";
 import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
+import { packageAllowsOutput } from "@/features/document-generation/package-routing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,9 @@ export async function POST(request: Request, context: { params: Promise<{ userId
   try { type = (await request.formData()).get("type"); }
   catch { return new Response("Invalid cover-letter request.", { status: 400 }); }
   if (!isCoverLetterType(type)) return new Response("Unknown cover-letter type.", { status: 400 });
+  if (!packageAllowsOutput(profile.selectedPackage, `${type}-cover-letter`)) {
+    return new Response("This package does not include the requested cover letter.", { status: 422 });
+  }
   try {
     const output = buildCoverLetterModel(mapCandidateProfileToDocumentData(profile, "cover-letter"), type);
     const filename = buildPdfFilename({ candidateName: profile.fullName, output: `${type}-cover-letter` });

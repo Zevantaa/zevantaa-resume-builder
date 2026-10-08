@@ -3,6 +3,7 @@
 import { useActionState, useState, type FormEvent } from "react";
 
 import { FileInput, InlineAlert } from "@/components/ui";
+import { isGccPhotoAvailable } from "@/features/document-generation/package-routing";
 
 import type { ClientIntakeFiles } from "./client-intake-service";
 import { initialIntakeActionState } from "./client-intake-types";
@@ -95,14 +96,14 @@ export function ClientIntakeForm({
             <p className="type-supporting text-text-muted">{files.resume ? `Current: ${files.resume.originalFileName} (${files.resume.status})` : "No resume currently available."}</p>
             {selectedResume.name && selectedResume.actionState === state && <p className="type-supporting">Selected replacement: {selectedResume.name}</p>}
           </div>
-          <div className="client-intake-file-block">
+          {isGccPhotoAvailable(details.selectedPackageCode) && <div className="client-intake-file-block">
             <FileInput key={`photo-${state.savedAt ?? "initial"}`} id="profile-photo" name="photo" label="GCC profile photograph (optional)"
               accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
               helperText="Mainly for GCC/Middle East applications. JPEG, PNG or WebP, maximum 5 MB."
               error={errors.photo} onChange={(event) => setSelectedPhoto({ name: event.target.files?.[0]?.name ?? "", actionState: state })} />
             <p className="type-supporting text-text-muted">{files.photo ? `Current: ${files.photo.originalFileName} (${files.photo.status})` : "No photograph uploaded."}</p>
             {selectedPhoto.name && selectedPhoto.actionState === state && <p className="type-supporting">Selected replacement: {selectedPhoto.name}</p>}
-          </div>
+          </div>}
         </div>
         <div className="client-contact-actions">
           <p className="type-supporting text-text-muted">Only selected files will be saved; your administrative profile details cannot be changed here.</p>

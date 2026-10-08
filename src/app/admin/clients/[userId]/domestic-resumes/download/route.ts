@@ -3,6 +3,7 @@ import { buildDomesticResumeModel, DomesticResumeNotReadyError, isDomesticDesign
 import { renderPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
 import { buildPdfFilename } from "@/features/document-generation/pdf/pdf-filename";
 import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
+import { packageAllowsOutput } from "@/features/document-generation/package-routing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,9 @@ export async function POST(request: Request, context: { params: Promise<{ userId
   try { design = (await request.formData()).get("design"); }
   catch { return new Response("Invalid domestic resume request.", { status: 400 }); }
   if (typeof design !== "string" || !isDomesticDesignId(design)) return new Response("Unknown domestic resume design.", { status: 400 });
+  if (!packageAllowsOutput(profile.selectedPackage, `domestic-resume-${design}`)) {
+    return new Response("This package does not include the requested resume.", { status: 422 });
+  }
 
   try {
     const mapping = mapCandidateProfileToDocumentData(profile, "resume");

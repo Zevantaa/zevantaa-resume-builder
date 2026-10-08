@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { FilePurpose } from "@/types/file-upload";
+import { isGccPhotoAvailable } from "@/features/document-generation/package-routing";
 
 import { resolveLinkedClientProfile } from "./contact-profile-service";
 import { IntakeFileValidationError, validateIntakeFile } from "./intake-file-validation";
@@ -76,12 +77,15 @@ export async function saveClientIntake(values: IntakeSaveValues): Promise<"saved
   const supabase = createSupabaseAdminClient();
   const { data: profile, error: profileError } = await supabase
     .from("candidate_profiles")
-    .select("id, existing_resume_file_id, gcc_photo_file_id")
+    .select("id, existing_resume_file_id, gcc_photo_file_id, selected_package_code")
     .eq("id", linked.profileId)
     .is("archived_at", null)
     .maybeSingle();
   if (profileError) throw new Error("The linked profile could not be loaded.");
   if (!profile) return "missing";
+  if (values.photo && !isGccPhotoAvailable(profile.selected_package_code)) {
+    throw new IntakeFileValidationError("The assigned package does not include a GCC photograph.", "photo");
+  }
 
   const [oldResume, oldPhoto] = await Promise.all([
     loadCurrentFile(supabase, linked.profileId, profile.existing_resume_file_id, "source-resume"),

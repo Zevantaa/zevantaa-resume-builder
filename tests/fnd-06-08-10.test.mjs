@@ -19,6 +19,12 @@ registerHooks({
     if (specifier === "./client-intake-service" && context.parentURL?.endsWith("save-client-intake-action.ts")) {
       return { url: mockModule("export async function saveClientIntake(values){return globalThis.__intakeQa.save(values)}"), shortCircuit: true };
     }
+    if (specifier.startsWith("@/types/")) {
+      return nextResolve(new URL(`../src/types/${specifier.slice("@/types/".length)}.ts`, import.meta.url).href, context);
+    }
+    if (specifier.startsWith("@/features/document-generation/")) {
+      return nextResolve(new URL(`../src/features/document-generation/${specifier.slice("@/features/document-generation/".length)}.ts`, import.meta.url).href, context);
+    }
     if (specifier.startsWith("./") && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
       return nextResolve(`${specifier}.ts`, context);
     }
@@ -188,7 +194,7 @@ function setupService() {
     id: ownId,
     full_name: "Admin Managed Name",
     primary_email: "admin-managed@example.invalid",
-    selected_package_code: "indian-domestic",
+    selected_package_code: "domestic-gcc",
     existing_resume_file_id: oldResumeId,
     gcc_photo_file_id: oldPhotoId,
   };
@@ -261,7 +267,16 @@ test("replacement links only own profile, increments versions and keeps history"
   });
   assert.equal(profile.full_name, "Admin Managed Name");
   assert.equal(profile.primary_email, "admin-managed@example.invalid");
-  assert.equal(profile.selected_package_code, "indian-domestic");
+  assert.equal(profile.selected_package_code, "domestic-gcc");
+});
+
+test("non-GCC package cannot submit a forged photograph upload", async () => {
+  const { written, uploaded, profile } = setupService();
+  profile.selected_package_code = "indian-domestic";
+  await assert.rejects(saveClientIntake({ resume: null, photo: file("new.png", "image/png", PNG) }),
+    (error) => error instanceof IntakeFileValidationError && error.field === "photo");
+  assert.deepEqual(written, []);
+  assert.deepEqual(uploaded, []);
 });
 
 test("loading files reveals only display metadata, not storage paths", async () => {
@@ -310,7 +325,7 @@ test("first private resume upload links a newly provisioned profile without chan
   assert.equal(row.value.candidate_profile_id, ownId);
   assert.equal(profile.existing_resume_file_id, row.value.id);
   assert.equal(profile.full_name, "Admin Managed Name");
-  assert.equal(profile.selected_package_code, "indian-domestic");
+  assert.equal(profile.selected_package_code, "domestic-gcc");
   assert.equal(uploaded.length, 1);
 });
 

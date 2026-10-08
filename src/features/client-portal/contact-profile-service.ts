@@ -17,6 +17,7 @@ export type ClientDashboardSummary = {
   mobileNumber: string;
   whatsappNumber: string | null;
   packageName: string;
+  packageCode: string;
   targetMarkets: string[];
 };
 
@@ -98,6 +99,7 @@ export async function getClientDashboardSummary(): Promise<ClientDashboardSummar
     mobileNumber: profile.mobile_number,
     whatsappNumber: profile.whatsapp_number,
     packageName: definition?.display_name ?? profile.selected_package_code,
+    packageCode: profile.selected_package_code,
     targetMarkets: profile.target_markets,
   };
 }

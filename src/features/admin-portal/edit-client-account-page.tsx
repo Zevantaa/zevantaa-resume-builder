@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { SectionCard, StatusBadge } from "@/components/ui";
+import { packageAllowsOutput } from "@/features/document-generation/package-routing";
 
 import { getProvisionedClient } from "./client-account-service";
 import { EditClientAccountForm } from "./edit-client-account-form";
@@ -44,25 +45,25 @@ export async function EditClientAccountPage({ userId }: { userId: string }) {
           Review current source resume
         </Link>
 
-        <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/global-ats`}>
+        {packageAllowsOutput(client.packageCode, "global-ats-resume") && <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/global-ats`}>
           Review Global ATS resume readiness
-        </Link>
+        </Link>}
 
-        <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/domestic-resumes`}>
+        {packageAllowsOutput(client.packageCode, "domestic-resume-1") && <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/domestic-resumes`}>
           Review and download domestic resumes
-        </Link>
+        </Link>}
 
-        <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/gcc-resume`}>
+        {packageAllowsOutput(client.packageCode, "gcc-resume") && <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/gcc-resume`}>
           Review and download GCC resume
-        </Link>
+        </Link>}
 
-        <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/european-resume`}>
+        {packageAllowsOutput(client.packageCode, "europass-eu-resume") && <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/european-resume`}>
           Review and download European resume
-        </Link>
+        </Link>}
 
-        <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/cover-letters`}>
+        {packageAllowsOutput(client.packageCode, "general-corporate-cover-letter") && <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/cover-letters`}>
           Review and download cover letters
-        </Link>
+        </Link>}
 
         <Link className="type-label admin-table-link" href="/admin/clients">
           Return to client accounts

@@ -13,6 +13,9 @@ registerHooks({ resolve(specifier, context, nextResolve) {
     const relative = specifier.replace("@/features/document-generation/", "");
     return nextResolve(new URL(`../src/features/document-generation/${relative}.ts`, import.meta.url).href, context);
   }
+  if (specifier.startsWith("@/types/")) {
+    return nextResolve(new URL(`../src/types/${specifier.slice("@/types/".length)}.ts`, import.meta.url).href, context);
+  }
   if (specifier.startsWith("./") && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
     return nextResolve(`${specifier}.ts`, context);
   }
@@ -191,6 +194,10 @@ test("admin POST reloads canonical profile, rejects missing/incomplete profiles 
   const incomplete = baseProfile();
   globalThis.__atsQaLoad = async () => incomplete;
   assert.equal((await POST(request(), { params: Promise.resolve({ userId: id(30) }) })).status, 422);
+  const nonEntitled = { ...fullProfile(), selectedPackage: "not-a-package" };
+  globalThis.__atsQaLoad = async () => nonEntitled;
+  assert.equal((await POST(request(new URLSearchParams({ selectedPackage: "indian-domestic" })),
+    { params: Promise.resolve({ userId: id(30) }) })).status, 422);
   const complete = fullProfile();
   globalThis.__atsQaLoad = async (userId) => { assert.equal(userId, id(30)); return complete; };
   const response = await POST(request(new URLSearchParams({ fullName: "Tampered Name", employer: "Tampered Employer" })),

@@ -1,4 +1,4 @@
-import { V1_PACKAGE_DEFINITIONS } from "@/types/package";
+import { packageAllowsOutput } from "./package-routing";
 import type { EducationEntry, WorkExperienceEntry } from "@/types/client-profile";
 
 import type { PdfBlock, PdfDocumentModel, PdfSection } from "./pdf/pdf-model";
@@ -57,8 +57,7 @@ function education(item: EducationEntry): PdfBlock {
 }
 
 export function isEuropeanPackageEligible(data: DocumentData): boolean {
-  const definition = V1_PACKAGE_DEFINITIONS.find((item) => item.code === data.packageContext.selectedPackage);
-  return Boolean(definition?.isActive && definition.resumeFormatFamilies.some((family) => family === "europass-european-union"));
+  return packageAllowsOutput(data.packageContext.selectedPackage, "europass-eu-resume");
 }
 
 /** Pure presentation of reviewed canonical data; never queries storage or creates candidate facts. */

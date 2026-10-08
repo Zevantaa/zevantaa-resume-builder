@@ -6,6 +6,7 @@ import { loadAdminCandidateProfile } from "@/features/document-generation/admin-
 import { calculateIndicativeAtsScore } from "@/features/document-generation/indicative-ats-score";
 import { IndicativeAtsPanel } from "@/features/document-generation/indicative-ats-panel";
 import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
+import { packageAllowsOutput } from "@/features/document-generation/package-routing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,7 @@ export default async function AdminGlobalAtsPage({ params }: PageProps<"/admin/c
   if (!profile) notFound();
   const mapping = mapCandidateProfileToDocumentData(profile, "resume");
   const score = calculateIndicativeAtsScore(mapping);
+  const entitled = packageAllowsOutput(profile.selectedPackage, "global-ats-resume");
 
   return <div className="dashboard-page"><div className="layout-container-readable layout-stack">
     <header className="layout-stack">
@@ -26,15 +28,15 @@ export default async function AdminGlobalAtsPage({ params }: PageProps<"/admin/c
         rewrite candidate facts or persist a generated document. The internal indicative score is calculated from the current saved profile.
       </p>
     </header>
-    <IndicativeAtsPanel result={score} />
+    {entitled && <IndicativeAtsPanel result={score} />}
     <SectionCard title="Profile readiness" description="Only reviewed canonical data is eligible for PDF output.">
       {mapping.findings.length ? mapping.findings.map((finding, index) =>
         <InlineAlert key={`${finding.code}-${index}`} variant={finding.severity === "error" ? "error" : "warning"}>
           {finding.message}
         </InlineAlert>) : <p className="type-body">No required-data gaps were found.</p>}
-      {mapping.canGenerate ? <form action={`/admin/clients/${encodeURIComponent(userId)}/global-ats/download`} method="post">
+      {entitled && mapping.canGenerate ? <form action={`/admin/clients/${encodeURIComponent(userId)}/global-ats/download`} method="post">
         <button className="auth-submit type-button" type="submit">Download Global ATS Resume PDF</button>
-      </form> : <p className="type-body text-text-muted">Resolve the required data gaps before generating this resume.</p>}
+      </form> : <p className="type-body text-text-muted">{entitled ? "Resolve the required data gaps before generating this resume." : "This package does not include the Global ATS resume."}</p>}
     </SectionCard>
     <Link className="type-label admin-table-link" href={`/admin/clients/${encodeURIComponent(userId)}/edit`}>
       Return to client account

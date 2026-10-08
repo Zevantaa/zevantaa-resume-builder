@@ -1,5 +1,6 @@
 import type { PdfBlock, PdfDocumentModel, PdfSection } from "./pdf/pdf-model";
 import type { DocumentDataFinding, DocumentDataMappingResult } from "./profile-mapper";
+import { packageAllowsOutput } from "./package-routing";
 
 const hasText = (value: string | undefined | null): value is string => Boolean(value?.trim());
 const joined = (values: readonly (string | undefined | null)[]) => values.filter(hasText).join(" | ");
@@ -61,7 +62,8 @@ export function buildGlobalAtsResumeModel(mapping: DocumentDataMappingResult): P
   const { data } = mapping;
   if (!mapping.canGenerate || !hasText(data.identity.fullName) ||
       !hasText(data.identity.primaryEmail) || !hasText(data.identity.mobileNumber) ||
-      !hasText(data.packageContext.selectedPackage) || !data.packageContext.targetMarkets.length) {
+      !packageAllowsOutput(data.packageContext.selectedPackage, "global-ats-resume") ||
+      !data.packageContext.targetMarkets.length) {
     throw new GlobalAtsResumeNotReadyError(mapping.findings);
   }
 

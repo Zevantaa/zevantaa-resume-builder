@@ -1,5 +1,5 @@
 import type { CoverLetterType } from "@/types/document-record";
-import { V1_PACKAGE_DEFINITIONS } from "@/types/package";
+import { packageAllowsOutput } from "./package-routing";
 
 import type { PdfBlock, PdfDocumentModel } from "./pdf/pdf-model";
 import type { PdfThemeOverrides } from "./pdf/pdf-theme";
@@ -52,8 +52,7 @@ function conciseSupplied(value: string | undefined, maxLength: number): string |
 /** The frozen scope explicitly grants all included outputs only to Executive All-Inclusive.
  * No other frozen package has a cover-letter configuration reference. */
 export function isCoverLetterPackageEligible(data: DocumentData): boolean {
-  const definition = V1_PACKAGE_DEFINITIONS.find((item) => item.code === data.packageContext.selectedPackage);
-  return Boolean(definition?.isActive && definition.code === "executive-transition-agency-distribution");
+  return packageAllowsOutput(data.packageContext.selectedPackage, "general-corporate-cover-letter");
 }
 
 function hasCredibleContext(data: DocumentData): boolean {

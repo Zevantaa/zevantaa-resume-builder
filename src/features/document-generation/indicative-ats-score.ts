@@ -1,4 +1,5 @@
 import { buildGlobalAtsResumeModel } from "./global-ats-resume";
+import { isAtsScoreVisible } from "./package-routing";
 import type { DocumentDataMappingResult } from "./profile-mapper";
 
 /** Fixed optimization target, never a minimum or adjustment to the calculated score. */
@@ -42,11 +43,12 @@ const label: Record<AtsScoreDimension, string> = {
 /** Deterministic assessment of reviewed canonical data and its Global ATS PDF model. */
 export function calculateIndicativeAtsScore(mapping: DocumentDataMappingResult): IndicativeAtsScore {
   const hasSubstantiveCareerEntry = Boolean(mapping.data.employment?.length || mapping.data.education?.length || mapping.data.projects?.length);
-  if (!mapping.canGenerate || !hasSubstantiveCareerEntry) {
+  if (!mapping.canGenerate || !hasSubstantiveCareerEntry || !isAtsScoreVisible(mapping.data.packageContext.selectedPackage)) {
     return { status: "not-ready", benchmark: ATS_BENCHMARK,
       reasons: [
         ...mapping.findings.filter((finding) => finding.severity === "error").map((finding) => finding.message),
         ...(!hasSubstantiveCareerEntry ? ["Add at least one reviewed employment, education, or project entry before evaluating the Global ATS resume."] : []),
+        ...(!isAtsScoreVisible(mapping.data.packageContext.selectedPackage) ? ["The assigned package does not include a Global ATS resume."] : []),
       ] };
   }
   const { data } = mapping;

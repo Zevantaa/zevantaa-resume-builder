@@ -1,4 +1,4 @@
-import { V1_PACKAGE_DEFINITIONS } from "@/types/package";
+import { packageAllowsOutput } from "./package-routing";
 import type { EducationEntry, WorkExperienceEntry } from "@/types/client-profile";
 
 import type { PdfBlock, PdfDocumentModel, PdfSection } from "./pdf/pdf-model";
@@ -56,8 +56,7 @@ function education(item: EducationEntry): PdfBlock {
 }
 
 export function isGccPackageEligible(data: DocumentData): boolean {
-  const definition = V1_PACKAGE_DEFINITIONS.find((item) => item.code === data.packageContext.selectedPackage);
-  return Boolean(definition?.isActive && definition.resumeFormatFamilies.some((family) => family === "gcc-middle-east"));
+  return packageAllowsOutput(data.packageContext.selectedPackage, "gcc-resume");
 }
 
 /** Pure GCC presentation. The optional image must already be privately resolved and decoded by trusted server code. */

@@ -4,6 +4,9 @@ import { registerHooks } from "node:module";
 import { test } from "node:test";
 
 registerHooks({ resolve(specifier, context, nextResolve) {
+  if (specifier.startsWith("@/types/")) {
+    return nextResolve(new URL(`../src/types/${specifier.slice("@/types/".length)}.ts`, import.meta.url).href, context);
+  }
   if (specifier.startsWith("./") && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
     return nextResolve(`${specifier}.ts`, context);
   }

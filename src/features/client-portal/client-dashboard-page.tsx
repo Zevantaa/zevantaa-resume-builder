@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { InlineAlert, StatusBadge } from "@/components/ui";
 import { IndicativeAtsPanel } from "@/features/document-generation/indicative-ats-panel";
+import { getPackageRouting, packageAllowsOutput } from "@/features/document-generation/package-routing";
 
 import { getClientDashboardSummary } from "./contact-profile-service";
 import { getCurrentClientAtsScore } from "./client-ats-score-service";
@@ -10,6 +11,7 @@ import type { TargetMarket } from "@/types/client-profile";
 
 export async function ClientDashboardPage() {
   const [summary, score] = await Promise.all([getClientDashboardSummary(), getCurrentClientAtsScore()]);
+  const routing = getPackageRouting(summary?.packageCode);
 
   return (
     <div className="dashboard-page dashboard-workspace-page">
@@ -40,25 +42,26 @@ export async function ClientDashboardPage() {
               <p className="type-supporting text-text-muted">Assigned by Zevantaa. Contact the administrator for package changes.</p>
             </div>
             <Link className="type-button dashboard-primary-link" href="/client/profile">Open my intake <span aria-hidden="true">→</span></Link>
-            <p className="type-supporting text-text-muted">Review Zevantaa-managed details and upload or replace your source resume and optional GCC photograph.</p>
+            <p className="type-supporting text-text-muted">Review Zevantaa-managed details and upload or replace your source resume{routing?.gccPhotoAvailable ? " and optional GCC photograph" : ""}.</p>
           </section>
 
           <div className="dashboard-output-column">
-            {score ? <IndicativeAtsPanel result={score} /> : null}
+            {routing?.atsScoreVisible && score ? <IndicativeAtsPanel result={score} /> : null}
             <section aria-labelledby="outputs-heading" className="dashboard-workspace-panel dashboard-outputs-panel">
               <div className="dashboard-module-heading">
                 <span className="type-label dashboard-kicker">Module 02 · Output workspace</span>
                 <h2 className="type-heading-3" id="outputs-heading">Resumes & cover letters</h2>
-                <p className="type-supporting text-text-muted">The approved output families are shown for orientation. No downloads are available yet.</p>
+                <p className="type-supporting text-text-muted">Outputs included with your assigned package are shown below. Package availability does not mean a document is ready to generate or download.</p>
               </div>
               <div className="dashboard-output-list">
-                <div><strong>Global ATS resume</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>
-                <div><strong>Domestic resume layouts</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>
-                <div><strong>GCC / Middle East resume</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>
-                <div><strong>Europass / EU resume</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>
-                <div><strong>Cover letters</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>
+                {packageAllowsOutput(summary.packageCode, "global-ats-resume") && <div><strong>Global ATS resume</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>}
+                {packageAllowsOutput(summary.packageCode, "domestic-resume-1") && <div><strong>Domestic resume layouts (1–5)</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>}
+                {packageAllowsOutput(summary.packageCode, "gcc-resume") && <div><strong>GCC / Middle East resume</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>}
+                {packageAllowsOutput(summary.packageCode, "europass-eu-resume") && <div><strong>Europass / EU resume</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>}
+                {packageAllowsOutput(summary.packageCode, "general-corporate-cover-letter") && <div><strong>Cover letters</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>}
+                {!routing && <p className="type-supporting">This package is unavailable. Contact Zevantaa support.</p>}
               </div>
-              <p className="type-supporting text-text-muted">Outputs will depend on the assigned package once document generation is implemented.</p>
+              <p className="type-supporting text-text-muted">Generation and download access depend on the assigned package and the reviewed profile’s readiness.</p>
             </section>
           </div>
         </div>

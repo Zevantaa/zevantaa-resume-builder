@@ -1,4 +1,4 @@
-/** Frozen V1 output labels; no template or output entitlement is implemented here. */
+/** Frozen V1 output IDs. Entitlements live in package-routing.ts, not filename formatting. */
 export type PdfOutputKind =
   | "global-ats-resume"
   | "domestic-resume-1" | "domestic-resume-2" | "domestic-resume-3"

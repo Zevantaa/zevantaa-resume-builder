@@ -3,6 +3,7 @@ import { buildGlobalAtsResumeModel, GlobalAtsResumeNotReadyError } from "@/featu
 import { renderPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
 import { buildPdfFilename } from "@/features/document-generation/pdf/pdf-filename";
 import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
+import { packageAllowsOutput } from "@/features/document-generation/package-routing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,9 @@ export async function POST(request: Request, context: { params: Promise<{ userId
   const origin = request.headers.get("origin");
   if (origin && origin !== new URL(request.url).origin) {
     return new Response("Cross-origin PDF requests are not allowed.", { status: 403 });
+  }
+  if (!packageAllowsOutput(profile.selectedPackage, "global-ats-resume")) {
+    return new Response("This package does not include the requested resume.", { status: 422 });
   }
 
   const mapping = mapCandidateProfileToDocumentData(profile, "resume");
