@@ -73,14 +73,44 @@ test("three variants use reviewed facts with deterministic source paths and no u
     assert.equal(first.candidateName, profile.fullName);
     assert.ok(first.contactLines.join(" ").includes(profile.primaryEmail));
     const body = first.paragraphs.map((paragraph) => paragraph.text).join(" ");
-    assert.ok(body.includes(profile.professionalSummary));
+    assert.doesNotMatch(body, /Candidate-supplied/i);
+    assert.ok(!body.includes(profile.workExperience[1].highlights[0]), "long raw highlight must not be copied");
+    assert.ok(!body.includes(profile.workExperience[1].description), "QA-meta role description must not be copied");
     assert.ok(body.includes(profile.workExperience[1].jobTitle));
     assert.ok(body.includes(profile.workExperience[1].employerName));
-    for (const skill of profile.skills.slice(0, 4)) assert.ok(body.includes(skill.name));
-    assert.ok(first.paragraphs.flatMap((paragraph) => paragraph.sourcePaths).some((path) => path === "professionalSummary.text"));
+    assert.ok(!body.includes(profile.workExperience[1].location), "role location is omitted from prose");
+    for (const skill of profile.skills.slice(0, 3)) assert.ok(body.includes(skill.name));
+    assert.ok(!body.includes(profile.skills[3].name), "skill list is deliberately limited");
+    assert.ok(!first.paragraphs.flatMap((paragraph) => paragraph.sourcePaths).includes("professionalSummary.text"), "unsuitable summary is omitted");
     assert.ok(first.paragraphs.flatMap((paragraph) => paragraph.sourcePaths).some((path) => path === `employment.${profile.workExperience[1].id}`));
     assert.doesNotMatch(body, /proven track record|significant revenue growth|industry leader|visa|work authori[sz]ation|sponsorship|citizenship|immigration eligibility|\[Company Name\]|N\/A|undefined/i);
   }
+});
+
+test("selects at most one short supplied evidence sentence and never truncates a long bullet", () => {
+  const profile = createCoverLetterQaProfile();
+  const latest = profile.workExperience[1];
+  latest.description = "Coordinated weekly inventory reports for regional teams.";
+  const withDescription = buildCoverLetterContent(map(profile), "general-corporate");
+  const first = withDescription.paragraphs.map((item) => item.text).join(" ");
+  assert.ok(first.includes(latest.description));
+  assert.ok(!first.includes(latest.highlights[0]));
+  assert.ok(withDescription.paragraphs.some((item) => item.sourcePaths.includes(`employment.${latest.id}.description`)));
+
+  latest.description = "Long responsibility text ".repeat(20);
+  latest.highlights[0] = "Prepared monthly operations handoff notes for regional teams.";
+  const withHighlight = buildCoverLetterContent(map(profile), "general-corporate");
+  const second = withHighlight.paragraphs.map((item) => item.text).join(" ");
+  assert.ok(!second.includes(latest.description));
+  assert.ok(second.includes(latest.highlights[0]));
+  assert.ok(withHighlight.paragraphs.some((item) => item.sourcePaths.includes(`employment.${latest.id}.highlights.0`)));
+
+  latest.highlights[0] = "Very long supplied bullet text ".repeat(20);
+  const withoutEvidence = buildCoverLetterContent(map(profile), "general-corporate");
+  const third = withoutEvidence.paragraphs.map((item) => item.text).join(" ");
+  assert.ok(!third.includes(latest.description));
+  assert.ok(!third.includes(latest.highlights[0]));
+  assert.ok(third.includes(latest.jobTitle) && third.includes(latest.employerName));
 });
 
 test("relocation statement requires an explicit open or conditional preference", () => {
@@ -89,12 +119,12 @@ test("relocation statement requires an explicit open or conditional preference",
     profile.relocationPreference = preference;
     return buildCoverLetterContent(map(profile), "international-relocation").paragraphs.map((item) => item.text).join(" ");
   };
-  assert.match(letter("open"), /I am open to relocation from Fictional Chandigarh/);
+  assert.match(letter("open"), /I am currently based in Fictional Chandigarh and am open to relocation/);
   const open = buildCoverLetterContent(map(profile), "international-relocation");
   assert.ok(open.paragraphs.some((item) => item.sourcePaths.includes("identity.relocationPreference") && item.sourcePaths.includes("identity.currentLocation")));
-  assert.match(letter("conditional"), /My relocation preference is conditional/);
-  assert.doesNotMatch(letter("not-open"), /I am open to relocation|My relocation preference is conditional/);
-  assert.doesNotMatch(letter("not-specified"), /I am open to relocation|My relocation preference is conditional/);
+  assert.match(letter("conditional"), /my relocation preference is conditional/);
+  assert.doesNotMatch(letter("not-open"), /open to relocation|relocation preference is conditional/);
+  assert.doesNotMatch(letter("not-specified"), /open to relocation|relocation preference is conditional/);
 });
 
 test("technology content appears only when a reviewed project explicitly supplies it", () => {
@@ -104,9 +134,10 @@ test("technology content appears only when a reviewed project explicitly supplie
   assert.match(text, /Fictional Regional Reporting Project/);
   assert.match(text, /Spreadsheet reporting/);
   assert.ok(withProject.paragraphs.flatMap((item) => item.sourcePaths).some((path) => path.endsWith("technologies.0")));
+  assert.match(text, /My profile also includes project experience involving/);
   profile.projects = [];
   const withoutProject = buildCoverLetterContent(map(profile), "technology-startup").paragraphs.map((item) => item.text).join(" ");
-  assert.doesNotMatch(withoutProject, /Fictional Regional Reporting Project|Spreadsheet reporting|Technologies explicitly listed/);
+  assert.doesNotMatch(withoutProject, /Fictional Regional Reporting Project|Spreadsheet reporting|project experience involving/);
   assert.doesNotMatch(withoutProject, /software engineer|developer|coding|cloud architect/i);
 });
 
@@ -117,8 +148,11 @@ test("sparse profile is not ready, while short credible profiles remain concise 
   const summaryOnly = createCoverLetterQaProfile();
   summaryOnly.workExperience = []; summaryOnly.education = []; summaryOnly.skills = [];
   summaryOnly.certifications = []; summaryOnly.languages = []; summaryOnly.projects = []; summaryOnly.additionalSections = [];
+  summaryOnly.professionalSummary = "Operations professional with documented experience coordinating inventory reporting and cross-functional planning for regional teams.";
   const content = buildCoverLetterContent(map(summaryOnly), "general-corporate");
   assert.equal(content.paragraphs.length, 3);
+  assert.ok(content.paragraphs.some((item) => item.text.includes(summaryOnly.professionalSummary) &&
+    item.sourcePaths.includes("professionalSummary.text")));
   assert.doesNotMatch(content.paragraphs.map((item) => item.text).join(" "), /\[|N\/A|undefined|No experience/);
 });
 
@@ -134,6 +168,8 @@ test("all three normal fictional letters are one-page searchable A4 PDFs", async
     const text = pages[0].text;
     assert.match(text, /Rohan Kapoor|Dear Hiring Manager|Sincerely/);
     assert.ok(text.includes(profile.primaryEmail));
+    assert.doesNotMatch(text, /Candidate-supplied/i);
+    assert.ok(!text.includes(profile.workExperience[1].highlights[0]));
     assert.doesNotMatch(text, /\[Company Name\]|\[Recruiter\]|N\/A|undefined|visa status/i);
     assert.doesNotMatch(buffer.toString("latin1"), /\/Subtype\s*\/Image/);
     const filename = buildPdfFilename({ candidateName: profile.fullName.repeat(6), output: `${type}-cover-letter` });
@@ -142,13 +178,14 @@ test("all three normal fictional letters are one-page searchable A4 PDFs", async
   }
 });
 
-test("long supplied summary wraps across A4 pages without clipping", async (t) => {
+test("overlong supplied summary is omitted rather than dumped into a letter", async (t) => {
   const profile = createCoverLetterQaProfile();
   profile.professionalSummary = Array(35).fill(profile.professionalSummary).join(" ");
   const output = buildCoverLetterModel(map(profile), "general-corporate");
+  assert.ok(!output.content.paragraphs.some((item) => item.sourcePaths.includes("professionalSummary.text")));
   const pages = await inspect(await renderPdfDocument(output.model, output.theme));
-  t.diagnostic(`long cover letter: ${pages.length} pages`);
-  assert.ok(pages.length >= 2);
+  t.diagnostic(`long-source cover letter: ${pages.length} pages`);
+  assert.equal(pages.length, 1);
   for (const [index, page] of pages.entries()) for (const item of page.items) {
     const x = item.transform[4]; const y = item.transform[5];
     assert.ok(x >= 15 && x + item.width <= page.width - 15, `page ${index + 1} horizontal clip: ${item.str}`);

@@ -11,16 +11,16 @@ candidate claims, or creates a second profile store.
 
 | Variant | Deterministic content strategy |
 | --- | --- |
-| General Corporate | Neutral opening; supplied summary, current or most-recent recorded role, its supplied description and first highlight; up to four stored skills, first ordered education and certification where present. |
-| International Relocation | Neutral international opening; same supplied career context and skills. Only an explicit `open` or `conditional` preference yields a relocation sentence. `not-open` or `not-specified` yields none. Current location is stated only when stored. Up to three stored languages may be named without invented proficiency. |
-| Technology & Startup | Contemporary opening; same supplied career context and skills. The first ordered project, its supplied description and exact listed technologies appear only when present. With no project/technology, it remains a general professional letter; it does not label generic operations experience as software expertise. |
+| General Corporate | Neutral opening; most recent recorded role and employer, up to three stored skills, at most one concise verbatim role sentence, and short education/certification support where present. |
+| International Relocation | Same professional base. Only an explicit `open` or `conditional` preference yields one factual relocation sentence; `not-open` or `not-specified` yields none. Languages are omitted because no target role is stored against which to assess relevance. |
+| Technology & Startup | Same professional base. One explicitly stored project and at most one listed technology may be mentioned. With no project/technology, it remains a general professional letter; it does not label generic operations experience as software expertise. |
 
-The role selector takes an explicitly current role first, otherwise the role
-with the most recent stored start month. It never changes role title, employer,
-location, description or highlight content. Other child sections stay in the
+The role selector takes the latest explicitly current role first, otherwise
+the role with the most recent stored start month. It preserves the complete
+role title and employer but omits role location from prose. Other child sections stay in the
 canonical mapper's `(sortOrder, id)` order. The letter uses only reviewed name,
 email, mobile, optional LinkedIn/current location, summary, employment,
-education, skills, certifications, languages and projects. It does not invent
+education, skills, certifications and projects. It does not invent
 a target company, recruiter, job posting, achievement, metric, skill,
 motivation, technology, nationality, visa status, work rights or sponsorship
 eligibility. Generic salutation and closing phrases are fixed letter framing,
@@ -30,9 +30,15 @@ The content object exposes `sourcePaths` such as `professionalSummary.text`,
 `employment.<id>`, and `projects.<id>.technologies.<index>` for factual
 sentences. These are transient provenance references, not printed candidate
 IDs or persisted letter records. Paragraph text is deterministic for the same
-mapped profile and chosen variant. The builder does not dump entire resume
-sections; it selects a limited set of supplied evidence and connects it with
-neutral fixed phrasing. It does not pad short profiles to a word count.
+mapped profile and chosen variant. The builder uses a complete supplied summary
+only when it is concise and free of QA provenance phrases such as
+`Candidate-supplied`. It selects at most one complete responsibility or
+highlight sentence (160 characters or less) from the chosen role. Longer text
+is omitted, not truncated or paraphrased, because a clipped clause could
+change its meaning. Skills are limited to three short exact names; lengthy
+education/certification labels are omitted rather than shortened. It does not
+pad short profiles to a word count. A strong profile may provide more evidence,
+but the 250–350-word target is secondary to factual accuracy and readability.
 
 ## Readiness and entitlement
 
@@ -82,11 +88,11 @@ returns HTTP 422. No migration or Supabase policy change is needed.
 ## QA and limitations
 
 PDF.js regression checks validity, selectable text, A4 size, source facts,
-negative unsupported-claim patterns, normal one-page output, long two-page
-flow, filenames, package refusal, signed-out/client denial, canonical reload,
+negative unsupported-claim patterns, normal one-page output, overlong-source
+omission, filenames, package refusal, signed-out/client denial, canonical reload,
 form tampering and sparse not-ready behavior. Visual/manual review is still
-needed for real candidate wording, grammatical fragments in supplied summaries
-or descriptions, viewer-specific wrapping, complex scripts and accessibility.
+needed for real candidate wording, grammatical fragments in short supplied
+summaries or descriptions, viewer-specific wrapping, complex scripts and accessibility.
 The templates cannot know the recipient, target role or company because those
 are not canonical V1 fields. They are general introductions, not personalized
 job-application letters or AI-generated persuasion. DSH-01 is not part of this

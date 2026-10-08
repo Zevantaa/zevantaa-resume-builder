@@ -41,6 +41,13 @@ const sentence = (value: string): string => /[.!?]$/u.test(value.trim()) ? clean
 const list = (items: readonly string[]): string => items.length < 2 ? items.join("")
   : items.length === 2 ? `${items[0]} and ${items[1]}`
     : `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
+/** Use supplied prose whole or omit it: truncating a clause could reverse its meaning. */
+function conciseSupplied(value: string | undefined, maxLength: number): string | undefined {
+  if (!hasText(value)) return undefined;
+  const normalized = clean(value);
+  if (normalized.length > maxLength || /candidate[\s-]+supplied/iu.test(normalized)) return undefined;
+  return sentence(normalized);
+}
 
 /** The frozen scope explicitly grants all included outputs only to Executive All-Inclusive.
  * No other frozen package has a cover-letter configuration reference. */
@@ -60,11 +67,11 @@ function hasCredibleContext(data: DocumentData): boolean {
   );
 }
 
-/** Choose an explicit current role, otherwise the most recent supplied start month. */
+/** Choose the most recent reviewed role; current roles win only when still current. */
 function recentRole(data: DocumentData) {
   const roles = data.employment ?? [];
-  return roles.find((item) => item.currentRole) ?? [...roles]
-    .sort((a, b) => b.startDate.localeCompare(a.startDate) || a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))[0];
+  return [...roles].sort((a, b) => Number(b.currentRole) - Number(a.currentRole) ||
+    b.startDate.localeCompare(a.startDate) || a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))[0];
 }
 
 function source(text: string, path: string): SourcedLetterParagraph {
@@ -94,61 +101,82 @@ export function buildCoverLetterContent(mapping: DocumentDataMappingResult, type
   }
 
   const openings: Record<CoverLetterType, string> = {
-    "general-corporate": "I am writing to express interest in an opportunity with your organization.",
-    "international-relocation": "I am writing to express interest in an international opportunity with your organization.",
-    "technology-startup": "I am writing to express interest in a technology or startup opportunity with your organization.",
+    "general-corporate": "I am writing regarding a professional opportunity with your organization.",
+    "international-relocation": "I am writing regarding an international opportunity with your organization.",
+    "technology-startup": "I am writing regarding a technology or startup opportunity with your organization.",
   };
   const paragraphs: SourcedLetterParagraph[] = [{ text: openings[type], sourcePaths: [] }];
-  const background: SourcedLetterParagraph[] = [];
-  if (data.professionalSummary?.text) background.push(source(data.professionalSummary.text, "professionalSummary.text"));
   const role = recentRole(data);
+  const skills = (data.skills ?? []).filter((item) => hasText(item.name) && clean(item.name).length <= 60 &&
+    !/candidate[\s-]+supplied/iu.test(item.name)).slice(0, 3);
   if (role) {
-    background.push(source(`My experience includes work as ${role.jobTitle} at ${role.employerName}${role.location ? ` in ${role.location}` : ""}`, `employment.${role.id}`));
-    if (role.description) background.push(source(role.description, `employment.${role.id}.description`));
-    if (role.highlights[0]) background.push(source(role.highlights[0], `employment.${role.id}.highlights.0`));
+    const skillClause = skills.length ? `, alongside work involving ${list(skills.map((item) => item.name))}` : "";
+    const main: SourcedLetterParagraph[] = [{
+      text: sentence(`My background includes experience as ${role.jobTitle} with ${role.employerName}${skillClause}`),
+      sourcePaths: [`employment.${role.id}`, ...skills.map((item) => `skills.${item.id}.name`)],
+    }];
+    const evidence = conciseSupplied(role.description, 160);
+    const highlight = evidence ? undefined : role.highlights.find((item) => conciseSupplied(item, 160));
+    if (evidence) main.push({ text: evidence, sourcePaths: [`employment.${role.id}.description`] });
+    else if (highlight) main.push({ text: conciseSupplied(highlight, 160)!,
+      sourcePaths: [`employment.${role.id}.highlights.${role.highlights.indexOf(highlight)}`] });
+    const firstBody = combined(main);
+    if (firstBody) paragraphs.push(firstBody);
+  } else if (skills.length) {
+    paragraphs.push({ text: sentence(`My skills include ${list(skills.map((item) => item.name))}`),
+      sourcePaths: skills.map((item) => `skills.${item.id}.name`) });
   }
-  const firstBody = combined(background);
-  if (firstBody) paragraphs.push(firstBody);
 
   const details: SourcedLetterParagraph[] = [];
-  const skills = (data.skills ?? []).filter((item) => hasText(item.name)).slice(0, 4);
-  if (skills.length) details.push({ text: sentence(`My skills include ${list(skills.map((item) => item.name))}`),
-    sourcePaths: skills.map((item) => `skills.${item.id}.name`) });
+  const summary = conciseSupplied(data.professionalSummary?.text, 560);
+  if (summary) details.push({ text: summary, sourcePaths: ["professionalSummary.text"] });
 
   if (type === "general-corporate") {
     const education = data.education?.[0];
-    if (education) details.push(source(`My education includes ${education.qualification} from ${education.institutionName}`, `education.${education.id}`));
     const certification = data.certifications?.[0];
-    if (certification) details.push(source(`My profile also lists ${certification.name} from ${certification.issuingOrganization}`, `certifications.${certification.id}`));
+    const educationText = education && clean(education.qualification).length + clean(education.institutionName).length <= 125
+      ? `My education includes ${education.qualification} from ${education.institutionName}` : undefined;
+    const certificationText = certification && clean(certification.name).length + clean(certification.issuingOrganization).length <= 125
+      ? `${educationText ? "my" : "My"} certifications include ${certification.name} from ${certification.issuingOrganization}` : undefined;
+    if (educationText || certificationText) details.push({
+      text: sentence([educationText, certificationText].filter(hasText).join("; ")),
+      sourcePaths: [educationText ? `education.${education!.id}` : undefined,
+        certificationText ? `certifications.${certification!.id}` : undefined].filter(hasText),
+    });
   }
   if (type === "international-relocation") {
     const preference = data.identity.relocationPreference;
     if (preference === "open") details.push({
-      text: sentence(`I am open to relocation${data.identity.currentLocation ? ` from ${data.identity.currentLocation}` : ""}`),
+      text: sentence(data.identity.currentLocation
+        ? `I am currently based in ${data.identity.currentLocation} and am open to relocation`
+        : "I am open to relocation"),
       sourcePaths: ["identity.relocationPreference", ...(data.identity.currentLocation ? ["identity.currentLocation"] : [])],
     });
     if (preference === "conditional") details.push({
-      text: sentence(`My relocation preference is conditional${data.identity.currentLocation ? `; my current location is ${data.identity.currentLocation}` : ""}`),
+      text: sentence(data.identity.currentLocation
+        ? `I am currently based in ${data.identity.currentLocation}; my relocation preference is conditional`
+        : "My relocation preference is conditional"),
       sourcePaths: ["identity.relocationPreference", ...(data.identity.currentLocation ? ["identity.currentLocation"] : [])],
     });
-    const languages = (data.languages ?? []).filter((item) => hasText(item.name)).slice(0, 3);
-    if (languages.length) details.push({ text: sentence(`The languages on my profile include ${list(languages.map((item) => item.name))}`),
-      sourcePaths: languages.map((item) => `languages.${item.id}.name`) });
   }
   if (type === "technology-startup") {
     const project = data.projects?.find((item) => hasText(item.name));
-    if (project) {
-      details.push(source(`My project work includes ${project.name}${project.role ? `, with the role of ${project.role}` : ""}`, `projects.${project.id}`));
-      if (project.description) details.push(source(project.description, `projects.${project.id}.description`));
-      if (project.technologies.length) details.push({
-        text: sentence(`Technologies explicitly listed for that project include ${list(project.technologies)}`),
-        sourcePaths: project.technologies.map((_, index) => `projects.${project.id}.technologies.${index}`),
+    if (project && clean(project.name).length <= 100) {
+      const firstTechnology = project.technologies.find((item) => hasText(item) && clean(item).length <= 70);
+      details.push({ text: sentence(`My profile also includes project experience involving ${project.name}${firstTechnology ? ` and ${firstTechnology}` : ""}`),
+        sourcePaths: [`projects.${project.id}`,
+          ...(firstTechnology ? [`projects.${project.id}.technologies.${project.technologies.indexOf(firstTechnology)}`] : [])],
       });
     }
   }
+  if (!role && !summary && !skills.length && type !== "technology-startup") {
+    const project = data.projects?.find((item) => hasText(item.name));
+    if (project) details.push(source(`My experience includes the project ${project.name}`, `projects.${project.id}`));
+  }
   const secondBody = combined(details);
   if (secondBody) paragraphs.push(secondBody);
-  paragraphs.push({ text: "I would welcome a conversation about a suitable opportunity. Thank you for your consideration.", sourcePaths: [] });
+  if (paragraphs.length === 1) throw new CoverLetterNotReadyError();
+  paragraphs.push({ text: "Thank you for considering my application. I would welcome the opportunity to discuss my background further.", sourcePaths: [] });
   return { type, candidateName: data.identity.fullName, contactLines: contactLines(data),
     salutation: "Dear Hiring Manager,", paragraphs, signOff: "Sincerely," };
 }
