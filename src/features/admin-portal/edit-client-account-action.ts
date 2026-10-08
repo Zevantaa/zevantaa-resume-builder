@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import type {
   ClientAccountStatus,
   EditClientAccountFormState,
@@ -22,7 +24,7 @@ const errorMessages = {
 } as const;
 
 export async function editClientAccountAction(
-  _previousState: EditClientAccountFormState,
+  previousState: EditClientAccountFormState,
   formData: FormData,
 ): Promise<EditClientAccountFormState> {
   const userId = String(formData.get("userId") ?? "").trim();
@@ -72,12 +74,18 @@ export async function editClientAccountAction(
       };
     }
 
+    revalidatePath(`/admin/clients/${userId}/edit`);
+    revalidatePath("/admin/clients");
+    revalidatePath("/admin");
+    revalidatePath("/client");
+
     return {
       message:
         accountStatus === "disabled"
           ? "Client account updated. Portal access is now disabled; no data was deleted."
           : "Client account updated successfully.",
       status: "success",
+      saveRevision: (previousState.saveRevision ?? 0) + 1,
     };
   } catch {
     return {

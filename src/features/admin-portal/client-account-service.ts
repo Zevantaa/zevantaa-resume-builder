@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 
 import { requireApplicationRole } from "@/features/authentication/authorization";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getPackageRouting } from "@/features/document-generation/package-routing";
 
 import type {
   CandidateAccountOption,
@@ -45,7 +46,7 @@ type UpdateClientAccountInput = {
 };
 
 export type UpdateClientAccountResult =
-  | { ok: true }
+  | { ok: true; packageCode: string }
   | {
       code:
         | "auth-update"
@@ -380,6 +381,11 @@ export async function updateClientAccount({
     return { code: "confirmation-required", ok: false };
   }
 
+  // A database row alone must not authorize an eighth or retired V1 package.
+  if (!getPackageRouting(changes.packageCode)) {
+    return { code: "invalid-package", ok: false };
+  }
+
   const candidateProfileId = role.candidate_profile_id;
   const [profileResult, packageResult, authResult] = await Promise.all([
     supabase
@@ -484,7 +490,18 @@ export async function updateClientAccount({
     .maybeSingle();
 
   if (!roleUpdateError && updatedRole) {
-    return { ok: true };
+    // Do not report success from the mutation response or form state alone.
+    // Reload the linked profile and confirm the package that actually persisted.
+    const { data: savedProfile, error: reloadError } = await supabase
+      .from("candidate_profiles")
+      .select("selected_package_code")
+      .eq("id", candidateProfileId)
+      .is("archived_at", null)
+      .maybeSingle();
+    if (reloadError || savedProfile?.selected_package_code !== changes.packageCode) {
+      return { code: "reconciliation-required", ok: false };
+    }
+    return { ok: true, packageCode: savedProfile.selected_package_code };
   }
 
   const { error: profileRollbackError } = await supabase

@@ -40,6 +40,15 @@ registerHooks({
         shortCircuit: true,
       };
     }
+    if (specifier === "next/cache") {
+      return { url: mockModule("export function revalidatePath(path){globalThis.__fnd05.revalidated.push(path)}"), shortCircuit: true };
+    }
+    if (specifier.startsWith("@/features/document-generation/")) {
+      return nextResolve(new URL(`../src/features/document-generation/${specifier.slice("@/features/document-generation/".length)}.ts`, import.meta.url).href, context);
+    }
+    if (specifier.startsWith("@/types/")) {
+      return nextResolve(new URL(`../src/types/${specifier.slice("@/types/".length)}.ts`, import.meta.url).href, context);
+    }
     if (specifier === "next/navigation") {
       return {
         url: mockModule("export function redirect(path){throw new Error('REDIRECT:'+path)}"),
@@ -69,7 +78,7 @@ const { createClientAccountAction } = await import(
 const { editClientAccountAction } = await import(
   "../src/features/admin-portal/edit-client-account-action.ts"
 );
-const { provisionClientAccount, updateClientAccount } = await import(
+const { provisionClientAccount, updateClientAccount, getProvisionedClient } = await import(
   "../src/features/admin-portal/client-account-service.ts"
 );
 const { requireApplicationRole } = await import(
@@ -138,11 +147,26 @@ function setup() {
         is_active: true,
         archived_at: null,
       },
+      {
+        code: "europass-european-union",
+        display_name: "Europass / EU",
+        target_markets: ["european-union"],
+        is_active: true,
+        archived_at: null,
+      },
+      {
+        code: "executive-transition-agency-distribution",
+        display_name: "Executive All-Inclusive",
+        target_markets: ["indian-domestic", "gcc-middle-east", "european-union"],
+        is_active: true,
+        archived_at: null,
+      },
     ],
     roles: [],
     authCreateCalls: 0,
     failRoleInsert: false,
     failRoleUpdate: false,
+    revalidated: [],
   };
 
   function query(table) {
@@ -159,6 +183,7 @@ function setup() {
       eq(key, value) { filters.push((row) => row[key] === value); return this; },
       neq(key, value) { filters.push((row) => row[key] !== value); return this; },
       is(key, value) { filters.push((row) => row[key] === value); return this; },
+      order() { return this; },
       update(values) { updateValues = values; return this; },
       insert(values) {
         if (table === "user_roles" && state.failRoleInsert) {
@@ -239,6 +264,7 @@ function setup() {
     currentRole: "admin",
     provision: provisionClientAccount,
     update: updateClientAccount,
+    revalidated: state.revalidated,
   };
   return state;
 }
@@ -507,6 +533,43 @@ test("package, email and status edits preserve the client/profile link", async (
   }));
   assert.equal(restored.status, "success");
   assert.equal(state.roles[0].account_status, "active");
+});
+
+test("successive package changes survive fresh service reloads and revalidate every save", async () => {
+  const state = setup();
+  state.authUsers.push({ id: userId, email: "fictional@example.invalid" });
+  state.roles.push({ user_id: userId, role_code: "client", candidate_profile_id: candidateId, account_status: "active" });
+  let previousState = { status: "idle" };
+  for (const [code, displayName, markets] of [
+    ["gcc-middle-east", "GCC / Middle East", ["gcc-middle-east"]],
+    ["europass-european-union", "Europass / EU", ["european-union"]],
+    ["executive-transition-agency-distribution", "Executive All-Inclusive", ["indian-domestic", "gcc-middle-east", "european-union"]],
+  ]) {
+    const result = await editClientAccountAction(previousState, form({ userId, packageCode: code, accountStatus: "active" }));
+    assert.equal(result.status, "success", code);
+    assert.equal(result.saveRevision, (previousState.saveRevision ?? 0) + 1);
+    assert.equal(state.candidates[0].selected_package_code, code);
+    assert.deepEqual(state.candidates[0].target_markets, markets);
+    const reloaded = await getProvisionedClient(userId);
+    assert.equal(reloaded.packageCode, code, "fresh database-backed service read");
+    assert.equal(reloaded.packageName, displayName);
+    assert.equal(reloaded.candidateProfileId, candidateId);
+    previousState = result;
+  }
+  assert.equal(state.revalidated.filter((path) => path === `/admin/clients/${userId}/edit`).length, 3);
+  assert.equal(state.revalidated.filter((path) => path === "/admin/clients").length, 3);
+  assert.equal(state.revalidated.filter((path) => path === "/client").length, 3);
+});
+
+test("an unknown active database package is still rejected by the frozen V1 catalog", async () => {
+  const state = setup();
+  state.authUsers.push({ id: userId, email: "fictional@example.invalid" });
+  state.roles.push({ user_id: userId, role_code: "client", candidate_profile_id: candidateId, account_status: "active" });
+  state.packages.push({ code: "unapproved-eighth", display_name: "Unapproved", target_markets: ["indian-domestic"], is_active: true, archived_at: null });
+  const result = await editClientAccountAction({ status: "idle" }, form({ userId, packageCode: "unapproved-eighth", accountStatus: "active" }));
+  assert.equal(result.status, "error");
+  assert.equal(state.candidates[0].selected_package_code, "indian-domestic");
+  assert.equal((await getProvisionedClient(userId)).packageCode, "indian-domestic");
 });
 
 test("failed status update rolls back edited core fields, package and Auth email", async () => {

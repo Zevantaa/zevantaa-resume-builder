@@ -28,7 +28,7 @@ export function EditClientAccountForm({
     if (state.status === "success") {
       router.refresh();
     }
-  }, [router, state.status]);
+  }, [router, state.status, state.saveRevision]);
 
   return (
     <form action={formAction} className="client-account-form">
@@ -40,7 +40,10 @@ export function EditClientAccountForm({
         </InlineAlert>
       ) : null}
 
-      <AdminProfileFields packages={client.packages} errors={state.fieldErrors}
+      <AdminProfileFields key={JSON.stringify([client.fullName, client.email, client.mobileNumber,
+        client.whatsappNumber, client.linkedinUrl, client.currentLocation,
+        client.relocationPreference, client.packageCode])}
+        packages={client.packages} errors={state.fieldErrors}
         values={{
           fullName: client.fullName,
           email: client.email,

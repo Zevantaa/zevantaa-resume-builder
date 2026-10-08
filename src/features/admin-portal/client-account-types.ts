@@ -71,6 +71,8 @@ export type EditClientAccountFormState = {
   fieldErrors?: Partial<Record<"fullName" | "email" | "mobileNumber" | "whatsappNumber" | "linkedinUrl" | "currentLocation" | "relocationPreference" | "packageCode" | "accountStatus" | "confirmation", string>>;
   message?: string;
   status: "idle" | "success" | "error";
+  /** Increments on every successful submission, including consecutive saves. */
+  saveRevision?: number;
 };
 
 export const initialEditClientAccountFormState: EditClientAccountFormState = {
