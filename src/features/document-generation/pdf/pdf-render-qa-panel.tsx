@@ -116,6 +116,21 @@ export function PdfRenderQaPanel() {
           <button className="type-button" type="submit">{label}</button>
         </form>)}
       </section>
+      <section className="dashboard-workspace-panel layout-stack">
+        <div className="dashboard-module-heading">
+          <h2 className="type-heading-3">Cover letter QA</h2>
+          <p className="type-supporting text-text-muted">Three deterministic letters from fixed fictional reviewed data. The sparse case should return a not-ready response, not a filler PDF.</p>
+        </div>
+        {([
+          ["cover-letter-general-corporate", "Download General Corporate Cover Letter"],
+          ["cover-letter-international-relocation", "Download International Relocation Cover Letter"],
+          ["cover-letter-technology-startup", "Download Technology & Startup Cover Letter"],
+          ["cover-letter-sparse", "Test sparse-profile not-ready state"],
+        ] as const).map(([scenario, label]) => <form action="/admin/pdf-render-test/download" key={scenario} method="post">
+          <input name="scenario" type="hidden" value={scenario} />
+          <button className="type-button" type="submit">{label}</button>
+        </form>)}
+      </section>
       <section className="dashboard-workspace-panel">
         <div className="dashboard-module-heading">
           <h2 className="type-heading-3">Header/Footer QA</h2>

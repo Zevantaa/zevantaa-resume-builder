@@ -6,11 +6,14 @@ import { createGccQaPhotoDataUri, createGccQaProfile } from "@/features/document
 import { buildGccResumeModel } from "@/features/document-generation/gcc-resume";
 import { createEuropeanQaProfile } from "@/features/document-generation/european-qa-fixture";
 import { buildEuropeanResumeModel } from "@/features/document-generation/european-resume";
+import { createCoverLetterQaProfile } from "@/features/document-generation/cover-letter-qa-fixture";
+import { buildCoverLetterModel, CoverLetterNotReadyError, isCoverLetterType } from "@/features/document-generation/cover-letters";
 import { createPdfRenderQaModel } from "@/features/document-generation/pdf/pdf-render-qa-fixtures";
 import type { PdfRenderQaScenario } from "@/features/document-generation/pdf/pdf-render-qa-types";
 import { renderPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
 import { buildPdfFilename } from "@/features/document-generation/pdf/pdf-filename";
 import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
+import type { CoverLetterType } from "@/types/document-record";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,11 +43,20 @@ export async function POST(request: Request): Promise<Response> {
   const domesticDesign = typeof scenario === "string" && scenario.startsWith("domestic-") ? scenario.slice(9) : "";
   const gccScenario = scenario === "gcc-with-photo" || scenario === "gcc-without-photo" || scenario === "gcc-long";
   const europeanScenario = scenario === "european-normal" || scenario === "european-long";
-  if (typeof scenario !== "string" || (scenario !== "global-ats-long" && !gccScenario && !europeanScenario && !isDomesticDesignId(domesticDesign) && !Object.hasOwn(names, scenario))) {
+  const letterType = typeof scenario === "string" && scenario.startsWith("cover-letter-") ? scenario.slice(13) : "";
+  const coverLetterScenario = isCoverLetterType(letterType) || scenario === "cover-letter-sparse";
+  if (typeof scenario !== "string" || (scenario !== "global-ats-long" && !gccScenario && !europeanScenario && !coverLetterScenario && !isDomesticDesignId(domesticDesign) && !Object.hasOwn(names, scenario))) {
     return new Response("Unknown PDF QA scenario.", { status: 400 });
   }
 
   try {
+    if (coverLetterScenario) {
+      const profile = createCoverLetterQaProfile(scenario === "cover-letter-sparse");
+      const output = buildCoverLetterModel(mapCandidateProfileToDocumentData(profile, "cover-letter"),
+        scenario === "cover-letter-sparse" ? "general-corporate" : letterType as CoverLetterType);
+      return await renderPdfDownloadResponse(output.model,
+        buildPdfFilename({ candidateName: profile.fullName, output: `${output.content.type}-cover-letter` }), output.theme);
+    }
     if (europeanScenario) {
       const profile = createEuropeanQaProfile(scenario === "european-long");
       const output = buildEuropeanResumeModel(mapCandidateProfileToDocumentData(profile, "resume"));
@@ -72,7 +84,12 @@ export async function POST(request: Request): Promise<Response> {
     }
     const selected = scenario as PdfRenderQaScenario;
     return await renderPdfDownloadResponse(createPdfRenderQaModel(selected), names[selected]);
-  } catch {
+  } catch (error) {
+    if (error instanceof CoverLetterNotReadyError) {
+      return new Response("The fictional sparse profile is not ready for a credible cover letter.", {
+        status: 422, headers: { "Cache-Control": "private, no-store" },
+      });
+    }
     return new Response("The QA PDF could not be generated.", {
       status: 500, headers: { "Cache-Control": "private, no-store" },
     });

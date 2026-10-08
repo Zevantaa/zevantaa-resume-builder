@@ -60,6 +60,10 @@ export async function EditClientAccountPage({ userId }: { userId: string }) {
           Review and download European resume
         </Link>
 
+        <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/cover-letters`}>
+          Review and download cover letters
+        </Link>
+
         <Link className="type-label admin-table-link" href="/admin/clients">
           Return to client accounts
         </Link>
