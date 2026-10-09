@@ -39,22 +39,52 @@ commit it, or give it a `NEXT_PUBLIC_` prefix.
 
 ## Password recovery redirect URLs
 
-Password recovery uses the Supabase PKCE flow and returns through the application
-callback before the user sets a new password. Add these exact local URLs under
+Password recovery returns through the application callback before the user sets
+a new password. Add these exact local URLs under
 **Authentication > URL Configuration > Redirect URLs**:
 
 - `http://localhost:3000/auth/callback?portal=admin`
 - `http://localhost:3000/auth/callback?portal=client`
 
 Add the same two paths for the production HTTPS origin. Prefer exact production
-URLs rather than broad wildcard entries. If the recovery email template has been
-customized, verify that its recovery link honors Supabase's `RedirectTo` value.
+URLs rather than broad wildcard entries.
+
+For reliable recovery when the email link opens in a different browser or device,
+set **Authentication > Email Templates > Reset Password** to use a token-hash
+link instead of the default PKCE verification URL. Keep the surrounding email
+copy appropriate to your organization and use this link target:
+
+```html
+<a href="{{ .RedirectTo }}&amp;token_hash={{ .TokenHash }}&amp;type=recovery">Reset password</a>
+```
+
+The application always supplies `RedirectTo` as `/auth/callback?portal=admin`
+or `/auth/callback?portal=client`, so the appended parameters remain a valid
+query string. Send a **new** recovery email after saving the template; existing
+links cannot be converted. Do not paste a real token or password into the
+template. The callback calls `verifyOtp` server-side using the one-time recovery
+token hash, then establishes the Supabase cookie session. This removes the
+original browser's PKCE-verifier dependency. Keep the exact redirect URLs above
+allowlisted; portal intent never grants a role.
+
+The callback also accepts the standard PKCE redirect for older emails:
+`/auth/callback?portal=admin&code=...` (and optional `sb_flow_id`). PKCE requires
+the verifier cookie created when recovery was requested, so that fallback works
+only when the link opens in the same browser context. An existing `portal` query
+parameter is preserved by Supabase Auth when it appends `code`; `sb_flow_id`
+appears only if its experimental flow-ID option is enabled.
+
+The callback grants a 15-minute, HTTP-only, signed recovery proof only after a
+verified recovery exchange. The reset page and password-update Server Action
+require both that proof and a server-verified Supabase user. The action consumes
+the proof and signs out the recovery session after a successful update, so the
+user signs in again with the new password. The signature uses the existing
+server-only `SUPABASE_SECRET_KEY` (or legacy service-role fallback); this key
+must be configured on the application server. Recovery codes, token hashes and
+passwords are not logged or stored by the application.
+
 The hosted default email service is suitable only for limited testing; configure
 production SMTP before relying on recovery emails operationally.
-
-The application exchanges the one-time PKCE code on the server, stores the
-resulting session in Supabase-managed cookies, and then sends the user to
-`/reset-password`. Recovery codes are not logged or stored by the application.
 
 Client users are not created by this batch. They will be provisioned through the
 future administrator workflow; dashboard-created fictional users may be used for

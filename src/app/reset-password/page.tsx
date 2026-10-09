@@ -2,23 +2,7 @@ import {
   getAuthPortalIntent,
   ResetPasswordExperience,
 } from "@/features/authentication";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-
-async function hasVerifiedRecoverySession() {
-  if (!isSupabaseConfigured()) {
-    return false;
-  }
-
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data, error } = await supabase.auth.getClaims();
-
-    return !error && Boolean(data?.claims?.sub);
-  } catch {
-    return false;
-  }
-}
+import { hasVerifiedRecoverySession } from "@/features/authentication/recovery-session";
 
 export default async function ResetPasswordPage({
   searchParams,

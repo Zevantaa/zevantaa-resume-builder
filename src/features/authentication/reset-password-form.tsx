@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 import { InlineAlert, TextInput } from "@/components/ui";
 
-import { updatePassword } from "./auth-service";
+import { updateRecoveryPasswordAction } from "./update-recovery-password-action";
 import type { AuthPortalIntent } from "./types";
 
 type ResetPasswordFormProps = {
@@ -49,6 +49,14 @@ export function ResetPasswordForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
 
+  useEffect(() => {
+    if (!isComplete) return;
+    const timeout = window.setTimeout(() => {
+      window.location.replace(`/login?portal=${portal}`);
+    }, 1500);
+    return () => window.clearTimeout(timeout);
+  }, [isComplete, portal]);
+
   if (!canResetPassword || initialError) {
     return (
       <div className="auth-form">
@@ -80,7 +88,7 @@ export function ResetPasswordForm({
     setIsSubmitting(true);
 
     try {
-      await updatePassword({ password });
+      await updateRecoveryPasswordAction(password);
       setPassword("");
       setConfirmation("");
       setIsComplete(true);
@@ -98,7 +106,7 @@ export function ResetPasswordForm({
     return (
       <div className="auth-form" role="status">
         <InlineAlert variant="success">
-          Your password has been updated successfully.
+          Your password has been updated successfully. Returning to sign in.
         </InlineAlert>
         <Link
           className="type-button auth-submit auth-action-link"
