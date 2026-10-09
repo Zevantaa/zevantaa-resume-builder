@@ -1,0 +1,25 @@
+# Master admin dashboard (DSH-03)
+
+The protected `/admin` overview and `/admin/clients` directory share one server-rendered, Zevantaa-branded directory workspace. The masthead and horizontal navigation remain unchanged. Both routes require the authoritative active `admin` role before privileged reads; no client PII, storage key or secret is sent in a public API response.
+
+## Operational overview and directory
+
+The overview shows actual provisioned-client, current available source-resume, current-resume awaiting-review, and confirmed-review counts. “Stored PDFs on this page” is explicitly page-scoped. No trend or conversion metric is invented. The directory has one row per linked, non-archived client profile with name, admin-owned profile email/mobile/optional WhatsApp, canonical package label, current resume-review status, verified stored-PDF count, and Open/Review/Documents actions. LinkedIn is searchable but omitted from the dense table; it remains in the client edit record. Auth login email is managed separately from the profile contact email by the existing account-edit workflow.
+
+Package labels come from the frozen seven-package routing catalog, not display text submitted by the browser. Missing codes display “Not assigned”; unknown codes display “Unknown package”. Neither case grants output entitlement. The directory does not calculate every client's indicative ATS score in bulk; the existing per-client Global ATS workspace remains the place to inspect it.
+
+Resume status uses the current `existing_resume_file_id` and an available, matching private `file_records` source-resume row. Without one the status is “Needs resume”. With one but without a `profile_resume_reviews` row for **that exact current file**, it is “Under review”. A matching confirmation makes it “Reviewed/confirmed”; a review of an older, replaced source does not count.
+
+Search trims and collapses whitespace, caps input at 80 characters, and matches name, profile email, mobile, WhatsApp, and LinkedIn case-insensitively on the server. It is never interpolated into SQL. Package and review-status filters combine with search. Invalid package filters return no clients rather than broadening access. URL query parameters preserve filters during Previous/Next pagination. Rows sort by name then user ID; page size is 25. The admin service scans `user_roles` in 200-row batches with a hard 2,000-client safety ceiling and fails explicitly above it, rather than silently showing an incomplete directory. This supports the current V1 client volume without an unbounded browser payload; a database-side searchable listing will be needed before exceeding that ceiling.
+
+## Stored documents versus generators
+
+“Stored PDFs” counts only unarchived, generated, available, unmasked resume/cover-letter `document_records` that pass the existing output metadata and package-code checks and have a matching available private PDF `file_records` row in the profile-scoped generated path. Uploaded source resumes, GCC photos, pending/failed documents, missing files and temporary in-memory PDF generations do not count. A document generated under a prior valid package remains visible to the administrator as history; this does not grant the client a current-package download.
+
+`/admin/clients/[userId]/documents` lists these verified stored files and separately labels links to the existing, entitled on-demand generator routes. `GET /admin/clients/[userId]/documents/[documentId]/download` rechecks active admin authorization, provisioned client linkage, document/profile/file ownership, PDF metadata, the private bucket flag and PDF bytes. It accepts only route IDs, never browser-supplied bucket or object paths. Responses use a safe filename, `private, no-store` and `nosniff`; failures return a generic unavailable response. The generator links do not imply an already stored download or guaranteed readiness.
+
+At this implementation stage the live project has no available generated document records. The admin generators still render PDFs on demand and do not persist them, so the stored-download list will honestly show zero until a separate trusted persistence workflow exists. The current `file_records.purpose` enum lacks a generated-document value; this batch neither changes that schema nor fabricates records. Privacy-masked employer export is DSH-04 and remains deferred.
+
+## Responsive and manual QA
+
+The wide centered workspace uses compact operational metrics. The table scrolls inside its bordered container on tablet/mobile rather than widening the page; the action column stays visible below the desktop breakpoint. Search controls stack on narrow screens. Verify `/admin` and `/admin/clients` visually at 1365×768, approximately 1024px and approximately 390px with a real admin session: no page-level overflow, readable contact/package/status values, usable sticky actions, and correct filters after paging. Also verify signed-out/client-role denials, a valid stored-PDF download when one exists, and that the generator links remain distinct. Automated tests cover server data and authorization; these visual/live-file checks still need manual QA.

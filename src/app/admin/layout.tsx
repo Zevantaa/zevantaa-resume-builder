@@ -7,7 +7,7 @@ const navigation: readonly DashboardNavigationItem[] = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/clients", label: "Client directory" },
   { href: "/admin/clients/new", label: "Create client" },
-  { href: "/admin/documents", label: "Documents", note: "Coming later" },
+  { href: "/admin/documents", label: "Documents" },
   { href: "/admin/workflow", label: "Workflow", note: "Coming later" },
 ];
 

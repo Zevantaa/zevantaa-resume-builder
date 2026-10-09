@@ -1,5 +1,7 @@
 import { ClientListPage } from "@/features/admin-portal/client-list-page";
 
-export default function AdminClientsRoute() {
-  return <ClientListPage />;
+export default async function AdminClientsRoute({ searchParams }: {
+  searchParams: Promise<{ q?: string; package?: string; status?: string; page?: string }>;
+}) {
+  return <ClientListPage searchParams={await searchParams} />;
 }

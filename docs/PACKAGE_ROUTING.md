@@ -18,4 +18,4 @@ The database-compatible codes and display names are retained. The Global ATS fam
 
 The ATS score remains an internal indicative 0–100 value with target 90, not a score floor or third-party guarantee. Score mathematics is unchanged. The optional GCC photograph is displayed for upload and accepted by the save service only when the assigned package includes the GCC resume. Storage remains private; package routing does not expose files.
 
-Known limitations: the static catalog is the deploy-time routing source, so changes to database `is_active` or package-family data must be accompanied by a reviewed catalog/code update before deployment. Client dashboard output rows are visibility placeholders, not generation/download controls; DSH-02 is not implemented here.
+Known limitation: the static catalog is the deploy-time routing source, so changes to database `is_active` or package-family data must be accompanied by a reviewed catalog/code update before deployment. The current client and admin dashboards distinguish package entitlement from an actually persisted, downloadable generated PDF; see `CLIENT_DASHBOARD.md` and `MASTER_ADMIN_DASHBOARD.md`.

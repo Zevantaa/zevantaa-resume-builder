@@ -45,6 +45,10 @@ export async function EditClientAccountPage({ userId }: { userId: string }) {
           Review current source resume
         </Link>
 
+        <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/documents`}>
+          View stored documents and generators
+        </Link>
+
         {packageAllowsOutput(client.packageCode, "global-ats-resume") && <Link className="type-label admin-table-link" href={`/admin/clients/${userId}/global-ats`}>
           Review Global ATS resume readiness
         </Link>}
