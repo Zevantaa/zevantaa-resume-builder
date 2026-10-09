@@ -90,7 +90,7 @@ test("all five protected download routes enforce the canonical entitlement after
 test("admin and client output navigation consumes shared package visibility", () => {
   const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
   assert.match(read("src/features/admin-portal/edit-client-account-page.tsx"), /packageAllowsOutput\(client\.packageCode,/);
-  assert.match(read("src/features/client-portal/client-dashboard-page.tsx"), /packageAllowsOutput\(summary\.packageCode,/);
+  assert.match(read("src/features/client-portal/client-dashboard-view.ts"), /getPackageRouting\(summary\.packageCode\)/);
   assert.match(read("src/features/client-portal/client-intake-form.tsx"), /isGccPhotoAvailable\(details\.selectedPackageCode\)/);
   assert.match(read("src/features/client-portal/client-intake-service.ts"), /values\.photo && !isGccPhotoAvailable\(profile\.selected_package_code\)/);
 });

@@ -1,4 +1,5 @@
 import { Card, InlineAlert } from "@/components/ui";
+import { isGccPhotoAvailable } from "@/features/document-generation/package-routing";
 
 import { ClientIntakeForm } from "./client-intake-form";
 import { getClientIntakeFiles } from "./client-intake-service";
@@ -20,7 +21,7 @@ export async function ClientProfilePage() {
             <h1 className="type-heading-1 text-text">Your candidate profile</h1>
             <p className="type-body text-text-muted">
               Review your Zevantaa-managed details and upload your private source
-              resume or optional GCC photograph.
+              resume{details && isGccPhotoAvailable(details.selectedPackageCode) ? " or optional GCC photograph" : ""}.
             </p>
           </div>
 

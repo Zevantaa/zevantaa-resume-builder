@@ -1,5 +1,5 @@
-import { DashboardPlaceholder } from "@/components/dashboard/dashboard-placeholder";
+import { ClientDocumentWorkspace } from "@/features/client-portal/client-document-workspace";
 
 export default function ClientCoverLettersPage() {
-  return <DashboardPlaceholder backHref="/client" description="Cover-letter formats and completed letters will appear here in a later stage." title="Cover letters" />;
+  return <ClientDocumentWorkspace coverLettersOnly />;
 }

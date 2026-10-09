@@ -5,9 +5,9 @@ import { requireApplicationRole } from "@/features/authentication/authorization"
 
 const navigation: readonly DashboardNavigationItem[] = [
   { href: "/client", label: "Overview" },
-  { href: "/client/profile", label: "My profile & intake" },
-  { href: "/client/documents", label: "Resumes & documents", note: "Coming later" },
-  { href: "/client/cover-letters", label: "Cover letters", note: "Coming later" },
+  { href: "/client/profile", label: "View profile & uploads" },
+  { href: "/client/documents", label: "Resumes & documents" },
+  { href: "/client/cover-letters", label: "Cover letters" },
   { href: "/client/ats", label: "ATS status" },
 ];
 

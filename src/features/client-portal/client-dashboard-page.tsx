@@ -2,70 +2,85 @@ import Link from "next/link";
 
 import { InlineAlert, StatusBadge } from "@/components/ui";
 import { IndicativeAtsPanel } from "@/features/document-generation/indicative-ats-panel";
-import { getPackageRouting, packageAllowsOutput } from "@/features/document-generation/package-routing";
 
-import { getClientDashboardSummary } from "./contact-profile-service";
 import { getCurrentClientAtsScore } from "./client-ats-score-service";
+import { getClientDashboardEvidence } from "./client-dashboard-service";
+import { buildClientDashboardView } from "./client-dashboard-view";
+import { getClientDashboardSummary } from "./contact-profile-service";
 import { TARGET_MARKET_LABELS } from "./target-market-labels";
 import type { TargetMarket } from "@/types/client-profile";
 
 export async function ClientDashboardPage() {
-  const [summary, score] = await Promise.all([getClientDashboardSummary(), getCurrentClientAtsScore()]);
-  const routing = getPackageRouting(summary?.packageCode);
+  const [summary, evidence, score] = await Promise.all([
+    getClientDashboardSummary(), getClientDashboardEvidence(), getCurrentClientAtsScore(),
+  ]);
+  const view = buildClientDashboardView(summary, evidence, score);
 
-  return (
-    <div className="dashboard-page dashboard-workspace-page">
-      <header className="dashboard-workspace-intro">
-        <p className="type-label dashboard-kicker">Client portal</p>
-        <h1 className="type-heading-1">Client Intake & Package Management</h1>
-        <p className="type-body text-text-muted">
-          Review your candidate details and assigned market package. Document outputs will appear here when generation is available.
-        </p>
-      </header>
-      {!summary ? <InlineAlert variant="error">Your linked profile is unavailable. Please contact Zevantaa support.</InlineAlert> : (
-        <div className="dashboard-client-modules">
-          <section aria-labelledby="client-intake-heading" className="dashboard-workspace-panel dashboard-intake-panel">
+  return <div className="dashboard-page dashboard-workspace-page">
+    <header className="dashboard-workspace-intro">
+      <p className="type-label dashboard-kicker">Client portal · Your workspace</p>
+      <h1 className="type-heading-1">{summary ? `Welcome, ${summary.fullName}` : "Client dashboard"}</h1>
+      <p className="type-body text-text-muted">Your Zevantaa package, reviewed profile, uploads and available documents in one place.</p>
+    </header>
+
+    {!summary || !evidence ? <InlineAlert variant="error">Your linked profile is unavailable. Please contact Zevantaa support.</InlineAlert> :
+      <div className="dashboard-client-modules">
+        <div className="dashboard-client-overview-column">
+          <section aria-labelledby="client-package-heading" className="dashboard-workspace-panel dashboard-intake-panel">
             <div className="dashboard-module-heading">
-              <span className="type-label dashboard-kicker">Module 01 · Your profile</span>
-              <h2 className="type-heading-3" id="client-intake-heading">Client intake & package</h2>
+              <span className="type-label dashboard-kicker">Module 01 · Your package</span>
+              <h2 className="type-heading-3" id="client-package-heading">Package & profile</h2>
             </div>
-            <dl className="dashboard-detail-list">
-              <div><dt>Full name</dt><dd>{summary.fullName}</dd></div>
-              <div><dt>Primary email</dt><dd>{summary.primaryEmail}</dd></div>
-              <div><dt>Mobile number</dt><dd>{summary.mobileNumber}</dd></div>
-              <div><dt>WhatsApp number</dt><dd>{summary.whatsappNumber || "Not provided"}</dd></div>
-            </dl>
-            <div className="dashboard-assignment">
-              <span className="type-label dashboard-kicker">Package / target market</span>
-              <strong className="type-heading-4">{summary.packageName}</strong>
-              <span className="type-supporting">Target markets: {summary.targetMarkets.map((market) => TARGET_MARKET_LABELS[market as TargetMarket] ?? market).join(" · ")}</span>
-              <p className="type-supporting text-text-muted">Assigned by Zevantaa. Contact the administrator for package changes.</p>
-            </div>
-            <Link className="type-button dashboard-primary-link" href="/client/profile">Open my intake <span aria-hidden="true">→</span></Link>
-            <p className="type-supporting text-text-muted">Review Zevantaa-managed details and upload or replace your source resume{routing?.gccPhotoAvailable ? " and optional GCC photograph" : ""}.</p>
+            {view.routing ? <div className="dashboard-assignment">
+              <strong className="type-heading-4">{view.routing.displayName}</strong>
+              <span className="type-supporting">Target markets: {summary.targetMarkets.map((market) =>
+                TARGET_MARKET_LABELS[market as TargetMarket] ?? market).join(" · ")}</span>
+              <span className="type-supporting">Includes {view.outputs.filter((item) => !item.id.endsWith("cover-letter")).length} resume outputs
+                {view.outputs.some((item) => item.id.endsWith("cover-letter")) ? " and 3 cover letters" : ""}.</span>
+            </div> : <InlineAlert variant="warning">Assigned package unavailable. Contact Zevantaa support; no document entitlement is assumed.</InlineAlert>}
+            <p className="type-supporting text-text-muted">Package and contact details are managed by Zevantaa, not editable here.</p>
+            <div className="dashboard-status-line"><span>Profile status</span><StatusBadge variant={view.reviewConfirmed ? "success" : "neutral"}>{view.profileStatus}</StatusBadge></div>
+            <Link className="type-button dashboard-primary-link" href="/client/profile">View profile & manage uploads <span aria-hidden="true">→</span></Link>
           </section>
 
-          <div className="dashboard-output-column">
-            {routing?.atsScoreVisible && score ? <IndicativeAtsPanel result={score} /> : null}
-            <section aria-labelledby="outputs-heading" className="dashboard-workspace-panel dashboard-outputs-panel">
-              <div className="dashboard-module-heading">
-                <span className="type-label dashboard-kicker">Module 02 · Output workspace</span>
-                <h2 className="type-heading-3" id="outputs-heading">Resumes & cover letters</h2>
-                <p className="type-supporting text-text-muted">Outputs included with your assigned package are shown below. Package availability does not mean a document is ready to generate or download.</p>
-              </div>
-              <div className="dashboard-output-list">
-                {packageAllowsOutput(summary.packageCode, "global-ats-resume") && <div><strong>Global ATS resume</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>}
-                {packageAllowsOutput(summary.packageCode, "domestic-resume-1") && <div><strong>Domestic resume layouts (1–5)</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>}
-                {packageAllowsOutput(summary.packageCode, "gcc-resume") && <div><strong>GCC / Middle East resume</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>}
-                {packageAllowsOutput(summary.packageCode, "europass-eu-resume") && <div><strong>Europass / EU resume</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>}
-                {packageAllowsOutput(summary.packageCode, "general-corporate-cover-letter") && <div><strong>Cover letters</strong><StatusBadge variant="neutral">Not generated</StatusBadge></div>}
-                {!routing && <p className="type-supporting">This package is unavailable. Contact Zevantaa support.</p>}
-              </div>
-              <p className="type-supporting text-text-muted">Generation and download access depend on the assigned package and the reviewed profile’s readiness.</p>
-            </section>
-          </div>
+          <section aria-labelledby="client-uploads-heading" className="dashboard-workspace-panel">
+            <div className="dashboard-module-heading">
+              <span className="type-label dashboard-kicker">Module 02 · Intake</span>
+              <h2 className="type-heading-3" id="client-uploads-heading">Upload status</h2>
+            </div>
+            <div className="dashboard-output-list">
+              <div><strong>Source resume</strong><StatusBadge variant={view.resumeAvailable ? "success" : "neutral"}>{!evidence.resume ? "Not uploaded" :
+                view.reviewConfirmed ? "Reviewed/confirmed" : view.resumeAvailable ? "Uploaded · under review" : evidence.resume.status}</StatusBadge></div>
+              {evidence.resume && <p className="type-supporting text-text-muted dashboard-upload-name">{evidence.resume.fileName}
+                {evidence.resume.versionNumber > 1 ? ` · Version ${evidence.resume.versionNumber}` : ""}</p>}
+              {view.routing?.gccPhotoAvailable && <div><strong>GCC photograph (optional)</strong>
+                <StatusBadge variant={view.photoAvailable ? "success" : "neutral"}>{view.photoAvailable ? "Uploaded" : "Not uploaded"}</StatusBadge></div>}
+              {view.routing?.gccPhotoAvailable && evidence.photo && <p className="type-supporting text-text-muted dashboard-upload-name">{evidence.photo.fileName}</p>}
+            </div>
+            <p className="type-supporting text-text-muted">A photograph is optional and does not block profile review or document readiness.</p>
+            <Link className="type-button dashboard-text-link" href="/client/profile">Upload or replace source files</Link>
+          </section>
         </div>
-      )}
-    </div>
-  );
+
+        <div className="dashboard-output-column">
+          {view.routing?.atsScoreVisible && score ? <IndicativeAtsPanel result={score} /> : null}
+          <section aria-labelledby="outputs-heading" className="dashboard-workspace-panel dashboard-outputs-panel">
+            <div className="dashboard-module-heading">
+              <span className="type-label dashboard-kicker">Module 03 · Output workspace</span>
+              <h2 className="type-heading-3" id="outputs-heading">Your documents</h2>
+              <p className="type-supporting text-text-muted">Package entitlement does not mean a PDF has been generated. Only verified saved PDFs can be downloaded.</p>
+            </div>
+            <div className="dashboard-output-list">
+              {view.outputs.map((item) => <div key={item.id}>
+                <strong>{item.label}</strong>
+                {item.documentId ? <Link className="type-button dashboard-text-link" href={`/client/documents/${item.documentId}/download`}>Download PDF</Link>
+                  : <StatusBadge variant="neutral">{item.state}</StatusBadge>}
+              </div>)}
+              {!view.outputs.length && <p className="type-supporting text-text-muted">No document outputs can be shown for this package. Contact Zevantaa support.</p>}
+            </div>
+            <Link className="type-button dashboard-text-link" href="/client/documents">View document workspace</Link>
+          </section>
+        </div>
+      </div>}
+  </div>;
 }
