@@ -1188,3 +1188,37 @@ body {
   .dashboard-control-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .dashboard-admin-intro { grid-template-columns: minmax(0, 1fr) auto; }
 }
+
+/* Client landing page: generous desktop workspace without changing other portal screens. */
+.dashboard-client-home {
+  width: min(100%, 77.5rem);
+  gap: var(--space-8);
+  font-size: 1.0625rem;
+}
+.dashboard-client-home .dashboard-workspace-intro,
+.dashboard-client-home .dashboard-workspace-panel,
+.dashboard-client-home .dashboard-ats-band { padding: clamp(1.5rem, 2.6vw, 2.25rem); }
+.dashboard-client-home .dashboard-workspace-panel { gap: var(--space-6); }
+.dashboard-client-home .type-supporting,
+.dashboard-client-home .type-label { font-size: 0.9375rem; }
+.dashboard-client-home .type-button { font-size: 1rem; }
+.dashboard-client-home .dashboard-primary-link { min-height: 3rem; padding-inline: var(--space-6); }
+.dashboard-client-home .dashboard-text-link { display: inline-flex; min-height: 2.75rem; align-items: center; }
+.dashboard-client-home .dashboard-ats-score { width: 7rem; height: 7rem; font-size: 2rem; }
+.dashboard-client-home .dashboard-ats-score span { font-size: 0.75rem; }
+.dashboard-client-home .dashboard-output-list > div { gap: var(--space-4); padding-block: var(--space-4); }
+.dashboard-client-home .dashboard-output-list strong { flex: 1 1 13rem; }
+.dashboard-client-home .status-badge {
+  max-width: 100%;
+  padding: var(--space-2) var(--space-4);
+  line-height: var(--type-line-height-compact);
+  white-space: normal;
+}
+@media (min-width: 56rem) {
+  .dashboard-client-home .dashboard-client-modules { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+}
+@media (max-width: 39rem) {
+  .dashboard-client-home { gap: var(--space-6); }
+  .dashboard-client-home .dashboard-ats-score { width: 6rem; height: 6rem; }
+  .dashboard-client-home .dashboard-output-list > div { align-items: flex-start; }
+}

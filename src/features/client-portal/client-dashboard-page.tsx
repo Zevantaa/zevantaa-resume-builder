@@ -16,7 +16,7 @@ export async function ClientDashboardPage() {
   ]);
   const view = buildClientDashboardView(summary, evidence, score);
 
-  return <div className="dashboard-page dashboard-workspace-page">
+  return <div className="dashboard-page dashboard-workspace-page dashboard-client-home">
     <header className="dashboard-workspace-intro">
       <p className="type-label dashboard-kicker">Client portal · Your workspace</p>
       <h1 className="type-heading-1">{summary ? `Welcome, ${summary.fullName}` : "Client dashboard"}</h1>
