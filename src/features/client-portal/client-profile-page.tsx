@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Card, InlineAlert } from "@/components/ui";
 import { isGccPhotoAvailable } from "@/features/document-generation/package-routing";
 
@@ -43,10 +45,11 @@ export async function ClientProfilePage() {
               </InlineAlert>
             )}
           </Card>
-          <section className="dashboard-profile-upcoming" aria-labelledby="upcoming-intake-heading">
-            <p className="type-label dashboard-kicker">Next intake sections</p>
-            <h2 className="type-heading-3" id="upcoming-intake-heading">Your profile will grow here</h2>
-            <p className="type-body text-text-muted">Experience, education and skills are not editable yet. Package changes remain with the administrator.</p>
+          <section className="dashboard-profile-upcoming" aria-labelledby="career-profile-heading">
+            <p className="type-label dashboard-kicker">Career updates</p>
+            <h2 className="type-heading-3" id="career-profile-heading">Keep your career facts current</h2>
+            <p className="type-body text-text-muted">You can update your structured summary, experience, education, skills and other career sections. Zevantaa-managed identity and package fields stay read-only.</p>
+            <Link className="type-button dashboard-primary-link" href="/client/career-profile">Update Career Profile</Link>
           </section>
         </div>
     </div>

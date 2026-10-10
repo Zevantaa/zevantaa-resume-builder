@@ -1263,3 +1263,17 @@ body {
 @media (min-width: 64rem) {
   .admin-directory-metrics { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
+
+/* Structured client career editor: restrained section rhythm and responsive fields. */
+.client-career-editor { width: 100%; }
+.client-career-entry { display: grid; gap: var(--space-4); padding-block: var(--space-5); border-top: 1px solid var(--border); }
+.client-career-nested-entry { display: grid; gap: var(--space-3); padding: var(--space-4); border-inline-start: 2px solid var(--border); }
+.client-career-field-grid { display: grid; gap: var(--space-4); }
+.client-career-field-grid > * { min-width: 0; }
+.client-career-field-grid .form-field:has(textarea) { grid-column: 1 / -1; }
+.client-career-checkbox { display: flex; align-items: center; gap: var(--space-3); min-height: var(--form-control-height); }
+.client-career-row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.client-career-row-actions button { min-height: 2.75rem; }
+@media (min-width: 42rem) {
+  .client-career-field-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

@@ -25,10 +25,12 @@ Each child has a stable UUID, `candidate_profile_id` foreign key, nonnegative
 items in `(sort_order, id)` order for deterministic display; equal sort orders
 are allowed so existing data can be reordered without a uniqueness conflict.
 All child foreign keys restrict physical profile deletion. Existing RLS and
-profile/auth ownership linkage remain unchanged. The current `/client/profile`
+profile/auth ownership linkage remain unchanged. The `/client/profile`
 intake shows administratively managed core fields read-only and permits only
-source-resume and optional GCC-photo uploads; it does not yet edit these
-structured resume sections. New admin-created profiles may have no source resume
+source-resume and optional GCC-photo uploads. The separate protected
+`/client/career-profile` route edits these canonical structured career sections
+under the DSH-06 permission boundary; see `docs/DYNAMIC_CAREER_UPDATES.md`.
+New admin-created profiles may have no source resume
 until their first client upload, so `existingResume` is optional in the
 TypeScript aggregate.
 
