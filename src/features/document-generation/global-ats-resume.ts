@@ -58,10 +58,14 @@ export class GlobalAtsResumeNotReadyError extends Error {
 }
 
 /** Pure, single-column ATS layout built only from the canonical mapper result. */
-export function buildGlobalAtsResumeModel(mapping: DocumentDataMappingResult): PdfDocumentModel {
+export function buildGlobalAtsResumeModel(
+  mapping: DocumentDataMappingResult,
+  privacy?: { referenceId: string },
+): PdfDocumentModel {
   const { data } = mapping;
   if (!mapping.canGenerate || !hasText(data.identity.fullName) ||
-      !hasText(data.identity.primaryEmail) || !hasText(data.identity.mobileNumber) ||
+      (!privacy && (!hasText(data.identity.primaryEmail) || !hasText(data.identity.mobileNumber))) ||
+      (privacy && !hasText(privacy.referenceId)) ||
       !packageAllowsOutput(data.packageContext.selectedPackage, "global-ats-resume") ||
       !data.packageContext.targetMarkets.length) {
     throw new GlobalAtsResumeNotReadyError(mapping.findings);
@@ -72,7 +76,12 @@ export function buildGlobalAtsResumeModel(mapping: DocumentDataMappingResult): P
     data.identity.mobileNumber,
     data.identity.whatsappNumber && `WhatsApp: ${data.identity.whatsappNumber}`,
   ]);
-  const identity: PdfSection = { id: "identity", blocks: [
+  const identity: PdfSection = { id: "identity", blocks: privacy ? [
+    { kind: "heading", level: 1, text: data.identity.fullName },
+    { kind: "paragraph", text: `Zevantaa Careers | Candidate Reference: ${privacy.referenceId}` },
+    { kind: "paragraph", text: "For candidate contact, please route communication through Zevantaa Careers and quote the reference above." },
+    ...paragraph(data.identity.currentLocation),
+  ] : [
     { kind: "heading", level: 1, text: data.identity.fullName },
     ...paragraph(primaryContact),
     ...urlParagraphs(data.identity.linkedinUrl),

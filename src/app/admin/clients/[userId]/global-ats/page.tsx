@@ -37,6 +37,10 @@ export default async function AdminGlobalAtsPage({ params }: PageProps<"/admin/c
       {entitled && mapping.canGenerate ? <form action={`/admin/clients/${encodeURIComponent(userId)}/global-ats/download`} method="post">
         <button className="auth-submit type-button" type="submit">Download Global ATS Resume PDF</button>
       </form> : <p className="type-body text-text-muted">{entitled ? "Resolve the required data gaps before generating this resume." : "This package does not include the Global ATS resume."}</p>}
+      {entitled && mapping.canGenerate ? <form action={`/admin/clients/${encodeURIComponent(userId)}/global-ats/privacy-masked/download`} method="post">
+        <button className="auth-submit type-button" type="submit">Download Privacy-Masked Employer Resume</button>
+      </form> : null}
+      {entitled && mapping.canGenerate ? <p className="type-supporting text-text-muted">Employer copy replaces direct candidate contact routes with a Zevantaa reference. It does not change the normal resume or saved profile.</p> : null}
     </SectionCard>
     <Link className="type-label admin-table-link" href={`/admin/clients/${encodeURIComponent(userId)}/edit`}>
       Return to client account
