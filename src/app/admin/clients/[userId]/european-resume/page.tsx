@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { InlineAlert } from "@/components/ui";
+import { AdminPdfRequest } from "@/features/document-generation/admin-pdf-request";
 import { loadAdminCandidateProfile } from "@/features/document-generation/admin-global-ats-service";
 import { isEuropeanPackageEligible } from "@/features/document-generation/european-resume";
 import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
@@ -28,9 +29,7 @@ export default async function AdminEuropeanResumePage({ params }: PageProps<"/ad
       {!eligible ? <InlineAlert variant="warning">The assigned package does not include a European resume.</InlineAlert> : null}
       {mapping.findings.filter((finding) => finding.severity === "error").map((finding) =>
         <InlineAlert key={finding.code} variant="error">{finding.message}</InlineAlert>)}
-      {ready ? <form action={`/admin/clients/${encodeURIComponent(userId)}/european-resume/download`} method="post">
-        <button className="auth-submit type-button" type="submit">Download European Resume PDF</button>
-      </form> : <p className="type-supporting text-text-muted">Resolve package or required-profile gaps before downloading.</p>}
+      {ready ? <AdminPdfRequest action={`/admin/clients/${encodeURIComponent(userId)}/european-resume/download`} label="Generate European Resume PDF" /> : <p className="type-supporting text-text-muted">Resolve package or required-profile gaps before generating.</p>}
     </section>
     <Link className="type-label admin-table-link" href={`/admin/clients/${encodeURIComponent(userId)}/edit`}>Return to client account</Link>
   </div>;

@@ -32,7 +32,7 @@ export default async function AdminClientDocumentsPage({ params }: {
       {documents.length ? <ul className="admin-stored-document-list">{documents.map((document) => <li key={document.id}>
         <span>{document.label} · {new Date(document.createdAt).toLocaleDateString("en-IN")}</span>
         <Link href={`/admin/clients/${userId}/documents/${document.id}/download`}>Download stored PDF</Link>
-      </li>)}</ul> : <p className="type-supporting text-text-muted">No verified, stored generated PDFs are available for this client yet.</p>}
+      </li>)}</ul> : <p className="type-supporting text-text-muted">No verified, stored generated PDFs are available for this client yet. You can open an entitled on-demand generator below for a fresh download; that does not store a client deliverable.</p>}
     </section>
     <section aria-labelledby="generators-heading" className="dashboard-workspace-panel">
       <h2 className="type-heading-3" id="generators-heading">Open an on-demand generator</h2>

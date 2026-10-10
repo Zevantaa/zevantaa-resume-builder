@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { InlineAlert, SectionCard } from "@/components/ui";
+import { AdminPdfRequest } from "@/features/document-generation/admin-pdf-request";
 import { loadAdminCandidateProfile } from "@/features/document-generation/admin-global-ats-service";
 import { calculateIndicativeAtsScore } from "@/features/document-generation/indicative-ats-score";
 import { IndicativeAtsPanel } from "@/features/document-generation/indicative-ats-panel";
@@ -34,12 +35,8 @@ export default async function AdminGlobalAtsPage({ params }: PageProps<"/admin/c
         <InlineAlert key={`${finding.code}-${index}`} variant={finding.severity === "error" ? "error" : "warning"}>
           {finding.message}
         </InlineAlert>) : <p className="type-body">No required-data gaps were found.</p>}
-      {entitled && mapping.canGenerate ? <form action={`/admin/clients/${encodeURIComponent(userId)}/global-ats/download`} method="post">
-        <button className="auth-submit type-button" type="submit">Download Global ATS Resume PDF</button>
-      </form> : <p className="type-body text-text-muted">{entitled ? "Resolve the required data gaps before generating this resume." : "This package does not include the Global ATS resume."}</p>}
-      {entitled && mapping.canGenerate ? <form action={`/admin/clients/${encodeURIComponent(userId)}/global-ats/privacy-masked/download`} method="post">
-        <button className="auth-submit type-button" type="submit">Download Privacy-Masked Employer Resume</button>
-      </form> : null}
+      {entitled && mapping.canGenerate ? <AdminPdfRequest action={`/admin/clients/${encodeURIComponent(userId)}/global-ats/download`} label="Generate Global ATS PDF" /> : <p className="type-body text-text-muted">{entitled ? "Resolve the required data gaps before generating this resume." : "This package does not include the Global ATS resume."}</p>}
+      {entitled && mapping.canGenerate ? <AdminPdfRequest action={`/admin/clients/${encodeURIComponent(userId)}/global-ats/privacy-masked/download`} label="Generate privacy-masked employer PDF" /> : null}
       {entitled && mapping.canGenerate ? <p className="type-supporting text-text-muted">Employer copy replaces direct candidate contact routes with a Zevantaa reference. It does not change the normal resume or saved profile.</p> : null}
     </SectionCard>
     <Link className="type-label admin-table-link" href={`/admin/clients/${encodeURIComponent(userId)}/edit`}>

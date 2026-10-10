@@ -24,6 +24,8 @@ export default async function AdminResumeReviewRoute({ params }: PageProps<"/adm
         <div><dt>Pages</dt><dd>{extraction.pageCount ?? "Not available"}</dd></div>
       </dl>
       <StatusBadge variant={extraction.status === "success" ? "success" : "warning"}>{extraction.status}</StatusBadge>
+      {!file && <InlineAlert variant="information">No source resume has been uploaded for this client. Ask the client to upload a private source resume before review.</InlineAlert>}
+      {file && !priorReview && <InlineAlert variant="information">This source resume still needs administrator review. Existing canonical profile facts remain unchanged until selected proposals are confirmed.</InlineAlert>}
       {extraction.failureReason && <InlineAlert variant="warning">Extraction stopped: {extraction.failureReason}. No profile data was changed.</InlineAlert>}
       {extraction.warnings.map((warning, index) => <InlineAlert key={`${warning.code}-${index}`} variant="warning">{warning.message}</InlineAlert>)}
     </SectionCard>

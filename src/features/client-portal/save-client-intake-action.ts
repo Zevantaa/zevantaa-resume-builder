@@ -63,7 +63,8 @@ export async function saveClientIntakeAction(
     if (result === "saved-with-warning") {
       return { status: "warning", savedAt: Date.now(), message: "Your intake was saved, but a previous file's history status could not be updated. Contact Zevantaa support if the file list looks incorrect." };
     }
-    return { status: "success", savedAt: Date.now(), message: "Your selected files were saved. No document processing has started." };
+    const saved = [resume ? "source resume" : null, photo ? "GCC photograph" : null].filter(Boolean).join(" and ");
+    return { status: "success", savedAt: Date.now(), message: `Your ${saved} was saved privately. ${resume ? "The new source resume needs administrator review before extracted changes can affect your structured profile. " : ""}No document processing has started.` };
   } catch (error) {
     if (error instanceof IntakeFileValidationError && error.field) {
       return { status: "error", errors: { [error.field]: error.message }, message: "Review the highlighted file and try again." };
@@ -72,7 +73,7 @@ export async function saveClientIntakeAction(
       status: "error",
       message: error instanceof IntakeFileValidationError
         ? error.message
-        : "We could not save your intake. Your previous files remain unchanged. Please try again.",
+        : "The upload could not be completed. Your previous linked files remain unchanged. Please try again.",
     };
   }
 }

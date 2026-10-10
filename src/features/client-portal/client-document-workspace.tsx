@@ -28,7 +28,9 @@ export async function ClientDocumentWorkspace({ coverLettersOnly = false }: { co
               {item.documentId ? <Link className="type-button dashboard-text-link" href={`/client/documents/${item.documentId}/download`}>Download PDF</Link>
                 : <StatusBadge variant="neutral">{item.state}</StatusBadge>}
             </div>)}
-            {!outputs.length && <p className="type-supporting text-text-muted">This package does not include {coverLettersOnly ? "cover letters" : "resume outputs"}.</p>}
+            {!outputs.length && <p className="type-supporting text-text-muted">This package does not include {coverLettersOnly ? "cover letters" : "resume outputs"}. Contact Zevantaa if you need a different package.</p>}
+            {outputs.length > 0 && outputs.every((item) => !item.documentId) &&
+              <InlineAlert variant="information">No stored PDFs are available yet. Zevantaa will make eligible documents available after profile review and document preparation.</InlineAlert>}
           </div>}
       </section>}
     <Link className="type-button dashboard-text-link" href="/client">Return to overview</Link>

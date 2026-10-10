@@ -270,6 +270,28 @@ test("replacement links only own profile, increments versions and keeps history"
   assert.equal(profile.selected_package_code, "domestic-gcc");
 });
 
+test("failed private resume replacement preserves prior linkage and version", async () => {
+  const { profile, rows } = setupService();
+  globalThis.__intakeQa.admin.storage.from = () => ({
+    upload: async () => ({ error: new Error("synthetic storage failure") }),
+    remove: async () => ({ error: null }),
+  });
+  await assert.rejects(saveClientIntake({ resume: file("new.pdf", "application/pdf", PDF), photo: null }), /private file upload failed/);
+  assert.equal(profile.existing_resume_file_id, oldResumeId);
+  assert.equal(rows.get(oldResumeId).status, "available");
+});
+
+test("failed private GCC photo replacement preserves prior photo linkage", async () => {
+  const { profile, rows } = setupService();
+  globalThis.__intakeQa.admin.storage.from = () => ({
+    upload: async () => ({ error: new Error("synthetic storage failure") }),
+    remove: async () => ({ error: null }),
+  });
+  await assert.rejects(saveClientIntake({ resume: null, photo: file("new.png", "image/png", PNG) }), /private file upload failed/);
+  assert.equal(profile.gcc_photo_file_id, oldPhotoId);
+  assert.equal(rows.get(oldPhotoId).status, "available");
+});
+
 test("non-GCC package cannot submit a forged photograph upload", async () => {
   const { written, uploaded, profile } = setupService();
   profile.selected_package_code = "indian-domestic";

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { InlineAlert } from "@/components/ui";
+import { AdminPdfRequest } from "@/features/document-generation/admin-pdf-request";
 import { loadAdminCandidateProfile } from "@/features/document-generation/admin-global-ats-service";
 import { loadAdminGccPhotoReference } from "@/features/document-generation/gcc-photo-service";
 import { isGccPackageEligible } from "@/features/document-generation/gcc-resume";
@@ -32,9 +33,7 @@ export default async function AdminGccResumePage({ params }: PageProps<"/admin/c
       {!eligible ? <InlineAlert variant="warning">The assigned package does not include a GCC resume.</InlineAlert> : null}
       {mapping.findings.filter((finding) => finding.severity === "error").map((finding) =>
         <InlineAlert key={finding.code} variant="error">{finding.message}</InlineAlert>)}
-      {ready ? <form action={`/admin/clients/${encodeURIComponent(userId)}/gcc-resume/download`} method="post">
-        <button className="auth-submit type-button" type="submit">Download GCC Resume PDF</button>
-      </form> : <p className="type-supporting text-text-muted">Resolve package or required-profile gaps before downloading.</p>}
+      {ready ? <AdminPdfRequest action={`/admin/clients/${encodeURIComponent(userId)}/gcc-resume/download`} label="Generate GCC Resume PDF" /> : <p className="type-supporting text-text-muted">Resolve package or required-profile gaps before generating.</p>}
     </section>
     <Link className="type-label admin-table-link" href={`/admin/clients/${encodeURIComponent(userId)}/edit`}>Return to client account</Link>
   </div>;

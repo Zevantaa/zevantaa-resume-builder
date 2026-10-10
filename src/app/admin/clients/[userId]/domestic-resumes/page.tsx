@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { InlineAlert } from "@/components/ui";
+import { AdminPdfRequest } from "@/features/document-generation/admin-pdf-request";
 import { loadAdminCandidateProfile } from "@/features/document-generation/admin-global-ats-service";
 import { DOMESTIC_DESIGNS, isDomesticPackageEligible } from "@/features/document-generation/domestic-resumes";
 import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
@@ -33,10 +34,8 @@ export default async function AdminDomesticResumesPage({ params }: PageProps<"/a
           <h2 className="type-heading-3">{design.name}</h2>
           <p className="type-supporting text-text-muted">{design.description}</p>
         </div>
-        {ready ? <form action={`/admin/clients/${encodeURIComponent(userId)}/domestic-resumes/download`} method="post">
-          <input name="design" type="hidden" value={design.id} />
-          <button className="auth-submit type-button" type="submit">Download PDF</button>
-        </form> : <p className="type-supporting text-text-muted">Resolve package or required-profile gaps before downloading.</p>}
+        {ready ? <AdminPdfRequest action={`/admin/clients/${encodeURIComponent(userId)}/domestic-resumes/download`}
+          fields={{ design: String(design.id) }} label="Generate PDF" /> : <p className="type-supporting text-text-muted">Resolve package or required-profile gaps before generating.</p>}
       </li>)}
     </ol>
     <Link className="type-label admin-table-link" href={`/admin/clients/${encodeURIComponent(userId)}/edit`}>Return to client account</Link>

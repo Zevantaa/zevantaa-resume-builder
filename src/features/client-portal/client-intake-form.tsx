@@ -80,7 +80,7 @@ export function ClientIntakeForm({
       {selectedPackage && <p className="type-supporting text-text-muted client-package-markets">Target markets: {selectedPackage.targetMarkets.map((market) => TARGET_MARKET_LABELS[market]).join(" · ")}</p>}
       {selectedPackage && !selectedPackage.isActive && <InlineAlert variant="warning">Your assigned package is inactive. Contact Zevantaa about its status.</InlineAlert>}
 
-      <form action={formAction} className="client-contact-form" onSubmit={validateBeforeSubmit}>
+      <form action={formAction} aria-busy={isPending} className="client-contact-form" onSubmit={validateBeforeSubmit}>
         <div className="client-profile-section-divider">
           <h2 className="type-heading-3 text-text">Source files</h2>
           <p className="type-supporting text-text-muted">Your uploads remain private. Saving files does not parse or generate documents.</p>
@@ -89,17 +89,19 @@ export function ClientIntakeForm({
         <div className="client-intake-file-grid">
           <div className="client-intake-file-block">
             <FileInput key={`resume-${state.savedAt ?? "initial"}`} id="profile-resume" name="resume" label="Existing resume"
+              disabled={isPending}
               required={!files.resume || files.resume.status !== "available"}
               accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              helperText="PDF, DOC or DOCX, maximum 10 MB. Choose a new file to replace the current one."
+              helperText="PDF, DOC or DOCX, maximum 10 MB. A replacement becomes current only after a successful private save and requires new administrator review."
               error={errors.resume} onChange={(event) => setSelectedResume({ name: event.target.files?.[0]?.name ?? "", actionState: state })} />
-            <p className="type-supporting text-text-muted">{files.resume ? `Current: ${files.resume.originalFileName} (${files.resume.status})` : "No resume currently available."}</p>
+            <p className="type-supporting text-text-muted">{files.resume ? `Current: ${files.resume.originalFileName} (${files.resume.status})` : "No source resume yet. Upload one to begin administrator review."}</p>
             {selectedResume.name && selectedResume.actionState === state && <p className="type-supporting">Selected replacement: {selectedResume.name}</p>}
           </div>
           {isGccPhotoAvailable(details.selectedPackageCode) && <div className="client-intake-file-block">
             <FileInput key={`photo-${state.savedAt ?? "initial"}`} id="profile-photo" name="photo" label="GCC profile photograph (optional)"
+              disabled={isPending}
               accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-              helperText="Mainly for GCC/Middle East applications. JPEG, PNG or WebP, maximum 5 MB."
+              helperText="Mainly for GCC/Middle East applications. JPEG, PNG or WebP, maximum 5 MB. A replacement becomes current only after a successful private save."
               error={errors.photo} onChange={(event) => setSelectedPhoto({ name: event.target.files?.[0]?.name ?? "", actionState: state })} />
             <p className="type-supporting text-text-muted">{files.photo ? `Current: ${files.photo.originalFileName} (${files.photo.status})` : "No photograph uploaded."}</p>
             {selectedPhoto.name && selectedPhoto.actionState === state && <p className="type-supporting">Selected replacement: {selectedPhoto.name}</p>}

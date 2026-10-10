@@ -40,6 +40,8 @@ export async function ClientDashboardPage() {
             </div> : <InlineAlert variant="warning">Assigned package unavailable. Contact Zevantaa support; no document entitlement is assumed.</InlineAlert>}
             <p className="type-supporting text-text-muted">Package and contact details are managed by Zevantaa, not editable here.</p>
             <div className="dashboard-status-line"><span>Profile status</span><StatusBadge variant={view.reviewConfirmed ? "success" : "neutral"}>{view.profileStatus}</StatusBadge></div>
+            {!view.resumeAvailable && <InlineAlert variant="information">No source resume is available. Upload one from your profile to begin review.</InlineAlert>}
+            {view.resumeAvailable && !view.reviewConfirmed && <InlineAlert variant="information">This source resume has not been confirmed by an administrator. A replacement requires new review; previously reviewed profile facts are not silently overwritten.</InlineAlert>}
             <Link className="type-button dashboard-primary-link" href="/client/profile">View profile & manage uploads <span aria-hidden="true">→</span></Link>
           </section>
 
@@ -77,6 +79,8 @@ export async function ClientDashboardPage() {
                   : <StatusBadge variant="neutral">{item.state}</StatusBadge>}
               </div>)}
               {!view.outputs.length && <p className="type-supporting text-text-muted">No document outputs can be shown for this package. Contact Zevantaa support.</p>}
+              {view.outputs.length > 0 && view.outputs.every((item) => !item.documentId) &&
+                <InlineAlert variant="information">No stored PDFs are available yet. Zevantaa will prepare eligible documents after profile review.</InlineAlert>}
             </div>
             <Link className="type-button dashboard-text-link" href="/client/documents">View document workspace</Link>
           </section>

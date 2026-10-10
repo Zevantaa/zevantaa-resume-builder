@@ -2,9 +2,8 @@ import Link from "next/link";
 
 import { DataTable, StatusBadge, TableBody, TableCell, TableContainer,
   TableEmptyState, TableHeader, TableHeaderCell, TableRow } from "@/components/ui";
-import { V1_PACKAGE_DEFINITIONS } from "@/types/package";
-
 import { ADMIN_DIRECTORY_PAGE_SIZE, directoryHref, parseAdminDirectoryFilters } from "./admin-directory-model";
+import { AdminDirectoryFilterForm } from "./admin-directory-filters";
 import { getAdminDirectoryData } from "./admin-directory-service";
 
 type SearchParams = { q?: string | string[]; package?: string | string[];
@@ -23,8 +22,6 @@ export async function AdminDirectoryWorkspace({ mode, searchParams }: {
   const filters = parseAdminDirectoryFilters(searchParams);
   const data = await getAdminDirectoryData(filters);
   const base = mode === "overview" ? "/admin" : "/admin/clients";
-  const invalidPackageFilter = !!filters.packageCode &&
-    !V1_PACKAGE_DEFINITIONS.some((item) => item.code === filters.packageCode);
   return <div className="dashboard-page dashboard-workspace-page admin-directory-page">
     <header className="dashboard-workspace-intro dashboard-admin-intro">
       <div>
@@ -49,24 +46,7 @@ export async function AdminDirectoryWorkspace({ mode, searchParams }: {
           <h2 className="type-heading-2" id="admin-directory-heading">Master client directory</h2>
           <p className="type-supporting text-text-muted">Generated-file counts include verified, stored private PDFs only; on-demand generations are not counted.</p></div>
       </div>
-      <form action={base} aria-label="Search and filter clients" className="admin-directory-filters" method="get">
-        <label><span className="type-label">Search clients</span>
-          <input className="form-control" defaultValue={filters.search} maxLength={80} name="q" placeholder="Name, email, phone or LinkedIn" type="search" /></label>
-        <label><span className="type-label">Package</span>
-          <select className="form-control" defaultValue={filters.packageCode} name="package">
-            <option value="">All packages</option>
-            {invalidPackageFilter && <option value={filters.packageCode}>Unknown package filter</option>}
-            {V1_PACKAGE_DEFINITIONS.map((item) => <option key={item.code} value={item.code}>{item.displayName}</option>)}
-          </select></label>
-        <label><span className="type-label">Resume status</span>
-          <select className="form-control" defaultValue={filters.status} name="status">
-            <option value="all">All statuses</option>
-            <option value="needs-resume">Needs resume</option>
-            <option value="under-review">Under review</option>
-            <option value="reviewed">Reviewed/confirmed</option>
-          </select></label>
-        <button className="type-button dashboard-primary-link" type="submit">Apply filters</button>
-      </form>
+      <AdminDirectoryFilterForm base={base} filters={filters} />
       <p className="type-supporting text-text-muted admin-directory-count" role="status">
         {data.totalMatching} matching client{data.totalMatching === 1 ? "" : "s"} · Page {data.currentPage} of {data.pageCount}
       </p>
@@ -92,7 +72,9 @@ export async function AdminDirectoryWorkspace({ mode, searchParams }: {
               <Link href={`/admin/clients/${client.userId}/resume-review`}>Review</Link>
               <Link href={`/admin/clients/${client.userId}/documents`}>Documents</Link>
             </div></TableCell>
-          </TableRow>) : <TableEmptyState colSpan={6} title="No matching clients" description="Adjust the search or filters, or create a client account." />}</TableBody>
+          </TableRow>) : data.metrics.clients === 0
+            ? <TableEmptyState colSpan={6} title="No clients yet" description="Create a client account to start the intake and review pipeline." />
+            : <TableEmptyState colSpan={6} title="No matching clients" description="Adjust the search or filters to find another client." />}</TableBody>
         </DataTable>
       </TableContainer>
       <nav aria-label="Directory pages" className="admin-directory-pagination">
