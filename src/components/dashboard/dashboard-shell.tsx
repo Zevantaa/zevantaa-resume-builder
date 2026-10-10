@@ -18,9 +18,10 @@ type DashboardShellProps = {
   children: ReactNode;
   navigation: readonly DashboardNavigationItem[];
   portal: AuthPortalIntent;
+  logoSrc?: string;
 };
 
-export function DashboardShell({ children, navigation, portal }: DashboardShellProps) {
+export function DashboardShell({ children, navigation, portal, logoSrc = "/branding/zevantaa-logo-reversed.svg" }: DashboardShellProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const portalLabel = portal === "admin" ? "Administrator" : "Client";
@@ -37,7 +38,7 @@ export function DashboardShell({ children, navigation, portal }: DashboardShellP
             className="dashboard-brand-logo"
             height={147}
             priority
-            src="/branding/zevantaa-logo-reversed.svg"
+            src={logoSrc}
             unoptimized
             width={220}
           />

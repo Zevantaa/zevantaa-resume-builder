@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { DashboardShell, type DashboardNavigationItem } from "@/components/dashboard/dashboard-shell";
 import { requireApplicationRole } from "@/features/authentication/authorization";
+import { brandLogoPath, getBrandSettings } from "@/features/branding/brand-settings-service";
 
 const navigation: readonly DashboardNavigationItem[] = [
   { href: "/client", label: "Overview" },
@@ -19,5 +20,6 @@ export default async function ClientLayout({
 }) {
   await requireApplicationRole("client");
 
-  return <DashboardShell navigation={navigation} portal="client">{children}</DashboardShell>;
+  const branding = await getBrandSettings();
+  return <DashboardShell navigation={navigation} portal="client" logoSrc={brandLogoPath(branding)}>{children}</DashboardShell>;
 }

@@ -26,7 +26,7 @@ export async function AdminDirectoryWorkspace({ mode, searchParams }: {
     <header className="dashboard-workspace-intro dashboard-admin-intro">
       <div>
         <p className="type-label dashboard-kicker">Zevantaa Master Admin Panel · Pipeline Control</p>
-        <h1 className="type-heading-1">{mode === "overview" ? "Client overview" : "Master client directory"}</h1>
+        <h1 className="type-heading-1">{mode === "overview" ? "See what needs attention first." : "Clients"}</h1>
         <p className="type-body text-text-muted">Find a client, check review and document state, or open their existing management workspace.</p>
       </div>
       <Link className="type-button dashboard-primary-link" href="/admin/clients/new">Create client account</Link>
@@ -38,6 +38,14 @@ export async function AdminDirectoryWorkspace({ mode, searchParams }: {
       <div><strong>{data.metrics.awaitingReview}</strong><span>Awaiting resume review</span></div>
       <div><strong>{data.metrics.reviewed}</strong><span>Reviewed/confirmed</span></div>
       <div><strong>{data.metrics.generatedOnPage}</strong><span>Stored PDFs on this page</span></div>
+    </section>}
+    {mode === "overview" && <section aria-label="Priority pipeline" className="admin-v8-priority-band">
+      <div><StatusBadge variant="warning">Needs review</StatusBadge><strong>{data.metrics.awaitingReview} source resume{data.metrics.awaitingReview === 1 ? "" : "s"}</strong>
+        <span>Uploaded source files awaiting administrator confirmation.</span></div>
+      <div><StatusBadge variant="neutral">Incomplete intake</StatusBadge><strong>{data.metrics.clients - data.metrics.sourceResumes} without a source resume</strong>
+        <span>Source-file intake remains unfinished; career edits are separate.</span></div>
+      <div><StatusBadge variant="success">Reviewed</StatusBadge><strong>{data.metrics.reviewed} confirmed source resume{data.metrics.reviewed === 1 ? "" : "s"}</strong>
+        <span>Review confirmed; check each profile before generating documents.</span></div>
     </section>}
 
     <section aria-labelledby="admin-directory-heading" className="dashboard-directory-section">

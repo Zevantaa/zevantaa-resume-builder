@@ -17,7 +17,7 @@ export default async function AdminEuropeanResumePage({ params }: PageProps<"/ad
   const mapping = mapCandidateProfileToDocumentData(profile, "resume");
   const eligible = isEuropeanPackageEligible(mapping.data);
   const ready = eligible && mapping.canGenerate;
-  return <div className="dashboard-page layout-container-readable layout-stack">
+  return <div className="dashboard-page layout-container-readable layout-stack admin-v8-generator">
     <header className="layout-stack">
       <p className="type-label text-text-muted">Admin portal · European resume</p>
       <h1 className="type-heading-1">European resume for {profile.fullName}</h1>

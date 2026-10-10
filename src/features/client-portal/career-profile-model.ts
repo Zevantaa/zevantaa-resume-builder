@@ -6,13 +6,18 @@ export type AdditionalDraftSection = { key: string; title: string; items: Career
 export type CareerDraft = { professionalSummary: string; additionalSections: AdditionalDraftSection[] } &
   Record<CareerSection, CareerRow[]>;
 
-export type CareerField = { name: string; label: string; kind?: "textarea" | "lines" | "month" | "year" | "url" | "checkbox" | "proficiency"; required?: boolean; max?: number };
+export type CareerField = { name: string; label: string; kind?: "textarea" | "lines" | "month" | "year" | "day" | "url" | "checkbox" | "proficiency" | "select"; options?: readonly { value: string; label: string }[]; required?: boolean; max?: number };
 
 export const CAREER_FIELDS: Record<CareerSection, { title: string; fields: CareerField[] }> = {
   workExperience: { title: "Work Experience", fields: [
     { name: "jobTitle", label: "Job title", required: true, max: 200 },
     { name: "employerName", label: "Employer", required: true, max: 200 },
-    { name: "startDate", label: "Start month", kind: "month", required: true },
+    { name: "employmentType", label: "Employment type (optional)", kind: "select", options: [
+      { value: "full-time", label: "Full-time" }, { value: "part-time", label: "Part-time" },
+      { value: "contract", label: "Contract" }, { value: "internship", label: "Internship" },
+      { value: "freelance", label: "Freelance" }, { value: "other", label: "Other" },
+    ] },
+    { name: "startDate", label: "Start month (optional)", kind: "month" },
     { name: "endDate", label: "End month", kind: "month" },
     { name: "currentRole", label: "Current role", kind: "checkbox" },
     { name: "location", label: "Role location", max: 200 },
@@ -25,6 +30,13 @@ export const CAREER_FIELDS: Record<CareerSection, { title: string; fields: Caree
     { name: "fieldOfStudy", label: "Field of study", max: 200 },
     { name: "startDate", label: "Start month", kind: "month" },
     { name: "endDate", label: "End month", kind: "month" },
+    { name: "startYear", label: "Start year (optional)", kind: "year" },
+    { name: "endYear", label: "End year (optional)", kind: "year" },
+    { name: "currentStudy", label: "Currently studying here", kind: "checkbox" },
+    { name: "modeOfStudy", label: "Mode of study (optional)", kind: "select", options: [
+      { value: "offline", label: "Offline" }, { value: "online", label: "Online" },
+      { value: "hybrid", label: "Hybrid" }, { value: "correspondence", label: "Correspondence" },
+    ] },
     { name: "completionYear", label: "Completion year (if no end month)", kind: "year" },
     { name: "location", label: "Location", max: 200 },
     { name: "gradeResult", label: "Grade or result (as supplied)", max: 200 },
@@ -39,8 +51,14 @@ export const CAREER_FIELDS: Record<CareerSection, { title: string; fields: Caree
     { name: "issuingOrganization", label: "Issuing organization", required: true, max: 200 },
     { name: "issuedOn", label: "Issue month", kind: "month" },
     { name: "issueYear", label: "Issue year (if no month)", kind: "year" },
+    { name: "issuedExactOn", label: "Exact issue date (if supplied)", kind: "day" },
+    { name: "validityStatus", label: "Validity (optional)", kind: "select", options: [
+      { value: "until-date", label: "Valid until a date" }, { value: "no-expiry", label: "No expiry / valid forever" },
+      { value: "unknown", label: "Unknown / not provided" },
+    ] },
     { name: "expiresOn", label: "Expiry month", kind: "month" },
     { name: "expiryYear", label: "Expiry year (if no month)", kind: "year" },
+    { name: "expiresExactOn", label: "Valid until (exact date)", kind: "day" },
     { name: "credentialId", label: "Credential ID", max: 200 },
     { name: "credentialUrl", label: "Credential URL", kind: "url", max: 1000 },
   ] },
@@ -53,6 +71,7 @@ export const CAREER_FIELDS: Record<CareerSection, { title: string; fields: Caree
     { name: "role", label: "Role", max: 200 },
     { name: "startDate", label: "Start month", kind: "month" },
     { name: "endDate", label: "End month", kind: "month" },
+    { name: "ongoing", label: "Project is ongoing", kind: "checkbox" },
     { name: "description", label: "Description", kind: "textarea", max: 4000 },
     { name: "highlights", label: "Highlights (one per line)", kind: "lines", max: 5000 },
     { name: "technologies", label: "Technologies (one per line)", kind: "lines", max: 3000 },
@@ -78,20 +97,26 @@ export function toCareerDraft(profile: CandidateProfile): CareerDraft {
   return {
     professionalSummary: profile.professionalSummary ?? "",
     workExperience: profile.workExperience.map((v, i) => row(i, { jobTitle: v.jobTitle, employerName: v.employerName,
-      startDate: v.startDate, endDate: v.endDate ?? "", currentRole: v.currentRole, location: v.location ?? "",
+      startDate: v.startDate ?? "", endDate: v.endDate ?? "", currentRole: v.currentRole,
+      employmentType: v.employmentType ?? "", location: v.location ?? "",
       description: v.description ?? "", highlights: lines(v.highlights) })),
     education: profile.education.map((v, i) => row(i, { qualification: v.qualification,
       institutionName: v.institutionName, fieldOfStudy: v.fieldOfStudy ?? "", startDate: v.startDate ?? "",
-      endDate: v.endDate ?? "", completionYear: v.completionYear?.toString() ?? "", location: v.location ?? "",
+      endDate: v.endDate ?? "", startYear: v.startYear?.toString() ?? "", endYear: v.endYear?.toString() ?? "",
+      currentStudy: v.currentStudy ?? false, modeOfStudy: v.modeOfStudy ?? "",
+      completionYear: v.completionYear?.toString() ?? "", location: v.location ?? "",
       gradeResult: v.gradeResult ?? "", highlights: lines(v.highlights) })),
     skills: profile.skills.map((v, i) => row(i, { name: v.name, category: v.category ?? "" })),
     certifications: profile.certifications.map((v, i) => row(i, { name: v.name,
       issuingOrganization: v.issuingOrganization, issuedOn: v.issuedOn ?? "", issueYear: v.issueYear?.toString() ?? "",
-      expiresOn: v.expiresOn ?? "", expiryYear: v.expiryYear?.toString() ?? "", credentialId: v.credentialId ?? "",
+      issuedExactOn: v.issuedExactOn ?? "", validityStatus: v.validityStatus ?? "",
+      expiresOn: v.expiresOn ?? "", expiryYear: v.expiryYear?.toString() ?? "", expiresExactOn: v.expiresExactOn ?? "",
+      credentialId: v.credentialId ?? "",
       credentialUrl: v.credentialUrl ?? "" })),
     languages: profile.languages.map((v, i) => row(i, { name: v.name, proficiency: v.proficiency ?? "" })),
     projects: profile.projects.map((v, i) => row(i, { name: v.name, role: v.role ?? "",
-      startDate: v.startDate ?? "", endDate: v.endDate ?? "", description: v.description ?? "",
+      startDate: v.startDate ?? "", endDate: v.endDate ?? "", ongoing: v.ongoing ?? false,
+      description: v.description ?? "",
       highlights: lines(v.highlights), technologies: lines(v.technologies), url: v.url ?? "" })),
     additionalSections: profile.additionalSections.map((section, i) => ({ key: `existing-${i}`, title: section.title,
       items: section.items.map((item, j) => row(j, { heading: item.heading, subheading: item.subheading ?? "",

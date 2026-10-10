@@ -19,7 +19,7 @@ export default async function AdminGccResumePage({ params }: PageProps<"/admin/c
   const eligible = isGccPackageEligible(mapping.data);
   const photo = await loadAdminGccPhotoReference(profile.id);
   const ready = eligible && mapping.canGenerate;
-  return <div className="dashboard-page layout-container-readable layout-stack">
+  return <div className="dashboard-page layout-container-readable layout-stack admin-v8-generator">
     <header className="layout-stack">
       <p className="type-label text-text-muted">Admin portal · GCC resume</p>
       <h1 className="type-heading-1">GCC resume for {profile.fullName}</h1>

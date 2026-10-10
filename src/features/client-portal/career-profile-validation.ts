@@ -1,5 +1,6 @@
 import { ADDITIONAL_ITEM_FIELDS, CAREER_FIELDS, CAREER_SECTION_NAMES,
   type CareerField, type CareerSection } from "./career-profile-model";
+import { normalizeSkillName } from "./skill-name";
 
 export type ValidatedRow = { key: string; [field: string]: string | boolean | string[] };
 export type ValidatedCareer = { professionalSummary: string; additionalSections: {
@@ -12,9 +13,11 @@ export class CareerValidationError extends Error {
 
 const MONTH = /^(1[0-9]{3}|[2-9][0-9]{3})-(0[1-9]|1[0-2])$/;
 const YEAR = /^(1[0-9]{3}|[2-9][0-9]{3})$/;
+const DAY = /^(1[0-9]{3}|[2-9][0-9]{3})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
 const KEY = /^(?:existing-(?:0|[1-9][0-9]*)|new-[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
 const PROFICIENCY = new Set(["", "basic", "conversational", "professional-working", "fluent", "native-or-bilingual"]);
 const MAX_ROWS = 50;
+const OPTIONAL_V8_FIELDS = new Set(["employmentType", "startYear", "endYear", "modeOfStudy", "issuedExactOn", "validityStatus", "expiresExactOn"]);
 
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new CareerValidationError("Review the career entries and try again.");
@@ -53,22 +56,27 @@ function validateRow(raw: unknown, fields: CareerField[], label: string): Valida
   let hasContent = false;
   for (const field of fields) {
     if (field.kind === "checkbox") {
-      const checked = value[field.name];
+      const checked = value[field.name] ?? (field.name === "currentStudy" || field.name === "ongoing" ? false : undefined);
       if (typeof checked !== "boolean") throw new CareerValidationError(`${label}: invalid current-role value.`);
       result[field.name] = checked;
       continue;
     }
-    const content = text(value[field.name], `${label} — ${field.label}`, field.max ?? 200);
+    const content = text(value[field.name] ?? (OPTIONAL_V8_FIELDS.has(field.name) ? "" : undefined), `${label} — ${field.label}`, field.max ?? 200);
     if (content) hasContent = true;
     if (field.kind === "month" && content && !MONTH.test(content)) throw new CareerValidationError(`${label}: use a valid YYYY-MM month.`);
     if (field.kind === "year" && content && !YEAR.test(content)) throw new CareerValidationError(`${label}: use a valid four-digit year.`);
+    if (field.kind === "day" && content && (!DAY.test(content) || Number.isNaN(new Date(`${content}T12:00:00Z`).valueOf()) ||
+      new Date(`${content}T12:00:00Z`).toISOString().slice(0, 10) !== content)) throw new CareerValidationError(`${label}: use a valid YYYY-MM-DD date.`);
     if (field.kind === "url") validUrl(content, `${label} — ${field.label}`);
     if (field.kind === "proficiency" && !PROFICIENCY.has(content)) throw new CareerValidationError(`${label}: choose a listed proficiency or leave it blank.`);
+    if (field.kind === "select" && content && !field.options?.some((option) => option.value === content))
+      throw new CareerValidationError(`${label}: choose a listed ${field.label.toLowerCase()} or leave it blank.`);
     if (field.kind === "lines") {
       const lines = content.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean);
       if (lines.length > 30 || lines.some((line) => line.length > 500)) throw new CareerValidationError(`${label}: too many or overly long list entries.`);
       result[field.name] = lines;
-    } else result[field.name] = content;
+    } else result[field.name] = field.name === "name" && label.startsWith("Skills entry")
+      ? normalizeSkillName(content).name : content;
   }
   if (!hasContent) return null;
   for (const field of fields) if (field.required && !result[field.name]) {
@@ -103,19 +111,35 @@ function validateSection(raw: unknown, section: CareerSection): ValidatedRow[] {
     if (section === "education" && item.completionYear && end) {
       throw new CareerValidationError("Education cannot have both a completion year and end month.");
     }
+    if (section === "education") {
+      if (item.currentStudy && (item.endDate || item.endYear || item.completionYear))
+        throw new CareerValidationError("Current education cannot have an end or completion date.");
+      if (item.startYear && item.endYear && String(item.endYear) < String(item.startYear))
+        throw new CareerValidationError("Education end year cannot precede start year.");
+      if (item.startYear && item.startDate || item.endYear && item.endDate)
+        throw new CareerValidationError("Use either a year or month for each education date, not both.");
+    }
     if (section === "certifications") {
-      if (item.issueYear && item.issuedOn || item.expiryYear && item.expiresOn) {
+      if ((item.issueYear && item.issuedOn) || (item.expiryYear && item.expiresOn) ||
+        (item.issuedExactOn && (item.issuedOn || item.issueYear)) ||
+        (item.expiresExactOn && (item.expiresOn || item.expiryYear))) {
         throw new CareerValidationError("Use either a year or month for each certification date, not both.");
       }
-      const issue = String(item.issuedOn || item.issueYear || "");
-      const expiry = String(item.expiresOn || item.expiryYear || "");
+      if (item.validityStatus === "until-date" && !item.expiresExactOn)
+        throw new CareerValidationError("Choose the exact expiry date for a date-limited certification.");
+      if (item.validityStatus === "no-expiry" && (item.expiresExactOn || item.expiresOn || item.expiryYear))
+        throw new CareerValidationError("A no-expiry certification cannot have an expiry date.");
+      const issue = String(item.issuedExactOn || item.issuedOn || item.issueYear || "");
+      const expiry = String(item.expiresExactOn || item.expiresOn || item.expiryYear || "");
       if (issue && expiry && expiry < issue.slice(0, expiry.length)) {
         throw new CareerValidationError("Certification expiry cannot precede issue date.");
       }
     }
+    if (section === "projects" && item.ongoing === true && item.endDate)
+      throw new CareerValidationError("An ongoing project cannot have an end month.");
   }
   if (section === "skills" || section === "languages") {
-    const names = rows.map((item) => String(item.name).toLocaleLowerCase());
+    const names = rows.map((item) => section === "skills" ? normalizeSkillName(String(item.name)).key : String(item.name).toLocaleLowerCase());
     if (new Set(names).size !== names.length) throw new CareerValidationError(`${label}: remove duplicate names.`);
   }
   return rows;

@@ -29,7 +29,7 @@ export function AuthExperienceShell({
               className="auth-logo"
               height={147}
               priority
-              src="/branding/zevantaa-logo-reversed.svg"
+              src="/branding/current/logo"
               unoptimized
               width={220}
             />

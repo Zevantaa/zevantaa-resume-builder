@@ -8,18 +8,21 @@ import type {
 } from "@/types/client-profile";
 
 type OrderedRow = { id: string; sort_order: number };
-type WorkRow = OrderedRow & { employer_name: string; job_title: string; start_date: string; end_date: string | null;
-  is_current_role: boolean; location: string | null; description: string | null; highlights: string[] };
+type WorkRow = OrderedRow & { employer_name: string; job_title: string; start_date: string | null; end_date: string | null;
+  is_current_role: boolean; employment_type: WorkExperienceEntry["employmentType"] | null;
+  location: string | null; description: string | null; highlights: string[] };
 type EducationRow = OrderedRow & { institution_name: string; qualification: string; field_of_study: string | null;
   start_date: string | null; end_date: string | null; completion_year: number | null; location: string | null;
+  start_year: number | null; end_year: number | null; is_current_study: boolean; mode_of_study: EducationEntry["modeOfStudy"] | null;
   grade_result: string | null; highlights: string[] };
 type SkillRow = OrderedRow & { name: string; category: string | null };
 type CertificationRow = OrderedRow & { name: string; issuing_organization: string; issued_on: string | null;
   issue_year: number | null; expires_on: string | null; expiry_year: number | null;
+  issued_exact_on: string | null; expires_exact_on: string | null; validity_status: CertificationEntry["validityStatus"] | null;
   credential_id: string | null; credential_url: string | null };
 type LanguageRow = OrderedRow & { name: string; proficiency: LanguageEntry["proficiency"] | null };
 type ProjectRow = OrderedRow & { name: string; role: string | null; start_date: string | null; end_date: string | null;
-  description: string | null; highlights: string[]; technologies: string[]; url: string | null };
+  is_ongoing: boolean; description: string | null; highlights: string[]; technologies: string[]; url: string | null };
 type SectionRow = OrderedRow & { title: string };
 type SectionItemRow = OrderedRow & { additional_profile_section_id: string; heading: string; subheading: string | null;
   date_label: string | null; description: string | null; highlights: string[]; url: string | null };
@@ -45,17 +48,17 @@ export async function loadCandidateProfileById(profileId: string): Promise<Candi
     languageResult, projectResult, sectionResult] = await Promise.all([
     db.from("candidate_profiles").select("id, full_name, primary_email, mobile_number, whatsapp_number, linkedin_url, current_location, relocation_preference, selected_package_code, target_markets, professional_summary, created_at, updated_at")
       .eq("id", profileId).is("archived_at", null).maybeSingle(),
-    db.from("profile_work_experiences").select("id, sort_order, employer_name, job_title, start_date, end_date, is_current_role, location, description, highlights")
+    db.from("profile_work_experiences").select("id, sort_order, employer_name, job_title, start_date, end_date, is_current_role, employment_type, location, description, highlights")
       .eq("candidate_profile_id", profileId).is("archived_at", null).order("sort_order").order("id"),
-    db.from("profile_education_entries").select("id, sort_order, institution_name, qualification, field_of_study, start_date, end_date, completion_year, location, grade_result, highlights")
+    db.from("profile_education_entries").select("id, sort_order, institution_name, qualification, field_of_study, start_date, end_date, start_year, end_year, is_current_study, mode_of_study, completion_year, location, grade_result, highlights")
       .eq("candidate_profile_id", profileId).is("archived_at", null).order("sort_order").order("id"),
     db.from("profile_skills").select("id, sort_order, name, category")
       .eq("candidate_profile_id", profileId).is("archived_at", null).order("sort_order").order("id"),
-    db.from("profile_certifications").select("id, sort_order, name, issuing_organization, issued_on, issue_year, expires_on, expiry_year, credential_id, credential_url")
+    db.from("profile_certifications").select("id, sort_order, name, issuing_organization, issued_on, issue_year, issued_exact_on, expires_on, expiry_year, expires_exact_on, validity_status, credential_id, credential_url")
       .eq("candidate_profile_id", profileId).is("archived_at", null).order("sort_order").order("id"),
     db.from("profile_languages").select("id, sort_order, name, proficiency")
       .eq("candidate_profile_id", profileId).is("archived_at", null).order("sort_order").order("id"),
-    db.from("profile_projects").select("id, sort_order, name, role, start_date, end_date, description, highlights, technologies, url")
+    db.from("profile_projects").select("id, sort_order, name, role, start_date, end_date, is_ongoing, description, highlights, technologies, url")
       .eq("candidate_profile_id", profileId).is("archived_at", null).order("sort_order").order("id"),
     db.from("additional_profile_sections").select("id, sort_order, title")
       .eq("candidate_profile_id", profileId).is("archived_at", null).order("sort_order").order("id"),
@@ -89,7 +92,9 @@ export async function loadCandidateProfileById(profileId: string): Promise<Candi
     ...(profile.professional_summary ? { professionalSummary: profile.professional_summary } : {}),
     workExperience: ordered((workResult.data ?? []) as WorkRow[]).map((row): WorkExperienceEntry => ({
       id: row.id, sortOrder: row.sort_order, employerName: row.employer_name, jobTitle: row.job_title,
-      startDate: row.start_date, currentRole: row.is_current_role, highlights: row.highlights,
+      currentRole: row.is_current_role, highlights: row.highlights,
+      ...(row.start_date ? { startDate: row.start_date } : {}),
+      ...(row.employment_type ? { employmentType: row.employment_type } : {}),
       ...(row.end_date ? { endDate: row.end_date } : {}), ...(row.location ? { location: row.location } : {}),
       ...(row.description ? { description: row.description } : {}),
     })),
@@ -98,6 +103,10 @@ export async function loadCandidateProfileById(profileId: string): Promise<Candi
       qualification: row.qualification, highlights: row.highlights,
       ...(row.field_of_study ? { fieldOfStudy: row.field_of_study } : {}),
       ...(row.start_date ? { startDate: row.start_date } : {}), ...(row.end_date ? { endDate: row.end_date } : {}),
+      ...(row.start_year !== null ? { startYear: row.start_year } : {}),
+      ...(row.end_year !== null ? { endYear: row.end_year } : {}),
+      ...(row.is_current_study ? { currentStudy: true } : {}),
+      ...(row.mode_of_study ? { modeOfStudy: row.mode_of_study } : {}),
       ...(row.completion_year !== null ? { completionYear: row.completion_year } : {}),
       ...(row.location ? { location: row.location } : {}), ...(row.grade_result ? { gradeResult: row.grade_result } : {}),
     })),
@@ -108,8 +117,11 @@ export async function loadCandidateProfileById(profileId: string): Promise<Candi
       id: row.id, sortOrder: row.sort_order, name: row.name, issuingOrganization: row.issuing_organization,
       ...(row.issued_on ? { issuedOn: row.issued_on } : {}),
       ...(row.issue_year !== null ? { issueYear: row.issue_year } : {}),
+      ...(row.issued_exact_on ? { issuedExactOn: row.issued_exact_on } : {}),
       ...(row.expires_on ? { expiresOn: row.expires_on } : {}),
       ...(row.expiry_year !== null ? { expiryYear: row.expiry_year } : {}),
+      ...(row.expires_exact_on ? { expiresExactOn: row.expires_exact_on } : {}),
+      ...(row.validity_status ? { validityStatus: row.validity_status } : {}),
       ...(row.credential_id ? { credentialId: row.credential_id } : {}),
       ...(row.credential_url ? { credentialUrl: row.credential_url } : {}),
     })),
@@ -120,6 +132,7 @@ export async function loadCandidateProfileById(profileId: string): Promise<Candi
     projects: ordered((projectResult.data ?? []) as ProjectRow[]).map((row): ProjectEntry => ({
       id: row.id, sortOrder: row.sort_order, name: row.name, highlights: row.highlights,
       technologies: row.technologies, ...(row.role ? { role: row.role } : {}),
+      ...(row.is_ongoing ? { ongoing: true } : {}),
       ...(row.start_date ? { startDate: row.start_date } : {}), ...(row.end_date ? { endDate: row.end_date } : {}),
       ...(row.description ? { description: row.description } : {}), ...(row.url ? { url: row.url } : {}),
     })),

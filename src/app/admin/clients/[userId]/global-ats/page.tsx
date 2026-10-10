@@ -20,7 +20,7 @@ export default async function AdminGlobalAtsPage({ params }: PageProps<"/admin/c
   const score = calculateIndicativeAtsScore(mapping);
   const entitled = packageAllowsOutput(profile.selectedPackage, "global-ats-resume");
 
-  return <div className="dashboard-page"><div className="layout-container-readable layout-stack">
+  return <div className="dashboard-page admin-v8-generator"><div className="layout-container-readable layout-stack admin-v8-generator-body">
     <header className="layout-stack">
       <p className="type-label text-text-muted">Admin QA · Global ATS Resume</p>
       <h1 className="type-heading-1">Global ATS Resume for {profile.fullName}</h1>

@@ -73,7 +73,7 @@ export function mapCandidateProfileToDocumentData(
     finding("incomplete_section_item", "warning", path, "An incomplete item was omitted; review the stored candidate data.");
 
   const employment = ordered(profile.workExperience).flatMap((item): WorkExperienceEntry[] => {
-    if (!hasText(item.employerName) || !hasText(item.jobTitle) || !hasText(item.startDate)) {
+    if (!hasText(item.employerName) || !hasText(item.jobTitle)) {
       incomplete(`workExperience.${item.id}`);
       return [];
     }
@@ -82,7 +82,9 @@ export function mapCandidateProfileToDocumentData(
     }
     return [{
       id: item.id, sortOrder: item.sortOrder, employerName: item.employerName,
-      jobTitle: item.jobTitle, startDate: item.startDate, currentRole: item.currentRole,
+      jobTitle: item.jobTitle, currentRole: item.currentRole,
+      ...(hasText(item.startDate) ? { startDate: item.startDate } : {}),
+      ...(item.employmentType ? { employmentType: item.employmentType } : {}),
       ...(!item.currentRole && hasText(item.endDate) ? { endDate: item.endDate } : {}),
       ...(hasText(item.location) ? { location: item.location } : {}),
       ...(hasText(item.description) ? { description: item.description } : {}),
@@ -100,6 +102,10 @@ export function mapCandidateProfileToDocumentData(
       ...(hasText(item.fieldOfStudy) ? { fieldOfStudy: item.fieldOfStudy } : {}),
       ...(hasText(item.startDate) ? { startDate: item.startDate } : {}),
       ...(hasText(item.endDate) ? { endDate: item.endDate } : {}),
+      ...(item.startYear !== undefined ? { startYear: item.startYear } : {}),
+      ...(item.endYear !== undefined ? { endYear: item.endYear } : {}),
+      ...(item.currentStudy ? { currentStudy: true } : {}),
+      ...(item.modeOfStudy ? { modeOfStudy: item.modeOfStudy } : {}),
       ...(item.completionYear !== undefined ? { completionYear: item.completionYear } : {}),
       ...(hasText(item.location) ? { location: item.location } : {}),
       ...(hasText(item.gradeResult) ? { gradeResult: item.gradeResult } : {}),
@@ -121,8 +127,11 @@ export function mapCandidateProfileToDocumentData(
       issuingOrganization: item.issuingOrganization,
       ...(hasText(item.issuedOn) ? { issuedOn: item.issuedOn } : {}),
       ...(item.issueYear !== undefined ? { issueYear: item.issueYear } : {}),
+      ...(item.issuedExactOn ? { issuedExactOn: item.issuedExactOn } : {}),
       ...(hasText(item.expiresOn) ? { expiresOn: item.expiresOn } : {}),
       ...(item.expiryYear !== undefined ? { expiryYear: item.expiryYear } : {}),
+      ...(item.expiresExactOn ? { expiresExactOn: item.expiresExactOn } : {}),
+      ...(item.validityStatus ? { validityStatus: item.validityStatus } : {}),
       ...(hasText(item.credentialId) ? { credentialId: item.credentialId } : {}),
       ...(hasText(item.credentialUrl) ? { credentialUrl: item.credentialUrl } : {}),
     }];
@@ -139,6 +148,7 @@ export function mapCandidateProfileToDocumentData(
       ...(hasText(item.role) ? { role: item.role } : {}),
       ...(hasText(item.startDate) ? { startDate: item.startDate } : {}),
       ...(hasText(item.endDate) ? { endDate: item.endDate } : {}),
+      ...(item.ongoing ? { ongoing: true } : {}),
       ...(hasText(item.description) ? { description: item.description } : {}),
       highlights: bullets(item.highlights), technologies: bullets(item.technologies),
       ...(hasText(item.url) ? { url: item.url } : {}),

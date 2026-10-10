@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { CSSProperties } from "react";
+import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { BRAND_FONT_FAMILY } from "@/features/branding/brand-settings-config";
+import { brandMarkPath, getBrandSettings } from "@/features/branding/brand-settings-service";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -11,8 +14,9 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+const inter = Inter({ variable: "--font-brand-inter", subsets: ["latin"], display: "swap" });
 
-export const metadata: Metadata = {
+const baseMetadata: Metadata = {
   title: "Zevantaa Resume Builder",
   description: "Zevantaa Careers multi-market resume builder and portal",
   icons: {
@@ -49,11 +53,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getBrandSettings();
+  if (!settings.markObjectKey) return baseMetadata;
+  return { ...baseMetadata, icons: { icon: brandMarkPath(settings), shortcut: brandMarkPath(settings) } };
+}
+
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const settings = await getBrandSettings();
+  const brandStyle = { "--brand-ui-font": BRAND_FONT_FAMILY[settings.uiFont],
+    "--brand-heading-font": BRAND_FONT_FAMILY[settings.headingFont],
+    "--brand-accent": settings.accentColor } as CSSProperties;
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} h-full antialiased`}
+      style={brandStyle}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

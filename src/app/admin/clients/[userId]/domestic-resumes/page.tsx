@@ -18,7 +18,7 @@ export default async function AdminDomesticResumesPage({ params }: PageProps<"/a
   const eligible = isDomesticPackageEligible(mapping.data);
   const ready = mapping.canGenerate && eligible;
 
-  return <div className="dashboard-page layout-container-readable layout-stack">
+  return <div className="dashboard-page layout-container-readable layout-stack admin-v8-generator">
     <header className="layout-stack">
       <p className="type-label text-text-muted">Admin portal · Domestic resume suite</p>
       <h1 className="type-heading-1">Domestic resumes for {profile.fullName}</h1>

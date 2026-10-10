@@ -90,7 +90,7 @@ export async function saveCurrentClientCareerProfile(validated: ValidatedCareer,
   if (!snapshot) return "missing";
   if (snapshot.revision !== expectedRevision) return "stale";
   const payload = buildPayload(validated, snapshot.profile);
-  const { data, error } = await createSupabaseAdminClient().rpc("apply_client_career_profile", {
+  const { data, error } = await createSupabaseAdminClient().rpc("apply_client_career_profile_v8", {
     p_profile_id: linked.profileId,
     p_actor_id: linked.userId,
     p_expected_revision: expectedRevision,

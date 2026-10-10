@@ -44,7 +44,8 @@ export interface OrderedProfileItem {
 export interface WorkExperienceEntry extends OrderedProfileItem {
   employerName: string;
   jobTitle: string;
-  startDate: YearMonth;
+  startDate?: YearMonth;
+  employmentType?: "full-time" | "part-time" | "contract" | "internship" | "freelance" | "other";
   currentRole: boolean;
   endDate?: YearMonth;
   location?: string;
@@ -60,6 +61,10 @@ export interface EducationEntry extends OrderedProfileItem {
   fieldOfStudy?: string;
   startDate?: YearMonth;
   endDate?: YearMonth;
+  startYear?: number;
+  endYear?: number;
+  currentStudy?: boolean;
+  modeOfStudy?: "offline" | "online" | "hybrid" | "correspondence";
   /** Exact completion year when only a year was supplied; never infer a month. */
   completionYear?: number;
   location?: string;
@@ -81,6 +86,9 @@ export interface CertificationEntry extends OrderedProfileItem {
   issueYear?: number;
   expiresOn?: YearMonth;
   expiryYear?: number;
+  issuedExactOn?: string;
+  expiresExactOn?: string;
+  validityStatus?: "until-date" | "no-expiry" | "unknown";
   credentialId?: string;
   credentialUrl?: string;
 }
@@ -95,6 +103,7 @@ export interface ProjectEntry extends OrderedProfileItem {
   role?: string;
   startDate?: YearMonth;
   endDate?: YearMonth;
+  ongoing?: boolean;
   description?: string;
   highlights: string[];
   technologies: string[];

@@ -28,7 +28,7 @@ export default async function AdminCoverLettersPage({ params }: PageProps<"/admi
     try { buildCoverLetterContent(mapping, type); return { type, ready: true }; }
     catch (error) { if (!(error instanceof CoverLetterNotReadyError)) throw error; return { type, ready: false }; }
   });
-  return <div className="dashboard-page layout-container-readable layout-stack">
+  return <div className="dashboard-page layout-container-readable layout-stack admin-v8-generator">
     <header className="layout-stack">
       <p className="type-label text-text-muted">Admin portal · Cover letters</p>
       <h1 className="type-heading-1">Cover letters for {profile.fullName}</h1>

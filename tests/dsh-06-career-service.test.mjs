@@ -41,7 +41,7 @@ function setup() {
       return query;
     },
     async rpc(name, args) {
-      assert.equal(name, "apply_client_career_profile");
+      assert.equal(name, "apply_client_career_profile_v8");
       state.calls.push(args);
       if (state.forceStale) return { data: null, error: null };
       const payload = args.p_payload;

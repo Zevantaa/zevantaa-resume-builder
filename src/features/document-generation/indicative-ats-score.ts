@@ -33,7 +33,7 @@ export type IndicativeAtsScore =
 const hasText = (value: string | undefined | null) => Boolean(value?.trim());
 const hasDetail = (item: { description?: string; highlights: string[] }) =>
   hasText(item.description) || item.highlights.some(hasText);
-const validMonth = (value: string) => /^(?:19|20)\d{2}-(?:0[1-9]|1[0-2])$/.test(value);
+const validMonth = (value: string | undefined) => /^(?:19|20)\d{2}-(?:0[1-9]|1[0-2])$/.test(value ?? "");
 const label: Record<AtsScoreDimension, string> = {
   contact: "Contact completeness", summary: "Professional summary", experience: "Experience completeness",
   education: "Education completeness", skills: "Skills coverage", formatting: "ATS formatting",
@@ -60,7 +60,7 @@ export function calculateIndicativeAtsScore(mapping: DocumentDataMappingResult):
   const dated = employment.length + education.filter((item) => item.startDate || item.endDate || item.completionYear).length;
   const consistentDates = employment.every((item) => validMonth(item.startDate) &&
     (item.currentRole ? !item.endDate : !item.endDate || validMonth(item.endDate)) &&
-    (!item.endDate || item.startDate <= item.endDate)) &&
+    (!item.endDate || !item.startDate || item.startDate <= item.endDate)) &&
     education.every((item) => (!item.startDate || validMonth(item.startDate)) &&
       (!item.endDate || validMonth(item.endDate)) &&
       (!item.startDate || !item.endDate || item.startDate <= item.endDate));

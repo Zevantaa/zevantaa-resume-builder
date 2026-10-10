@@ -70,7 +70,7 @@ function hasCredibleContext(data: DocumentData): boolean {
 function recentRole(data: DocumentData) {
   const roles = data.employment ?? [];
   return [...roles].sort((a, b) => Number(b.currentRole) - Number(a.currentRole) ||
-    b.startDate.localeCompare(a.startDate) || a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))[0];
+    (b.startDate ?? "").localeCompare(a.startDate ?? "") || a.sortOrder - b.sortOrder || a.id.localeCompare(b.id))[0];
 }
 
 function source(text: string, path: string): SourcedLetterParagraph {
