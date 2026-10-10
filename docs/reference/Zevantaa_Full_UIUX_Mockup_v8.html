@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zevantaa ATS — Full UI/UX Mockup v8</title>
+<style>
+:root{
+  --navy:#0b1626;--navy2:#142944;--ink:#1d2939;--muted:#718096;--muted2:#98a4b5;
+  --line:#dce4ee;--line2:#e9eef4;--page:#edf3f8;--white:#fff;
+  --blue:#3568f0;--blue-soft:#eaf1ff;--green:#0fa36f;--green-soft:#e6f8f1;
+  --amber:#df9f1c;--amber-soft:#fff6dd;--red:#c64a4a;--red-soft:#fff1f1;
+  --shadow:0 12px 32px rgba(15,23,42,.10);--shadow-sm:0 4px 14px rgba(15,23,42,.06);
+  --r:14px;--r2:10px;--ease:cubic-bezier(.2,.8,.2,1);
+  --ui-font:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --heading-font:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --accent:#0fa36f;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+html{scroll-behavior:smooth}
+body{
+  margin:0;font-family:var(--ui-font);color:var(--ink);background:var(--page);overflow:hidden;
+  -webkit-font-smoothing:antialiased
+}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,a:focus-visible{
+  outline:3px solid rgba(53,104,240,.18);outline-offset:2px
+}
+h1,h2,h3{font-family:var(--heading-font)}
+
+/* Topbar */
+.topbar{height:72px;background:var(--navy);color:#fff;border-bottom:1px solid rgba(255,255,255,.06);position:sticky;top:0;z-index:150}
+.topbar-inner{height:100%;display:grid;grid-template-columns:270px minmax(0,1fr) 185px;gap:16px;align-items:center;padding:0 22px;max-width:1600px;margin:auto}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.logo-wrap{height:42px;max-width:150px;display:flex;align-items:center}
+.logo-placeholder{width:40px;height:40px;border-radius:11px;background:linear-gradient(145deg,#27c797,#0da16f);display:grid;place-items:center;font-size:21px;font-weight:900;flex:0 0 auto}
+.brand-text{min-width:0}
+.brand-name{font-size:16px;font-weight:900;letter-spacing:.13em}
+.brand-sub{font-size:9px;color:#9eabc0;letter-spacing:.08em;margin-top:2px}
+.topnav{display:flex;align-items:center;justify-content:center;gap:4px;overflow:auto;scrollbar-width:none}
+.topnav::-webkit-scrollbar{display:none}
+.topnav button{border:0;background:transparent;color:#bdc7d6;padding:11px 14px;border-radius:10px;font-size:12px;font-weight:750;white-space:nowrap;transition:.15s var(--ease)}
+.topnav button:hover{background:#13243a;color:#fff}.topnav button.active{background:#19304f;color:#fff}
+.top-actions{display:flex;justify-content:flex-end;align-items:center;gap:9px}
+.icon-btn{width:39px;height:39px;border-radius:11px;border:1px solid rgba(255,255,255,.1);background:#101f33;color:#d5dce6}
+.avatar{width:39px;height:39px;border-radius:50%;background:#f5f7fb;color:#20314a;display:grid;place-items:center;font-size:12px;font-weight:900}
+
+/* Shared screen shell */
+.screen{display:none;height:calc(100vh - 72px);overflow:auto}
+.screen.active{display:block;animation:fadeIn .18s var(--ease)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+.page{max-width:1500px;margin:0 auto;padding:18px 22px 40px}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:16px}
+.eyebrow{font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:#8c98aa;font-weight:850;margin-bottom:6px}
+.page-head h1{font-size:26px;line-height:1.2;margin:0;letter-spacing:-.03em}
+.page-head p{font-size:11px;color:#748195;line-height:1.55;max-width:760px;margin:6px 0 0}
+.actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{min-height:39px;border-radius:10px;border:0;padding:0 14px;display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:11px;font-weight:800;transition:.15s var(--ease)}
+.btn:hover{transform:translateY(-1px)}
+.btn-outline{background:#fff;border:1px solid #d0d9e5;color:#314056}.btn-outline:hover{background:#f8fafc}
+.btn-primary{background:var(--navy);color:#fff}.btn-primary:hover{background:#14253a}
+.btn-green{background:var(--accent);color:#fff}.btn-green:hover{filter:brightness(.94)}
+.btn-danger{background:#fff;border:1px solid #efcece;color:#b54444}.btn-danger:hover{background:#fff5f5}
+.btn[disabled]{opacity:.5;cursor:not-allowed;transform:none}
+.spinner{width:14px;height:14px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;display:none;animation:spin .7s linear infinite}
+.loading .spinner{display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.grid{display:grid;gap:14px}
+.grid4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.grid3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.grid2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.layout-main{grid-template-columns:minmax(0,1.5fr) minmax(310px,.5fr)}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-sm)}
+.card.pad{padding:17px}
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:13px}
+.card-title{font-size:13px;font-weight:850}
+.card-copy{font-size:10px;color:#7b8798;line-height:1.5;margin-top:3px}
+.metric{background:#fff;border:1px solid var(--line);border-radius:13px;padding:15px;min-height:104px;position:relative;overflow:hidden;box-shadow:var(--shadow-sm)}
+.metric::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#e5eaf0}
+.metric.good::after{background:var(--green)}.metric.info::after{background:var(--blue)}.metric.warn::after{background:#d99b25}
+.metric-label{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#8a96a7;font-weight:850}
+.metric-value{font-size:25px;font-weight:900;margin-top:8px;letter-spacing:-.03em}
+.metric-note{font-size:10px;color:#788699;margin-top:3px}
+.status{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 8px;font-size:9px;font-weight:850;border:1px solid transparent;white-space:nowrap}
+.status.good{background:var(--green-soft);color:#087657;border-color:#c8eadf}.status.info{background:var(--blue-soft);color:#3153bb;border-color:#d6defc}.status.warn{background:var(--amber-soft);color:#92620c;border-color:#efdda9}.status.neutral{background:#f1f4f8;color:#596678;border-color:#dfe5ed}.status.bad{background:var(--red-soft);color:#a63e3e;border-color:#f0cccc}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+/* Dashboard */
+.hero{background:linear-gradient(145deg,#0e1b2d,#08111f);border-radius:18px;color:#fff;padding:20px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;right:-60px;top:-70px;width:210px;height:210px;border-radius:50%;background:radial-gradient(circle,rgba(53,104,240,.28),transparent 65%)}
+.hero-grid{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:20px;align-items:center;position:relative;z-index:1}
+.hero h2{font-size:19px;margin:0}.hero p{font-size:10px;color:#a9b4c5;line-height:1.55;max-width:620px}
+.score-wrap{display:flex;align-items:center;gap:14px;margin-top:14px}
+.score-ring{width:96px;height:96px;border-radius:50%;background:conic-gradient(var(--accent) 0 71%,rgba(255,255,255,.12) 71%);display:grid;place-items:center;position:relative}
+.score-ring::after{content:"";position:absolute;width:73px;height:73px;border-radius:50%;background:#0d1828}
+.score{position:relative;z-index:1;font-size:27px;font-weight:900}
+.progress{height:7px;background:#e9eef4;border-radius:99px;overflow:hidden}.progress span{display:block;height:100%;background:var(--accent);border-radius:inherit}
+.quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.quick{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px;text-align:left;transition:.15s var(--ease)}
+.quick:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(15,23,42,.06);border-color:#cbd4df}
+.quick-icon{width:31px;height:31px;border-radius:9px;background:#eef3f8;display:grid;place-items:center;color:#43526a;font-weight:900;margin-bottom:9px}
+.quick strong{font-size:11px;display:block}.quick span{font-size:9px;color:#7c8899;display:block;margin-top:3px;line-height:1.45}
+
+/* Documents */
+.doc-library{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+.doc-card{border:1px solid var(--line);border-radius:13px;background:#fff;padding:14px;display:flex;flex-direction:column;min-height:180px;transition:.15s var(--ease)}
+.doc-card:hover{transform:translateY(-2px);border-color:#cad4e0;box-shadow:0 9px 22px rgba(15,23,42,.06)}
+.doc-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.doc-icon{width:36px;height:36px;border-radius:10px;background:#eff3f8;display:grid;place-items:center;font-size:14px;font-weight:900;color:#41516a}
+.doc-card h3{font-size:12px;margin:11px 0 4px}.doc-card p{font-size:9px;color:#7c8899;line-height:1.45;margin:0 0 10px}.doc-meta{font-size:9px;color:#8b97a8;margin-top:auto}.doc-actions{display:flex;gap:7px;margin-top:10px}.doc-actions .btn{min-height:36px;flex:1}
+
+/* Admin */
+.priority-band{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;border:1px solid var(--line);background:#fff;border-radius:14px;padding:13px}
+.priority-card{border:1px solid var(--line);border-radius:11px;padding:12px;background:#fff}
+.priority-card strong{font-size:11px;display:block}.priority-card span.copy{font-size:9px;color:#7c8899;display:block;margin-top:3px;line-height:1.45}
+
+/* Directory */
+.filterbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:11px}
+.search{position:relative;flex:1;min-width:240px}.search::before{content:"⌕";position:absolute;left:10px;top:6px;font-size:16px;color:#8b97a8}.search input{padding-left:31px}
+.table-wrap{overflow:auto;background:#fff;border:1px solid var(--line);border-radius:13px}
+table{border-collapse:collapse;width:100%;min-width:980px}
+th{background:#f6f8fb;color:#68768a;font-size:8px;letter-spacing:.09em;text-transform:uppercase;padding:11px 12px;text-align:left;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+td{padding:12px;border-bottom:1px solid #edf0f4;font-size:10px;color:#435168}
+tbody tr:hover{background:#fafcff}
+.client-name{font-size:11px;font-weight:850;color:#182235}.client-email{font-size:9px;color:#8995a6;margin-top:2px}.row-actions{display:flex;gap:6px;justify-content:flex-end}
+
+/* Career editor shell */
+.editor-app{height:calc(100vh - 72px);display:grid;grid-template-columns:255px minmax(0,1fr);gap:16px;padding:16px;max-width:1600px;margin:0 auto}
+.editor-sidebar,.editor-workspace{min-height:0}
+.editor-sidebar{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);padding:10px;display:flex;flex-direction:column;overflow:hidden}
+.side-scroll{overflow:auto;min-height:0;padding-right:2px}.side-title{font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:#95a1b2;font-weight:850;padding:7px 9px 8px}
+.section-item{margin-bottom:3px;border-radius:10px;overflow:hidden}
+.section-row{min-height:44px;border:0;background:transparent;width:100%;display:grid;grid-template-columns:25px 1fr auto auto;gap:7px;align-items:center;padding:8px 9px;color:#3e4d63;text-align:left;border-radius:10px;transition:.15s var(--ease)}
+.section-row:hover{background:#f4f7fb}.section-row.active{background:var(--blue-soft);color:#2f61e9}
+.section-icon{font-size:16px;color:#203552}.section-row.active .section-icon{color:#2f61e9}.section-label{font-size:12px;font-weight:800}.count{font-size:10px;color:#8e9aac;font-weight:800}
+.quick-add{width:25px;height:25px;border-radius:7px;border:0;background:transparent;color:#78869a;font-size:16px;display:grid;place-items:center;opacity:.25;transition:.15s var(--ease)}
+.section-row:hover .quick-add,.section-row.active .quick-add{opacity:1}.quick-add:hover{background:#dfe9ff;color:#2f61e9}
+.nested{display:none;padding:2px 4px 5px 30px}.section-item.open .nested{display:grid;gap:3px}
+.entry-link{width:100%;border:0;background:transparent;border-radius:8px;padding:7px 7px;display:grid;grid-template-columns:1fr auto auto;gap:5px;align-items:center;text-align:left;color:#637086;font-size:10px}
+.entry-link:hover{background:#f4f7fb}.entry-link.active{background:#f0f5ff;color:#315fd8}.entry-link strong{font-size:10px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini-action{width:22px;height:22px;border:0;background:transparent;border-radius:6px;color:#8b97a8;font-size:11px;opacity:.45}.entry-link:hover .mini-action{opacity:1}.mini-action:hover{background:#e7edf4;color:#314056}.mini-action.delete:hover{background:#fff0f0;color:#b74444}
+.profile-progress{margin-top:auto;padding-top:9px;border-top:1px solid var(--line2)}.progress-card{padding:11px;border-radius:12px;background:#f9fbfd;border:1px solid var(--line2)}.progress-card strong{font-size:10px}.progress-card p{font-size:9px;color:#7b8798;line-height:1.45;margin:3px 0 8px}.progress-meta{display:flex;justify-content:space-between;font-size:9px;color:#7b8798;margin-top:6px}
+
+.editor-workspace{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden}
+.work-head{min-height:72px;padding:13px 18px;border-bottom:1px solid var(--line2);display:flex;align-items:center;justify-content:space-between;gap:14px}
+.head-left{display:flex;align-items:flex-start;gap:11px}.head-icon{width:36px;height:36px;border-radius:10px;background:#eef3f9;color:#29476b;display:grid;place-items:center;font-size:18px}.work-head h1{font-size:20px;margin:0;letter-spacing:-.02em}.work-head p{font-size:10px;color:#798698;margin:4px 0 0}.head-actions{display:flex;gap:8px;align-items:center}
+.content-wrap{min-height:0;overflow:auto;padding:14px 16px 20px;background:#fbfcfe}.section-pane{display:none}.section-pane.active{display:block;animation:fadeIn .16s var(--ease)}
+.entry-card{border:1px solid var(--line);border-radius:13px;background:#fff;overflow:visible;margin-bottom:12px}.entry-card-head{padding:11px 13px;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fbfcfe;border-radius:13px 13px 0 0}.entry-card-title{display:flex;align-items:center;gap:8px}.drag{color:#9ba6b5;font-size:16px}.entry-card-title strong{font-size:12px}.entry-card-title span{display:block;font-size:9px;color:#7d899a;margin-top:2px}.entry-card-actions{display:flex;gap:6px;align-items:center}.badge{background:#f0f4f8;border:1px solid #dfe5ec;border-radius:999px;padding:5px 8px;font-size:9px;color:#778498}.icon-mini{width:30px;height:30px;border-radius:8px;border:1px solid #e1e6ee;background:#fff;color:#66758b}.icon-mini:hover{background:#f5f8fb}.icon-mini.delete:hover{background:#fff1f1;color:#b74343}
+.form{padding:13px}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px 14px}.field{display:grid;gap:5px}.field.full{grid-column:1/-1}
+label{font-size:9px;font-weight:850;color:#607087}.optional{color:#9aa5b4;font-weight:650}
+input,textarea,select{width:100%;border:1px solid #d1dae6;border-radius:9px;background:#fff;padding:9px 10px;font-size:11px;color:#26364d;transition:.14s var(--ease)}
+textarea{min-height:78px;resize:vertical;line-height:1.5}input:focus,textarea:focus,select:focus{outline:none;border-color:#7d9bf4;box-shadow:0 0 0 3px rgba(53,104,240,.08)}.helper{font-size:9px;color:#8b97a8;line-height:1.4}
+.option-row{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.option{min-height:36px;border:1px solid #d8e0ea;border-radius:9px;background:#fff;color:#506078;font-size:10px;font-weight:750}.option:hover{background:#f7f9fc}.option.selected{background:#eaf1ff;border-color:#a9bfff;color:#315fd8}
+.date-field{position:relative}.date-trigger{width:100%;min-height:37px;border:1px solid #d1dae6;background:#fff;border-radius:9px;padding:0 10px;display:flex;align-items:center;justify-content:space-between;color:#77869a;font-size:10px;text-align:left}
+.date-trigger.calendar-open{border-color:#7190ed;box-shadow:0 0 0 3px rgba(53,104,240,.08)}
+.check-row{display:flex;align-items:center;gap:7px;margin-top:6px;font-size:9px;color:#6f7c8e;font-weight:700}.check-row input{width:14px;height:14px;padding:0}
+.chips{display:flex;flex-wrap:wrap;gap:7px}.chip{display:inline-flex;align-items:center;gap:6px;background:#eaf1ff;border:1px solid #d0dcff;color:#3159bd;border-radius:999px;padding:6px 8px;font-size:9px;font-weight:800}.chip button{border:0;background:transparent;color:inherit;padding:0;font-size:12px}
+.skill-toolbar{display:flex;gap:8px;margin-bottom:10px}.skill-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:8px}.skill-result{border:1px solid var(--line);border-radius:9px;background:#fff;min-height:36px;padding:0 8px 0 10px;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#35455d}.skill-result:hover{background:#f7f9fc}.add-skill{width:26px;height:26px;border:0;border-radius:7px;background:#eaf1ff;color:#315fd8;font-size:15px}
+.work-footer{padding:10px 14px;border-top:1px solid var(--line2);display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff}.unsaved{font-size:9px;color:#846118;display:flex;align-items:center;gap:6px}.unsaved .dot{background:var(--amber)}.footer-actions{display:flex;gap:8px}
+
+/* Anchored calendar */
+.date-popover{position:fixed;z-index:220;width:330px;max-width:calc(100vw - 28px);background:#fff;border:1px solid #d4dce6;border-radius:14px;box-shadow:0 20px 45px rgba(15,23,42,.16);padding:11px;display:none;animation:pop .16s var(--ease)}
+.date-popover.open{display:block}.date-popover::before{content:"";position:absolute;width:10px;height:10px;background:#fff;border-left:1px solid #d4dce6;border-top:1px solid #d4dce6;transform:rotate(45deg);top:-6px;left:24px}.date-popover.above::before{top:auto;bottom:-6px;border-left:0;border-top:0;border-right:1px solid #d4dce6;border-bottom:1px solid #d4dce6}
+@keyframes pop{from{opacity:0;transform:translateY(-4px) scale(.99)}to{opacity:1;transform:none}}
+.date-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:9px}.date-title{border:0;background:#f3f6fa;border-radius:8px;padding:7px 9px;font-size:10px;font-weight:850;color:#314056}.date-nav{display:flex;gap:5px}.date-nav button{width:29px;height:29px;border:1px solid var(--line);background:#fff;border-radius:8px;color:#526176;font-weight:900}
+.date-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.date-cell{border:0;background:transparent;border-radius:7px;height:30px;font-size:9px;color:#455369}.date-cell:hover{background:#edf2f8}.date-cell.muted{color:#b0b9c6}.date-cell.today{box-shadow:inset 0 0 0 1px #7890d6}.date-cell.selected{background:var(--navy);color:#fff}
+.date-mode-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}.date-mode-grid.years{grid-template-columns:repeat(4,1fr)}.date-mode-grid button{border:0;background:#f6f8fb;border-radius:8px;min-height:36px;font-size:9px;font-weight:750;color:#455369}.date-mode-grid button:hover{background:#eaf0f7}
+.date-footer{margin-top:9px;padding-top:9px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px}.mini-btn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 8px;font-size:8px;font-weight:800;color:#526176}
+
+/* Branding */
+.brand-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px}.settings{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow-sm)}.settings-row{display:grid;grid-template-columns:180px minmax(0,1fr);gap:16px;padding:14px 0;border-bottom:1px solid var(--line2)}.settings-row:last-child{border-bottom:0}.settings-label strong{font-size:11px}.settings-label span{display:block;font-size:9px;color:#8490a2;line-height:1.45;margin-top:3px}.upload-box{border:1px dashed #cbd4e0;background:#f9fbfd;border-radius:11px;padding:12px;display:flex;align-items:center;justify-content:space-between;gap:10px}.upload-preview{width:132px;height:48px;border-radius:8px;background:#0b1525;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;letter-spacing:.12em;overflow:hidden}.upload-preview img{max-width:100%;max-height:100%;object-fit:contain}.brand-preview{position:sticky;top:92px;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}.brand-preview-head{background:#08111f;padding:16px;color:#fff}.brand-preview-body{padding:16px}.swatches{display:flex;gap:7px;flex-wrap:wrap}.swatch{width:32px;height:32px;border-radius:8px;border:2px solid #fff;box-shadow:0 0 0 1px #d8dee8}.swatch.active{box-shadow:0 0 0 2px #3157d5}
+
+/* Toast */
+.toast{position:fixed;right:20px;bottom:20px;background:#101827;color:#fff;border-radius:11px;padding:11px 13px;font-size:10px;font-weight:800;box-shadow:var(--shadow);opacity:0;transform:translateY(14px);transition:.18s var(--ease);pointer-events:none;z-index:300}.toast.show{opacity:1;transform:none}
+
+/* Responsive */
+@media(max-width:1150px){
+  .grid4{grid-template-columns:repeat(2,1fr)}.layout-main,.brand-layout{grid-template-columns:1fr}.doc-library{grid-template-columns:repeat(2,1fr)}.hero-grid{grid-template-columns:1fr}.brand-preview{position:relative;top:auto}
+  .topbar-inner{grid-template-columns:auto 1fr auto}
+}
+@media(max-width:980px){
+  body{overflow:auto}.screen,.editor-app{height:auto}.editor-app{grid-template-columns:1fr}.editor-sidebar{max-height:none}.side-scroll{overflow:visible}.editor-workspace{min-height:720px}.form-grid{grid-template-columns:1fr}.field.full{grid-column:auto}
+}
+@media(max-width:760px){
+  .topbar{height:auto}.topbar-inner{grid-template-columns:1fr auto;height:auto;min-height:70px;padding:10px 14px}.topnav{grid-column:1/-1;justify-content:flex-start}
+  .page{padding:14px}.page-head{flex-direction:column}.grid4,.grid3,.grid2,.quick-grid,.doc-library,.priority-band{grid-template-columns:1fr}.option-row,.skill-results{grid-template-columns:1fr}
+  .work-head{align-items:flex-start;flex-direction:column}.head-actions{width:100%}.head-actions .btn{flex:1}.work-footer{flex-direction:column;align-items:stretch}.footer-actions .btn{flex:1}
+  .settings-row{grid-template-columns:1fr}.date-popover{left:14px!important;right:14px!important;bottom:18px!important;top:auto!important;width:auto!important}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="logo-wrap" id="headerLogoWrap"><div class="logo-placeholder" id="headerLogoPlaceholder">Z</div></div>
+      <div class="brand-text"><div class="brand-name">ZEVANTAA</div><div class="brand-sub">CAREERS • RESUME ENGINE</div></div>
+    </div>
+    <nav class="topnav">
+      <button class="active" data-screen="client" onclick="switchTop('client')">Client Dashboard</button>
+      <button data-screen="career" onclick="switchTop('career')">Career Editor</button>
+      <button data-screen="documents" onclick="switchTop('documents')">Documents</button>
+      <button data-screen="admin" onclick="switchTop('admin')">Admin Dashboard</button>
+      <button data-screen="directory" onclick="switchTop('directory')">Client Directory</button>
+      <button data-screen="branding" onclick="switchTop('branding')">Brand Settings</button>
+    </nav>
+    <div class="top-actions"><button class="icon-btn">⌕</button><button class="icon-btn">?</button><div class="avatar">RK</div></div>
+  </div>
+</header>
+
+<!-- CLIENT DASHBOARD -->
+<section class="screen active" id="screen-client">
+  <div class="page">
+    <div class="page-head">
+      <div><div class="eyebrow">Client workspace</div><h1>Your career profile is ready to work for you.</h1><p>Track profile readiness, ATS compatibility and package-entitled documents from one focused workspace.</p></div>
+      <div class="actions"><button class="btn btn-outline">View profile</button><button class="btn btn-primary" onclick="switchTop('career')">Update career profile</button></div>
+    </div>
+    <div class="grid grid4" style="margin-bottom:14px">
+      <div class="metric good"><div class="metric-label">Profile</div><div class="metric-value">Ready</div><div class="metric-note">Updated today</div></div>
+      <div class="metric info"><div class="metric-label">Package</div><div class="metric-value" style="font-size:19px;margin-top:11px">Executive</div><div class="metric-note">All markets enabled</div></div>
+      <div class="metric warn"><div class="metric-label">ATS score</div><div class="metric-value">71<span style="font-size:12px;color:#8894a4"> /100</span></div><div class="metric-note">Target benchmark 90+</div></div>
+      <div class="metric"><div class="metric-label">Outputs</div><div class="metric-value">12</div><div class="metric-note">Available or ready</div></div>
+    </div>
+    <div class="grid layout-main">
+      <div style="display:grid;gap:14px">
+        <div class="hero">
+          <div class="hero-grid">
+            <div>
+              <div class="eyebrow" style="color:#7ee0bd">Indicative ATS compatibility</div>
+              <h2>Your resume foundation is solid.</h2>
+              <p>Use your latest saved career data to improve measurable achievements, role specificity and relevant skills.</p>
+              <div class="score-wrap"><div class="score-ring"><div class="score">71</div></div><div><strong style="font-size:13px">Current score: 71 / 100</strong><div style="font-size:10px;color:#9eabc0;margin-top:4px">Internal indicator, not a third-party ATS guarantee.</div><button class="btn btn-green" style="margin-top:10px" onclick="simulateLoading(this,'Refreshing…','ATS score refreshed')"><span class="spinner"></span><span>Refresh score</span></button></div></div>
+            </div>
+            <div><div style="display:flex;justify-content:space-between;font-size:9px;color:#a6b3c5;margin-bottom:6px"><span>Current 71</span><span>Target 90+</span></div><div class="progress" style="background:rgba(255,255,255,.12)"><span style="width:71%"></span></div></div>
+          </div>
+        </div>
+        <div class="card pad"><div class="card-head"><div><div class="card-title">Recommended next actions</div><div class="card-copy">Only actions that materially improve your profile are surfaced.</div></div><span class="status good">Ready</span></div><div class="quick-grid"><button class="quick" onclick="switchTop('career')"><div class="quick-icon">✎</div><strong>Update career profile</strong><span>Add roles, education, skills, projects or certifications.</span></button><button class="quick" onclick="switchTop('documents')"><div class="quick-icon">▤</div><strong>Generate latest resume</strong><span>Create a fresh PDF from current data.</span></button><button class="quick" onclick="showToast('Source resume upload opened')"><div class="quick-icon">⇧</div><strong>Replace source resume</strong><span>Upload a newer source file for review.</span></button></div></div>
+      </div>
+      <aside class="card pad"><div class="card-head"><div><div class="card-title">Managed by Zevantaa</div><div class="card-copy">Protected account and package details.</div></div><span class="status neutral">Read only</span></div><div style="display:grid;gap:12px"><div><div class="metric-label">Email</div><div style="font-size:11px;font-weight:800;margin-top:4px">rohan.kapoor@example.com</div></div><div><div class="metric-label">Mobile</div><div style="font-size:11px;font-weight:800;margin-top:4px">+91 98••• ••821</div></div><div><div class="metric-label">Location</div><div style="font-size:11px;font-weight:800;margin-top:4px">Mohali, India</div></div><div><div class="metric-label">Package</div><div style="font-size:11px;font-weight:800;margin-top:4px">Executive Transition</div></div></div></aside>
+    </div>
+  </div>
+</section>
+
+<!-- CAREER EDITOR -->
+<section class="screen" id="screen-career" style="overflow:hidden">
+  <div class="editor-app">
+    <aside class="editor-sidebar">
+      <div class="side-scroll">
+        <div class="side-title">Career profile</div>
+
+        <div class="section-item open" data-section="summary">
+          <button class="section-row active" onclick="switchSection('summary')">
+            <span class="section-icon">◫</span><span class="section-label">Summary</span><span class="count">1</span>
+            <span class="quick-add" onclick="event.stopPropagation();editSummary()" title="Edit summary">✎</span>
+          </button>
+        </div>
+
+        <div class="section-item" data-section="work">
+          <button class="section-row" onclick="switchSection('work')">
+            <span class="section-icon">▣</span><span class="section-label">Work Experience</span><span class="count" id="workCount">2</span>
+            <span class="quick-add" onclick="event.stopPropagation();addWork()" title="Add role">＋</span>
+          </button>
+          <div class="nested" id="workNested">
+            <button class="entry-link active" data-entry="work-1" onclick="openEntry('work','work-1')"><strong>Senior Vendor Operations Manager</strong><span class="mini-action">✎</span><span class="mini-action delete" onclick="event.stopPropagation();removeEntry('work','work-1')">⌫</span></button>
+            <button class="entry-link" data-entry="work-2" onclick="openEntry('work','work-2')"><strong>Operations Analyst</strong><span class="mini-action">✎</span><span class="mini-action delete" onclick="event.stopPropagation();removeEntry('work','work-2')">⌫</span></button>
+          </div>
+        </div>
+
+        <div class="section-item" data-section="skills">
+          <button class="section-row" onclick="switchSection('skills')">
+            <span class="section-icon">✦</span><span class="section-label">Skills</span><span class="count" id="skillCount">3</span>
+            <span class="quick-add" onclick="event.stopPropagation();switchSection('skills');focusSkillSearch()" title="Add skill">＋</span>
+          </button>
+        </div>
+
+        <div class="section-item" data-section="education">
+          <button class="section-row" onclick="switchSection('education')">
+            <span class="section-icon">◉</span><span class="section-label">Education</span><span class="count" id="eduCount">2</span>
+            <span class="quick-add" onclick="event.stopPropagation();addEducation()" title="Add education">＋</span>
+          </button>
+          <div class="nested" id="educationNested">
+            <button class="entry-link active" data-entry="edu-1" onclick="openEntry('education','edu-1')"><strong>MBA — Operations</strong><span class="mini-action">✎</span><span class="mini-action delete" onclick="event.stopPropagation();removeEntry('education','edu-1')">⌫</span></button>
+            <button class="entry-link" data-entry="edu-2" onclick="openEntry('education','edu-2')"><strong>B.Com</strong><span class="mini-action">✎</span><span class="mini-action delete" onclick="event.stopPropagation();removeEntry('education','edu-2')">⌫</span></button>
+          </div>
+        </div>
+
+        <div class="section-item" data-section="certifications">
+          <button class="section-row" onclick="switchSection('certifications')">
+            <span class="section-icon">⌘</span><span class="section-label">Certifications</span><span class="count" id="certCount">1</span>
+            <span class="quick-add" onclick="event.stopPropagation();addCertification()" title="Add certification">＋</span>
+          </button>
+          <div class="nested" id="certificationsNested">
+            <button class="entry-link active" data-entry="cert-1" onclick="openEntry('certifications','cert-1')"><strong>Certified Procurement Professional</strong><span class="mini-action">✎</span><span class="mini-action delete" onclick="event.stopPropagation();removeEntry('certifications','cert-1')">⌫</span></button>
+          </div>
+        </div>
+
+        <div class="section-item" data-section="projects">
+          <button class="section-row" onclick="switchSection('projects')">
+            <span class="section-icon">◇</span><span class="section-label">Projects</span><span class="count" id="projCount">1</span>
+            <span class="quick-add" onclick="event.stopPropagation();addProject()" title="Add project">＋</span>
+          </button>
+          <div class="nested" id="projectsNested">
+            <button class="entry-link active" data-entry="proj-1" onclick="openEntry('projects','proj-1')"><strong>Vendor Performance Transformation</strong><span class="mini-action">✎</span><span class="mini-action delete" onclick="event.stopPropagation();removeEntry('projects','proj-1')">⌫</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-progress"><div class="progress-card"><strong>Profile strength</strong><p>Add only details that help. Optional fields can remain blank.</p><div class="progress"><span style="width:68%"></span></div><div class="progress-meta"><span>68% complete</span><span>Good foundation</span></div></div></div>
+    </aside>
+
+    <main class="editor-workspace">
+      <div class="work-head">
+        <div class="head-left"><div class="head-icon" id="headIcon">◫</div><div><h1 id="headTitle">Professional Summary</h1><p id="headSub">A concise overview of your experience and professional direction.</p></div></div>
+        <div class="head-actions" id="headActions"><button class="btn btn-outline" onclick="showToast('Latest profile loaded')">↻ Load latest</button></div>
+      </div>
+
+      <div class="content-wrap">
+        <section class="section-pane active" id="pane-summary">
+          <div class="entry-card"><div class="entry-card-head"><div class="entry-card-title"><div><strong>Professional summary</strong><span>Optional • used across multiple resume formats</span></div></div><div class="entry-card-actions"><span class="badge">Editable</span></div></div><div class="form"><div class="field full"><label>Professional summary <span class="optional">(optional)</span></label><textarea>Commercial operations professional with experience across vendor governance, procurement coordination, reporting and cross-functional delivery.</textarea><div class="helper">Keep this factual. Leave blank if you do not want a summary section.</div></div></div></div>
+        </section>
+
+        <section class="section-pane" id="pane-work">
+          <div id="workForms">
+            <div class="entry-card" data-entry="work-1">
+              <div class="entry-card-head"><div class="entry-card-title"><span class="drag">⋮⋮</span><div><strong>Senior Vendor Operations Manager</strong><span>Northstar Services Pvt Ltd • Apr 2022 – Present</span></div></div><div class="entry-card-actions"><span class="badge">Role 1</span><button class="icon-mini delete" onclick="removeEntry('work','work-1')">⌫</button></div></div>
+              <div class="form"><div class="form-grid">
+                <div class="field"><label>Employer</label><input value="Northstar Services Pvt Ltd"></div>
+                <div class="field"><label>Job title</label><input value="Senior Vendor Operations Manager"></div>
+                <div class="field"><label>Location <span class="optional">(optional)</span></label><input value="Mohali, India"></div>
+                <div class="field"><label>Employment type <span class="optional">(optional)</span></label><select><option></option><option selected>Full-time</option><option>Part-time</option><option>Contract</option><option>Internship</option><option>Freelance</option></select></div>
+                <div class="field"><label>Start date <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'month')"><span>Apr 2022</span><span>▣</span></button></div></div>
+                <div class="field"><label>End date <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'month')" disabled><span>Present</span><span>▣</span></button><label class="check-row"><input type="checkbox" checked onchange="togglePresent(this)"> I currently work here</label></div></div>
+                <div class="field full"><label>Description <span class="optional">(optional)</span></label><textarea>Managed vendor performance, operations reporting and service delivery coordination across multiple business functions.</textarea></div>
+              </div></div>
+            </div>
+            <div class="entry-card" data-entry="work-2" style="display:none">
+              <div class="entry-card-head"><div class="entry-card-title"><span class="drag">⋮⋮</span><div><strong>Operations Analyst</strong><span>Example Services • 2019 – 2022</span></div></div><div class="entry-card-actions"><span class="badge">Role 2</span><button class="icon-mini delete" onclick="removeEntry('work','work-2')">⌫</button></div></div>
+              <div class="form"><div class="form-grid">
+                <div class="field"><label>Employer</label><input value="Example Services"></div><div class="field"><label>Job title</label><input value="Operations Analyst"></div>
+                <div class="field"><label>Start date <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'year')"><span>2019</span><span>▣</span></button></div></div>
+                <div class="field"><label>End date <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'year')"><span>2022</span><span>▣</span></button></div></div>
+                <div class="field full"><label>Description <span class="optional">(optional)</span></label><textarea></textarea></div>
+              </div></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-pane" id="pane-skills">
+          <div class="entry-card"><div class="entry-card-head"><div class="entry-card-title"><div><strong>Selected skills</strong><span>Choose from the shared library or add your own</span></div></div><div class="entry-card-actions"><span class="badge" id="skillBadge">3 selected</span></div></div>
+            <div class="form">
+              <div class="chips" id="selectedSkills"><span class="chip">Vendor Governance <button onclick="removeSkill(this)">×</button></span><span class="chip">Operations Reporting <button onclick="removeSkill(this)">×</button></span><span class="chip">Stakeholder Management <button onclick="removeSkill(this)">×</button></span></div>
+              <div class="skill-toolbar" style="margin-top:13px"><div class="search"><input id="skillSearch" placeholder="Search the skill library" oninput="filterSkillResults()"></div><button class="btn btn-outline" onclick="addCustomSkill()">＋ Add custom</button></div>
+              <div class="skill-results" id="skillResults">
+                <button class="skill-result" data-name="Operations Management"><span>Operations Management</span><span class="add-skill" onclick="event.stopPropagation();chooseSkill('Operations Management')">＋</span></button>
+                <button class="skill-result" data-name="Strategic Planning"><span>Strategic Planning</span><span class="add-skill" onclick="event.stopPropagation();chooseSkill('Strategic Planning')">＋</span></button>
+                <button class="skill-result" data-name="Process Improvement"><span>Process Improvement</span><span class="add-skill" onclick="event.stopPropagation();chooseSkill('Process Improvement')">＋</span></button>
+                <button class="skill-result" data-name="Data Analysis"><span>Data Analysis</span><span class="add-skill" onclick="event.stopPropagation();chooseSkill('Data Analysis')">＋</span></button>
+              </div>
+              <div class="helper" style="margin-top:9px">Custom skills can be normalized into Zevantaa's shared skill library for future reuse.</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-pane" id="pane-education">
+          <div id="educationForms">
+            <div class="entry-card" data-entry="edu-1">
+              <div class="entry-card-head"><div class="entry-card-title"><span class="drag">⋮⋮</span><div><strong>MBA — Operations</strong><span>Example Business School • 2020 – 2022</span></div></div><div class="entry-card-actions"><span class="badge">Education 1</span><button class="icon-mini delete" onclick="removeEntry('education','edu-1')">⌫</button></div></div>
+              <div class="form"><div class="form-grid">
+                <div class="field"><label>Qualification</label><input value="MBA"></div>
+                <div class="field"><label>Field / specialization <span class="optional">(optional)</span></label><input value="Operations"></div>
+                <div class="field"><label>Institution / school / university</label><input value="Example Business School"></div>
+                <div class="field"><label>Location <span class="optional">(optional)</span></label><input value="Chandigarh, India"></div>
+                <div class="field full"><label>Mode of study <span class="optional">(optional)</span></label><div class="option-row"><button class="option" onclick="toggleOption(this)">Offline</button><button class="option" onclick="toggleOption(this)">Online</button><button class="option" onclick="toggleOption(this)">Hybrid</button><button class="option" onclick="toggleOption(this)">Correspondence</button></div></div>
+                <div class="field"><label>Start year <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'year')"><span>2020</span><span>▣</span></button></div></div>
+                <div class="field"><label>End year <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'year')"><span>2022</span><span>▣</span></button><label class="check-row"><input type="checkbox" onchange="togglePresent(this)"> Currently studying here</label></div></div>
+                <div class="field"><label>Grade / result <span class="optional">(optional)</span></label><input placeholder="Optional"></div>
+                <div class="field"><label>Completion year <span class="optional">(optional)</span></label><input value="2022"></div>
+                <div class="field full"><label>Description <span class="optional">(optional)</span></label><textarea placeholder="Optional coursework, activities or notes"></textarea></div>
+              </div></div>
+            </div>
+            <div class="entry-card" data-entry="edu-2" style="display:none">
+              <div class="entry-card-head"><div class="entry-card-title"><span class="drag">⋮⋮</span><div><strong>B.Com</strong><span>Example University • 2017 – 2020</span></div></div><div class="entry-card-actions"><span class="badge">Education 2</span><button class="icon-mini delete" onclick="removeEntry('education','edu-2')">⌫</button></div></div>
+              <div class="form"><div class="form-grid"><div class="field"><label>Qualification</label><input value="B.Com"></div><div class="field"><label>Institution</label><input value="Example University"></div><div class="field"><label>Start year <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'year')"><span>2017</span><span>▣</span></button></div></div><div class="field"><label>End year <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'year')"><span>2020</span><span>▣</span></button></div></div></div></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-pane" id="pane-certifications">
+          <div id="certForms">
+            <div class="entry-card" data-entry="cert-1">
+              <div class="entry-card-head"><div class="entry-card-title"><span class="drag">⋮⋮</span><div><strong>Certified Procurement Professional</strong><span>Example Certification Institute</span></div></div><div class="entry-card-actions"><span class="badge">Certificate 1</span><button class="icon-mini delete" onclick="removeEntry('certifications','cert-1')">⌫</button></div></div>
+              <div class="form"><div class="form-grid">
+                <div class="field"><label>Certification</label><input value="Certified Procurement Professional"></div>
+                <div class="field"><label>Issuing organization</label><input value="Example Certification Institute"></div>
+                <div class="field"><label>Credential ID <span class="optional">(optional)</span></label><input></div>
+                <div class="field"><label>Credential URL <span class="optional">(optional)</span></label><input></div>
+                <div class="field"><label>Issued on <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'day')"><span>15 Mar 2024</span><span>▣</span></button></div></div>
+                <div class="field"><label>Validity <span class="optional">(optional)</span></label><select onchange="toggleExpiry(this)"><option></option><option selected>Valid until a date</option><option>No expiry / valid forever</option><option>Unknown / not provided</option></select></div>
+                <div class="field full cert-expiry"><label>Valid until <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'day')"><span>15 Mar 2027</span><span>▣</span></button></div></div>
+              </div></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-pane" id="pane-projects">
+          <div id="projectForms">
+            <div class="entry-card" data-entry="proj-1">
+              <div class="entry-card-head"><div class="entry-card-title"><span class="drag">⋮⋮</span><div><strong>Vendor Performance Transformation</strong><span>Jan 2025 – Present</span></div></div><div class="entry-card-actions"><span class="badge">Project 1</span><button class="icon-mini delete" onclick="removeEntry('projects','proj-1')">⌫</button></div></div>
+              <div class="form"><div class="form-grid">
+                <div class="field"><label>Project name</label><input value="Vendor Performance Transformation"></div>
+                <div class="field"><label>Role <span class="optional">(optional)</span></label><input value="Project Lead"></div>
+                <div class="field"><label>Start date <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'month')"><span>Jan 2025</span><span>▣</span></button></div></div>
+                <div class="field"><label>End date <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'month')" disabled><span>Present</span><span>▣</span></button><label class="check-row"><input type="checkbox" checked onchange="togglePresent(this)"> Project is ongoing</label></div></div>
+                <div class="field full"><label>Description <span class="optional">(optional)</span></label><textarea>Improved vendor performance tracking and governance processes across multiple business units.</textarea></div>
+                <div class="field full"><label>Project URL <span class="optional">(optional)</span></label><input></div>
+              </div></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="work-footer"><div class="unsaved"><span class="dot"></span><span>Changes are not saved yet</span></div><div class="footer-actions"><button class="btn btn-outline" onclick="showToast('Latest profile loaded')">↻ Load latest</button><button class="btn btn-primary" onclick="showToast('Career profile saved')">✓ Save changes</button></div></div>
+    </main>
+  </div>
+</section>
+
+<!-- DOCUMENTS -->
+<section class="screen" id="screen-documents">
+  <div class="page">
+    <div class="page-head"><div><div class="eyebrow">Document workspace</div><h1>Your package, organized by outcome.</h1><p>Generate fresh documents from your latest saved profile. Previously downloaded files remain unchanged.</p></div><div class="actions"><button class="btn btn-outline" onclick="showToast('Workspace refreshed')">↻ Refresh</button></div></div>
+    <div class="grid grid3" style="margin-bottom:14px"><div class="metric good"><div class="metric-label">Resume outputs</div><div class="metric-value">8</div><div class="metric-note">All included</div></div><div class="metric info"><div class="metric-label">Cover letters</div><div class="metric-value">3</div><div class="metric-note">Executive package</div></div><div class="metric"><div class="metric-label">Stored PDFs</div><div class="metric-value">0</div><div class="metric-note">On-demand generation</div></div></div>
+    <div class="card pad"><div class="card-head"><div><div class="card-title">Resume library</div><div class="card-copy">Fresh generation always uses current canonical data.</div></div><span class="status good">Profile ready</span></div>
+      <div class="doc-library">
+        <div class="doc-card"><div class="doc-top"><div class="doc-icon">A</div><span class="status good">Ready</span></div><h3>Global ATS</h3><p>Single-column ATS-oriented resume.</p><div class="doc-meta">Selectable text • latest profile</div><div class="doc-actions"><button class="btn btn-primary" onclick="simulateLoading(this,'Generating…','Global ATS PDF ready')"><span class="spinner"></span><span>Generate</span></button></div></div>
+        <div class="doc-card"><div class="doc-top"><div class="doc-icon">D</div><span class="status good">Ready</span></div><h3>Domestic Suite</h3><p>Five Indian-market professional layouts.</p><div class="doc-meta">5 designs</div><div class="doc-actions"><button class="btn btn-outline">Choose design</button></div></div>
+        <div class="doc-card"><div class="doc-top"><div class="doc-icon">G</div><span class="status good">Ready</span></div><h3>GCC Resume</h3><p>Regional format with approved photo support.</p><div class="doc-meta">Photo available</div><div class="doc-actions"><button class="btn btn-outline" onclick="simulateLoading(this,'Generating…','GCC PDF ready')"><span class="spinner"></span><span>Generate</span></button></div></div>
+        <div class="doc-card"><div class="doc-top"><div class="doc-icon">EU</div><span class="status good">Ready</span></div><h3>European Resume</h3><p>European / Europass-style structured format.</p><div class="doc-meta">No fabricated CEFR data</div><div class="doc-actions"><button class="btn btn-outline" onclick="simulateLoading(this,'Generating…','European PDF ready')"><span class="spinner"></span><span>Generate</span></button></div></div>
+        <div class="doc-card"><div class="doc-top"><div class="doc-icon">CL</div><span class="status good">Ready</span></div><h3>Cover Letters</h3><p>Three deterministic variants.</p><div class="doc-meta">General • Relocation • Tech</div><div class="doc-actions"><button class="btn btn-outline">Open</button></div></div>
+        <div class="doc-card"><div class="doc-top"><div class="doc-icon">PM</div><span class="status info">Admin only</span></div><h3>Privacy-Masked Export</h3><p>Employer-facing copy with Zevantaa routing.</p><div class="doc-meta">Contact details removed</div><div class="doc-actions"><button class="btn btn-outline" disabled>Admin controlled</button></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ADMIN -->
+<section class="screen" id="screen-admin">
+  <div class="page">
+    <div class="page-head"><div><div class="eyebrow">Master administration</div><h1>See what needs attention first.</h1><p>Prioritize blockers, reviews and ready clients without turning the dashboard into a dense reporting screen.</p></div><div class="actions"><button class="btn btn-primary">＋ Create client account</button></div></div>
+    <div class="grid grid4" style="margin-bottom:14px"><div class="metric info"><div class="metric-label">Provisioned clients</div><div class="metric-value">24</div><div class="metric-note">Active accounts</div></div><div class="metric warn"><div class="metric-label">Needs review</div><div class="metric-value">5</div><div class="metric-note">Blocks generation</div></div><div class="metric good"><div class="metric-label">Ready clients</div><div class="metric-value">17</div><div class="metric-note">Confirmed profiles</div></div><div class="metric"><div class="metric-label">Stored PDFs</div><div class="metric-value">9</div><div class="metric-note">Private verified files</div></div></div>
+    <div class="priority-band" style="margin-bottom:14px"><div class="priority-card"><span class="status warn">Priority 1</span><strong style="margin-top:8px">5 source resumes need review</strong><span class="copy">These clients are blocked from confirmed extracted data.</span></div><div class="priority-card"><span class="status info">Priority 2</span><strong style="margin-top:8px">2 incomplete profiles</strong><span class="copy">More information is needed for complete outputs.</span></div><div class="priority-card"><span class="status good">Ready</span><strong style="margin-top:8px">17 clients ready</strong><span class="copy">No current workflow blocker.</span></div></div>
+    <div class="card pad"><div class="card-head"><div><div class="card-title">Operational queue</div><div class="card-copy">The most important client actions, ordered by workflow impact.</div></div><button class="btn btn-outline" onclick="switchTop('directory')">Open directory</button></div><div style="display:grid;gap:8px"><div class="priority-card" style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center"><div><strong>Ananya Mehta</strong><span class="copy">Domestic + GCC • source resume replaced</span></div><span class="status warn">Review needed</span><button class="btn btn-outline">Review</button></div><div class="priority-card" style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center"><div><strong>Rohan Sample-Kapoor</strong><span class="copy">Executive • career profile updated</span></div><span class="status good">Ready</span><button class="btn btn-outline">Open</button></div></div></div>
+  </div>
+</section>
+
+<!-- DIRECTORY -->
+<section class="screen" id="screen-directory">
+  <div class="page">
+    <div class="page-head"><div><div class="eyebrow">Master directory</div><h1>Clients</h1><p>Fast search, clear statuses and operations-friendly density.</p></div><div class="actions"><button class="btn btn-primary">＋ Create client</button></div></div>
+    <div class="filterbar"><div class="search"><input id="dirSearch" placeholder="Search name, email, mobile, WhatsApp or LinkedIn" oninput="filterDirectory()"></div><select id="dirPkg" style="width:auto;min-width:180px" onchange="filterDirectory()"><option value="">All packages</option><option>Executive Transition</option><option>Domestic + GCC</option><option>European</option></select><button class="btn btn-outline" onclick="resetDirectory()">Reset</button></div>
+    <div class="table-wrap"><table><thead><tr><th>Client</th><th>Mobile / WhatsApp</th><th>Package</th><th>Review</th><th>Stored PDFs</th><th>Last activity</th><th style="text-align:right">Actions</th></tr></thead><tbody id="directoryRows">
+      <tr data-package="Executive Transition"><td><div class="client-name">Rohan Sample-Kapoor</div><div class="client-email">rohan.kapoor@example.com</div></td><td>+91 98••• ••821</td><td><span class="status info">Executive Transition</span></td><td><span class="status good">Confirmed</span></td><td>3</td><td>12m ago</td><td><div class="row-actions"><button class="btn btn-outline">Open</button><button class="btn btn-outline">Documents</button></div></td></tr>
+      <tr data-package="Domestic + GCC"><td><div class="client-name">Ananya Mehta</div><div class="client-email">ananya@example.com</div></td><td>+91 99••• ••170</td><td><span class="status info">Domestic + GCC</span></td><td><span class="status warn">Review needed</span></td><td>0</td><td>1h ago</td><td><div class="row-actions"><button class="btn btn-outline">Review</button><button class="btn btn-outline">Edit</button></div></td></tr>
+      <tr data-package="European"><td><div class="client-name">Vikram Nair</div><div class="client-email">vikram@example.com</div></td><td>+91 97••• ••224</td><td><span class="status info">European</span></td><td><span class="status good">Confirmed</span></td><td>1</td><td>Yesterday</td><td><div class="row-actions"><button class="btn btn-outline">Open</button><button class="btn btn-outline">Documents</button></div></td></tr>
+    </tbody></table></div>
+  </div>
+</section>
+
+<!-- BRAND SETTINGS -->
+<section class="screen" id="screen-branding">
+  <div class="page">
+    <div class="page-head"><div><div class="eyebrow">Administration • Appearance</div><h1>Brand & typography settings</h1><p>Use approved Zevantaa assets and typography without hardcoding them across the application.</p></div><div class="actions"><button class="btn btn-outline" onclick="resetBrand()">Reset preview</button><button class="btn btn-primary" onclick="simulateLoading(this,'Saving…','Brand settings saved')"><span class="spinner"></span><span>Save appearance</span></button></div></div>
+    <div class="brand-layout">
+      <div class="settings">
+        <div class="settings-row"><div class="settings-label"><strong>Primary logo</strong><span>Used in top navigation, login and branded areas.</span></div><div class="upload-box"><div class="upload-preview" id="logoPreview">ZEVANTAA</div><label class="btn btn-outline" style="cursor:pointer">Upload logo<input type="file" accept=".svg,.png,.webp" style="display:none" onchange="previewLogo(this)"></label></div></div>
+        <div class="settings-row"><div class="settings-label"><strong>Compact mark / favicon</strong><span>Used in small mobile and browser contexts.</span></div><div class="upload-box"><div style="width:45px;height:45px;border-radius:10px;background:#0b1525;color:#fff;display:grid;place-items:center;font-weight:900" id="faviconPreview">Z</div><label class="btn btn-outline" style="cursor:pointer">Upload mark<input type="file" accept=".svg,.png,.webp,.ico" style="display:none" onchange="previewFavicon(this)"></label></div></div>
+        <div class="settings-row"><div class="settings-label"><strong>Application typography</strong><span>Controls the UI/body font.</span></div><div class="field"><select id="uiFont" onchange="applyBrand()"><option value="Inter,ui-sans-serif,system-ui,sans-serif">Inter</option><option value="Arial,Helvetica,sans-serif">Arial</option><option value="'Segoe UI',Arial,sans-serif">Segoe UI</option><option value="Verdana,Geneva,sans-serif">Verdana</option></select></div></div>
+        <div class="settings-row"><div class="settings-label"><strong>Heading typography</strong><span>Optional separate heading family.</span></div><div class="field"><select id="headingFont" onchange="applyBrand()"><option value="Inter,ui-sans-serif,system-ui,sans-serif">Inter</option><option value="Arial,Helvetica,sans-serif">Arial</option><option value="'Segoe UI',Arial,sans-serif">Segoe UI</option><option value="Verdana,Geneva,sans-serif">Verdana</option><option value="Georgia,serif">Georgia</option></select></div></div>
+        <div class="settings-row"><div class="settings-label"><strong>Accent color</strong><span>Used for active states, progress and emphasis.</span></div><div class="swatches"><button class="swatch active" style="background:#0fa36f" data-color="#0fa36f" onclick="selectAccent(this)"></button><button class="swatch" style="background:#3568f0" data-color="#3568f0" onclick="selectAccent(this)"></button><button class="swatch" style="background:#d6a32d" data-color="#d6a32d" onclick="selectAccent(this)"></button><button class="swatch" style="background:#6d4bd1" data-color="#6d4bd1" onclick="selectAccent(this)"></button></div></div>
+      </div>
+      <aside class="brand-preview"><div class="brand-preview-head"><div id="previewBrand" style="font-weight:900;letter-spacing:.13em">ZEVANTAA</div></div><div class="brand-preview-body"><div class="eyebrow">Preview</div><h2 id="previewHeading" style="font-size:20px;margin:0">Career documents, presented clearly.</h2><p id="previewBody" style="font-size:10px;color:#738096;line-height:1.55">This preview reflects the selected typography and accent treatment.</p><div class="metric good"><div class="metric-label">ATS score</div><div class="metric-value">84 / 100</div><div class="progress"><span id="previewProgress" style="width:84%"></span></div></div></div></aside>
+    </div>
+  </div>
+</section>
+
+<!-- Calendar -->
+<div class="date-popover" id="datePopover">
+  <div class="date-head"><button class="date-title" id="dateTitle" onclick="cycleDateMode()">October 2026</button><div class="date-nav"><button onclick="datePrev()">‹</button><button onclick="dateNext()">›</button></div></div>
+  <div id="dateBody"></div>
+  <div class="date-footer"><div><button class="mini-btn" onclick="dateToday()">Today</button> <button class="mini-btn" onclick="dateClear()">Clear</button></div><button class="mini-btn" onclick="closeDatePicker()">Done</button></div>
+</div>
+
+<div class="toast" id="toast">Saved</div>
+
+<script>
+const careerMeta={
+  summary:{title:'Professional Summary',sub:'A concise overview of your experience and professional direction.',icon:'◫'},
+  work:{title:'Work Experience',sub:'Add, edit or remove roles. Each role keeps its own dates and details.',icon:'▣'},
+  skills:{title:'Skills',sub:'Choose from the shared skill library or add a custom skill.',icon:'✦'},
+  education:{title:'Education',sub:'Add school, diploma, graduation, post-graduation or any other qualification separately.',icon:'◉'},
+  certifications:{title:'Certifications',sub:'Maintain multiple certificates, issue dates and validity information.',icon:'⌘'},
+  projects:{title:'Projects',sub:'Add multiple projects with independent duration and details.',icon:'◇'}
+};
+
+function switchTop(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+  document.querySelectorAll('.topnav button').forEach(b=>b.classList.toggle('active',b.dataset.screen===id));
+}
+function simulateLoading(btn,label,msg){
+  const spans=btn.querySelectorAll('span');const labelEl=spans[spans.length-1];const old=labelEl?labelEl.textContent:btn.textContent;
+  btn.disabled=true;btn.classList.add('loading');if(labelEl)labelEl.textContent=label;
+  setTimeout(()=>{btn.disabled=false;btn.classList.remove('loading');if(labelEl)labelEl.textContent=old;showToast(msg)},1000);
+}
+let toastTimer;function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),1600)}
+
+function switchSection(section){
+  document.querySelectorAll('.section-pane').forEach(p=>p.classList.remove('active'));document.getElementById('pane-'+section).classList.add('active');
+  document.querySelectorAll('.section-row').forEach(r=>r.classList.remove('active'));document.querySelector(`.section-item[data-section="${section}"] .section-row`).classList.add('active');
+  document.querySelectorAll('.section-item').forEach(i=>i.classList.remove('open'));document.querySelector(`.section-item[data-section="${section}"]`).classList.add('open');
+  document.getElementById('headTitle').textContent=careerMeta[section].title;document.getElementById('headSub').textContent=careerMeta[section].sub;document.getElementById('headIcon').textContent=careerMeta[section].icon;renderHeadAction(section);
+}
+function renderHeadAction(section){
+  let add='';if(section==='work')add='<button class="btn btn-primary" onclick="addWork()">＋ Add role</button>';
+  if(section==='education')add='<button class="btn btn-primary" onclick="addEducation()">＋ Add education</button>';
+  if(section==='certifications')add='<button class="btn btn-primary" onclick="addCertification()">＋ Add certification</button>';
+  if(section==='projects')add='<button class="btn btn-primary" onclick="addProject()">＋ Add project</button>';
+  if(section==='skills')add='<button class="btn btn-primary" onclick="focusSkillSearch()">＋ Add skill</button>';
+  document.getElementById('headActions').innerHTML='<button class="btn btn-outline" onclick="showToast(\'Latest profile loaded\')">↻ Load latest</button>'+add;
+}
+function openEntry(section,id){
+  switchSection(section);document.querySelectorAll(`#pane-${section} .entry-card`).forEach(c=>c.style.display='none');
+  const target=document.querySelector(`#pane-${section} .entry-card[data-entry="${id}"]`);if(target)target.style.display='block';
+  document.querySelectorAll(`.section-item[data-section="${section}"] .entry-link`).forEach(l=>l.classList.remove('active'));
+  const link=document.querySelector(`.section-item[data-section="${section}"] .entry-link[data-entry="${id}"]`);if(link)link.classList.add('active');
+}
+function editSummary(){switchSection('summary');setTimeout(()=>document.querySelector('#pane-summary textarea').focus(),30)}
+function appendNested(section,id,label){
+  const nested=document.getElementById(section+'Nested');const b=document.createElement('button');b.className='entry-link';b.dataset.entry=id;b.onclick=()=>openEntry(section,id);
+  b.innerHTML=`<strong>${label}</strong><span class="mini-action">✎</span><span class="mini-action delete" onclick="event.stopPropagation();removeEntry('${section}','${id}')">⌫</span>`;nested.appendChild(b)
+}
+function updateCount(section){const map={work:'workCount',education:'eduCount',certifications:'certCount',projects:'projCount'};document.getElementById(map[section]).textContent=document.querySelectorAll(`.section-item[data-section="${section}"] .entry-link`).length}
+function removeEntry(section,id){
+  const p=document.querySelector(`#pane-${section} .entry-card[data-entry="${id}"]`);if(p)p.remove();const l=document.querySelector(`.section-item[data-section="${section}"] .entry-link[data-entry="${id}"]`);if(l)l.remove();updateCount(section);const f=document.querySelector(`.section-item[data-section="${section}"] .entry-link`);if(f)f.click();else switchSection(section);showToast('Entry removed')
+}
+function addWork(){switchSection('work');const id='work-'+Date.now();appendNested('work',id,'New role');const c=document.createElement('div');c.className='entry-card';c.dataset.entry=id;c.innerHTML=`<div class="entry-card-head"><div class="entry-card-title"><span class="drag">⋮⋮</span><div><strong>New role</strong><span>Add employer, title and optional dates</span></div></div><div class="entry-card-actions"><span class="badge">New</span><button class="icon-mini delete" onclick="removeEntry('work','${id}')">⌫</button></div></div><div class="form"><div class="form-grid"><div class="field"><label>Employer</label><input placeholder="Employer name"></div><div class="field"><label>Job title</label><input placeholder="Job title"></div><div class="field"><label>Location <span class="optional">(optional)</span></label><input></div><div class="field"><label>Employment type <span class="optional">(optional)</span></label><select><option></option><option>Full-time</option><option>Part-time</option><option>Contract</option><option>Internship</option><option>Freelance</option></select></div><div class="field"><label>Start date <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'month')"><span>Select start month</span><span>▣</span></button></div></div><div class="field"><label>End date <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'month')"><span>Select end month</span><span>▣</span></button><label class="check-row"><input type="checkbox" onchange="togglePresent(this)"> I currently work here</label></div></div><div class="field full"><label>Description <span class="optional">(optional)</span></label><textarea></textarea></div></div></div>`;document.getElementById('workForms').appendChild(c);updateCount('work');openEntry('work',id);showToast('New role added')}
+function addEducation(){switchSection('education');const id='edu-'+Date.now();appendNested('education',id,'New education entry');const c=document.createElement('div');c.className='entry-card';c.dataset.entry=id;c.innerHTML=`<div class="entry-card-head"><div class="entry-card-title"><span class="drag">⋮⋮</span><div><strong>New education entry</strong><span>Add qualification and institution</span></div></div><div class="entry-card-actions"><span class="badge">New</span><button class="icon-mini delete" onclick="removeEntry('education','${id}')">⌫</button></div></div><div class="form"><div class="form-grid"><div class="field"><label>Qualification</label><input placeholder="e.g. MBA, B.Com, Class XII"></div><div class="field"><label>Field / specialization <span class="optional">(optional)</span></label><input></div><div class="field"><label>Institution / school / university</label><input></div><div class="field"><label>Location <span class="optional">(optional)</span></label><input></div><div class="field full"><label>Mode of study <span class="optional">(optional)</span></label><div class="option-row"><button class="option" onclick="toggleOption(this)">Offline</button><button class="option" onclick="toggleOption(this)">Online</button><button class="option" onclick="toggleOption(this)">Hybrid</button><button class="option" onclick="toggleOption(this)">Correspondence</button></div></div><div class="field"><label>Start year <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'year')"><span>Select year</span><span>▣</span></button></div></div><div class="field"><label>End year <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'year')"><span>Select year</span><span>▣</span></button><label class="check-row"><input type="checkbox" onchange="togglePresent(this)"> Currently studying here</label></div></div><div class="field full"><label>Description <span class="optional">(optional)</span></label><textarea></textarea></div></div></div>`;document.getElementById('educationForms').appendChild(c);updateCount('education');openEntry('education',id);showToast('Education entry added')}
+function addCertification(){switchSection('certifications');const id='cert-'+Date.now();appendNested('certifications',id,'New certification');const c=document.createElement('div');c.className='entry-card';c.dataset.entry=id;c.innerHTML=`<div class="entry-card-head"><div class="entry-card-title"><span class="drag">⋮⋮</span><div><strong>New certification</strong><span>Add certificate and validity details</span></div></div><div class="entry-card-actions"><span class="badge">New</span><button class="icon-mini delete" onclick="removeEntry('certifications','${id}')">⌫</button></div></div><div class="form"><div class="form-grid"><div class="field"><label>Certification</label><input></div><div class="field"><label>Issuing organization</label><input></div><div class="field"><label>Credential ID <span class="optional">(optional)</span></label><input></div><div class="field"><label>Credential URL <span class="optional">(optional)</span></label><input></div><div class="field"><label>Issued on <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'day')"><span>Select date</span><span>▣</span></button></div></div><div class="field"><label>Validity <span class="optional">(optional)</span></label><select onchange="toggleExpiry(this)"><option></option><option>Valid until a date</option><option>No expiry / valid forever</option><option>Unknown / not provided</option></select></div><div class="field full cert-expiry"><label>Valid until <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'day')"><span>Select date</span><span>▣</span></button></div></div></div></div>`;document.getElementById('certForms').appendChild(c);updateCount('certifications');openEntry('certifications',id);showToast('Certification added')}
+function addProject(){switchSection('projects');const id='proj-'+Date.now();appendNested('projects',id,'New project');const c=document.createElement('div');c.className='entry-card';c.dataset.entry=id;c.innerHTML=`<div class="entry-card-head"><div class="entry-card-title"><span class="drag">⋮⋮</span><div><strong>New project</strong><span>Add project scope and duration</span></div></div><div class="entry-card-actions"><span class="badge">New</span><button class="icon-mini delete" onclick="removeEntry('projects','${id}')">⌫</button></div></div><div class="form"><div class="form-grid"><div class="field"><label>Project name</label><input></div><div class="field"><label>Role <span class="optional">(optional)</span></label><input></div><div class="field"><label>Start date <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'month')"><span>Select start month</span><span>▣</span></button></div></div><div class="field"><label>End date <span class="optional">(optional)</span></label><div class="date-field"><button class="date-trigger" onclick="openDatePicker(this,'month')"><span>Select end month</span><span>▣</span></button><label class="check-row"><input type="checkbox" onchange="togglePresent(this)"> Project is ongoing</label></div></div><div class="field full"><label>Description <span class="optional">(optional)</span></label><textarea></textarea></div><div class="field full"><label>Project URL <span class="optional">(optional)</span></label><input></div></div></div>`;document.getElementById('projectForms').appendChild(c);updateCount('projects');openEntry('projects',id);showToast('Project added')}
+function toggleOption(btn){const g=btn.closest('.option-row');const was=btn.classList.contains('selected');g.querySelectorAll('.option').forEach(x=>x.classList.remove('selected'));if(!was)btn.classList.add('selected')}
+function togglePresent(cb){const f=cb.closest('.date-field');const b=f.querySelector('.date-trigger');if(cb.checked){b.disabled=true;b.querySelector('span:first-child').textContent='Present'}else{b.disabled=false;b.querySelector('span:first-child').textContent='Select date'}}
+function toggleExpiry(sel){const e=sel.closest('.entry-card').querySelector('.cert-expiry');e.style.display=sel.value==='Valid until a date'?'grid':'none'}
+
+function focusSkillSearch(){switchSection('skills');setTimeout(()=>document.getElementById('skillSearch').focus(),30)}
+function filterSkillResults(){const q=document.getElementById('skillSearch').value.toLowerCase();document.querySelectorAll('#skillResults .skill-result').forEach(x=>x.style.display=x.dataset.name.toLowerCase().includes(q)?'flex':'none')}
+function chooseSkill(name){const exists=[...document.querySelectorAll('#selectedSkills .chip')].some(c=>c.firstChild.textContent.trim()===name);if(exists){showToast('Skill already selected');return}const chip=document.createElement('span');chip.className='chip';chip.innerHTML=`${name} <button onclick="removeSkill(this)">×</button>`;document.getElementById('selectedSkills').appendChild(chip);refreshSkillCount();showToast('Skill added')}
+function addCustomSkill(){const name=prompt('Enter a custom skill');if(name&&name.trim())chooseSkill(name.trim())}
+function removeSkill(btn){btn.closest('.chip').remove();refreshSkillCount()}
+function refreshSkillCount(){const n=document.querySelectorAll('#selectedSkills .chip').length;document.getElementById('skillCount').textContent=n;document.getElementById('skillBadge').textContent=n+' selected'}
+
+/* Calendar */
+let activeDateButton=null,pickerMode='day',pickerStage='day',pickerYear=2026,pickerMonth=9,dateTracking=false;
+function openDatePicker(btn,mode){
+  if(activeDateButton&&activeDateButton!==btn)activeDateButton.classList.remove('calendar-open');
+  activeDateButton=btn;btn.classList.add('calendar-open');pickerMode=mode;pickerStage=mode==='year'?'year':mode==='month'?'month':'day';
+  renderDate();const pop=document.getElementById('datePopover');pop.classList.add('open');positionDate();
+  if(!dateTracking){window.addEventListener('scroll',positionDate,true);window.addEventListener('resize',positionDate);dateTracking=true}
+  setTimeout(()=>document.addEventListener('click',outsideDate),0)
+}
+function outsideDate(e){const pop=document.getElementById('datePopover');if(pop.contains(e.target)||(activeDateButton&&activeDateButton.contains(e.target)))return;closeDatePicker()}
+function closeDatePicker(){const pop=document.getElementById('datePopover');pop.classList.remove('open','above');if(activeDateButton)activeDateButton.classList.remove('calendar-open');activeDateButton=null;document.removeEventListener('click',outsideDate);if(dateTracking){window.removeEventListener('scroll',positionDate,true);window.removeEventListener('resize',positionDate);dateTracking=false}}
+function positionDate(){
+  const pop=document.getElementById('datePopover');if(!activeDateButton||!pop.classList.contains('open'))return;
+  const r=activeDateButton.getBoundingClientRect(),w=Math.min(330,innerWidth-28),h=340;let left=Math.max(14,Math.min(r.left,innerWidth-w-14));let above=(innerHeight-r.bottom<h&&r.top>h);
+  pop.style.width=w+'px';pop.style.left=left+'px';pop.style.right='auto';pop.style.bottom='auto';pop.classList.toggle('above',above);pop.style.top=(above?Math.max(10,r.top-h-7):r.bottom+7)+'px';
+  if(r.bottom<0||r.top>innerHeight)closeDatePicker()
+}
+function cycleDateMode(){pickerStage=pickerStage==='day'?'month':pickerStage==='month'?'year':'decade';renderDate()}
+function datePrev(){if(pickerStage==='day'){pickerMonth--;if(pickerMonth<0){pickerMonth=11;pickerYear--}}else if(pickerStage==='month')pickerYear--;else if(pickerStage==='year')pickerYear-=12;else pickerYear-=100;renderDate()}
+function dateNext(){if(pickerStage==='day'){pickerMonth++;if(pickerMonth>11){pickerMonth=0;pickerYear++}}else if(pickerStage==='month')pickerYear++;else if(pickerStage==='year')pickerYear+=12;else pickerYear+=100;renderDate()}
+function renderDate(){
+  const body=document.getElementById('dateBody'),title=document.getElementById('dateTitle'),months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  if(pickerStage==='day'){title.textContent=months[pickerMonth]+' '+pickerYear;let html='<div class="date-grid">'+['M','T','W','T','F','S','S'].map(d=>`<button class="date-cell muted">${d}</button>`).join('');let offset=(new Date(pickerYear,pickerMonth,1).getDay()+6)%7,days=new Date(pickerYear,pickerMonth+1,0).getDate();for(let i=0;i<offset;i++)html+='<button class="date-cell muted">·</button>';for(let d=1;d<=days;d++)html+=`<button class="date-cell ${d===11?'today':''}" onclick="selectDay(${d})">${d}</button>`;body.innerHTML=html+'</div>'}
+  else if(pickerStage==='month'){title.textContent=pickerYear;body.innerHTML='<div class="date-mode-grid">'+months.map((m,i)=>`<button onclick="selectMonth(${i})">${m}</button>`).join('')+'</div>'}
+  else if(pickerStage==='year'){let s=Math.floor(pickerYear/12)*12;title.textContent=s+' – '+(s+11);body.innerHTML='<div class="date-mode-grid years">'+Array.from({length:12},(_,i)=>`<button onclick="selectYear(${s+i})">${s+i}</button>`).join('')+'</div>'}
+  else{let c=Math.floor(pickerYear/100)*100;title.textContent=c+' – '+(c+99);body.innerHTML='<div class="date-mode-grid">'+Array.from({length:10},(_,i)=>`<button onclick="selectDecade(${c+i*10})">${c+i*10}s</button>`).join('')+'</div>'}
+  requestAnimationFrame(positionDate)
+}
+function selectDay(d){if(!activeDateButton)return;const m=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];activeDateButton.querySelector('span:first-child').textContent=String(d).padStart(2,'0')+' '+m[pickerMonth]+' '+pickerYear;closeDatePicker()}
+function selectMonth(m){pickerMonth=m;if(pickerMode==='month'){const ms=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];activeDateButton.querySelector('span:first-child').textContent=ms[m]+' '+pickerYear;closeDatePicker()}else{pickerStage='day';renderDate()}}
+function selectYear(y){pickerYear=y;if(pickerMode==='year'){activeDateButton.querySelector('span:first-child').textContent=y;closeDatePicker()}else{pickerStage='month';renderDate()}}
+function selectDecade(y){pickerYear=y;pickerStage='year';renderDate()}
+function dateToday(){const n=new Date();pickerYear=n.getFullYear();pickerMonth=n.getMonth();if(pickerMode==='year'){activeDateButton.querySelector('span:first-child').textContent=pickerYear;closeDatePicker()}else if(pickerMode==='month'){selectMonth(pickerMonth)}else selectDay(n.getDate())}
+function dateClear(){if(activeDateButton)activeDateButton.querySelector('span:first-child').textContent='Select date';closeDatePicker()}
+
+/* Directory */
+function filterDirectory(){const q=document.getElementById('dirSearch').value.toLowerCase(),pkg=document.getElementById('dirPkg').value;document.querySelectorAll('#directoryRows tr').forEach(r=>r.style.display=(!q||r.innerText.toLowerCase().includes(q))&&(!pkg||r.dataset.package===pkg)?'':'none')}
+function resetDirectory(){document.getElementById('dirSearch').value='';document.getElementById('dirPkg').value='';filterDirectory()}
+
+/* Brand */
+function previewLogo(input){const f=input.files&&input.files[0];if(!f)return;const u=URL.createObjectURL(f);document.getElementById('logoPreview').innerHTML=`<img src="${u}" alt="Logo">`;document.getElementById('headerLogoWrap').innerHTML=`<img src="${u}" alt="Logo" style="max-width:145px;max-height:42px;object-fit:contain">`;document.getElementById('previewBrand').innerHTML=`<img src="${u}" alt="Logo" style="max-width:160px;max-height:40px;object-fit:contain">`;showToast('Logo preview updated')}
+function previewFavicon(input){const f=input.files&&input.files[0];if(!f)return;const u=URL.createObjectURL(f);document.getElementById('faviconPreview').innerHTML=`<img src="${u}" alt="Mark" style="max-width:100%;max-height:100%;object-fit:contain">`;showToast('Mark preview updated')}
+function applyBrand(){document.documentElement.style.setProperty('--ui-font',document.getElementById('uiFont').value);document.documentElement.style.setProperty('--heading-font',document.getElementById('headingFont').value)}
+function selectAccent(btn){document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));btn.classList.add('active');document.documentElement.style.setProperty('--accent',btn.dataset.color);document.getElementById('previewProgress').style.background=btn.dataset.color;showToast('Accent preview updated')}
+function resetBrand(){document.getElementById('uiFont').selectedIndex=0;document.getElementById('headingFont').selectedIndex=0;applyBrand();document.documentElement.style.setProperty('--accent','#0fa36f');document.querySelectorAll('.swatch').forEach((s,i)=>s.classList.toggle('active',i===0));showToast('Brand preview reset')}
+
+renderHeadAction('summary');
+renderDate();
+</script>
+</body>
+</html>
