@@ -59,3 +59,14 @@ test("audit writer inserts only allowlisted event fields, never document content
   assert.deepEqual(Object.keys(payload).sort(),
     ["actor_user_id", "candidate_profile_id", "event_type", "metadata", "outcome", "target_user_id"].sort());
 });
+
+test("package assignment audit uses controlled detail without candidate content", async () => {
+  let payload;
+  globalThis.__securityDb = { from(table) { assert.equal(table, "security_audit_events"); return {
+    async insert(value) { payload = value; return { error: null }; },
+  }; } };
+  assert.equal(await recordSecurityEvent({ eventType: "client.account.updated", actorUserId: "fictional-admin",
+    targetUserId: "fictional-client", outcome: "success", detailCode: "package-assignment" }), true);
+  assert.deepEqual(payload.metadata, { detail_code: "package-assignment" });
+  assert.equal(JSON.stringify(payload).includes("resume content"), false);
+});

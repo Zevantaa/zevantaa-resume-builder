@@ -1,0 +1,5 @@
+# Reusable Sofiology product blueprint
+
+For a future product, reuse patterns rather than cloning this deployment wholesale: server-only Supabase client and role guard; actor/profile ownership lookup; canonical typed domain aggregate; deterministic projection to output models; private file metadata and storage; allowlisted audit events; server-side validation and bounded resource handling; CI/evidence runbooks. Keep product configuration (brand, package catalog, resume layouts, ATS rules, copy, workflow stages) separate and reviewed. Every product needs its own threat model, data inventory, RLS policies, secrets, migration sequence and release gates.
+
+Suggested future extraction sequence: (1) write contract tests for capability and security boundary; (2) move only independent types/utilities; (3) inject product-specific policy at server boundary; (4) run cross-product regression and security review. Do not make a generic multi-tenant framework, shared credential store or common production database as part of V1. This blueprint is an architectural direction, not a claim that reusable packages have already been published.

@@ -9,7 +9,9 @@
     "lint": "eslint",
     "test": "node --test tests",
     "security:audit": "npm audit --omit=dev",
-    "security:sbom": "npm sbom --sbom-format cyclonedx --omit=dev"
+    "security:sbom": "npm sbom --sbom-format cyclonedx --omit=dev",
+    "security:secrets": "node scripts/check-secrets.mjs",
+    "environment:validate": "node scripts/validate-environment.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "4.9.0",
@@ -33,5 +35,8 @@
     "eslint-config-next": "^16.4.0",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "overrides": {
+    "argparse": "2.0.1"
   }
 }

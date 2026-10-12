@@ -1,0 +1,7 @@
+# Enterprise readiness summary
+
+As of 2026-10-12, ASSUR-01 supplies documented operating standards, local validation, CI checks, evidence inventory and negative-test plan. This improves due-diligence readiness but does **not** establish production readiness or formal ISO 27001/SOC 2 certification. The application has role-based server checks, private-file architecture, deterministic document generation, input/resource limits and a prepared security audit/rate-limit migration. See `CONTROL_EVIDENCE_INDEX.md` for source evidence and gaps.
+
+Operational controls that still need named owners and live proof: branch-protection settings, MFA enforcement for privileged app access, production configuration/redirects, vulnerability and incident response exercises, audit monitoring/retention, privacy export/deletion execution, and database-plus-Storage restore. Production dependency audit is zero after a tested Mammoth override, while the full audit retains five High development-only entries awaiting upstream remedy; see `docs/security/DEPENDENCY_AND_SUPPLY_CHAIN.md`. The six SEC-01 gates remain open. Do not represent target RPO/RTO, backup availability, penetration testing or legal compliance as verified. Client-facing summaries in `docs/client-trust` should be reviewed against the actual deployment before external distribution.
+
+**Verdict: NO-GO for production release.** ASSUR-01 documentation and CI can be reviewed/merged on `develop`, but release requires closing SEC-01 and obtaining recorded owner approval. `ASSUR_01_GO_NO_GO.md` provides the decision log.

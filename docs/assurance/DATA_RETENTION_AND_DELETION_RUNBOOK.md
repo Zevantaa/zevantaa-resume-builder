@@ -1,0 +1,7 @@
+# Retention and deletion runbook
+
+No automated destructive retention exists. Business owner approves scope and retention exception; technical operator executes with two-person review where feasible. Verify requester identity and candidate/profile linkage, record request ID and UTC time, then freeze conflicting writes. Account **disable** (`user_roles.account_status=disabled`) blocks client access but preserves Auth user, profile, files and history; it is not deletion.
+
+For an approved erasure request, inventory Auth ID, candidate profile, child rows, file records, private Storage keys, document records, review records and audit references. Check legal/contract retention holds and shared dependencies. Prepare an export only if authorized. Plan deletion in dependency-safe order; do not infer cascade behavior or bypass RLS casually. Delete private Storage objects as well as database references, then Auth user/role as approved. Never paste object keys or CV text into public tickets. Preserve only minimum lawful audit metadata or anonymize under approved policy. Confirm no live references or object fetches remain, re-run cross-client denial, and record counts and second reviewer.
+
+Backups may retain copies until their approved lifecycle expires; record the expiry/restore re-erasure plan. If a step fails, stop, preserve evidence and reconcile partial deletion before declaring completion. This runbook is **not** permission to perform a bulk delete; each request requires explicit authorization and a tested execution plan.

@@ -519,6 +519,8 @@ export async function updateClientAccount({
           : role.account_status === "disabled" ? "client.account.reactivated" : "client.account.updated",
         actorUserId: adminContext.userId!, targetUserId: userId,
         candidateProfileId, outcome: "success",
+        detailCode: profileSnapshot.selected_package_code !== changes.packageCode
+          ? "package-assignment" : "profile-update",
       });
     }
     return { ok: true, packageCode: savedProfile.selected_package_code };

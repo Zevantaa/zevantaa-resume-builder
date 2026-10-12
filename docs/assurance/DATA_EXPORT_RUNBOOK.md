@@ -1,0 +1,5 @@
+# Candidate data export runbook
+
+Verify request authority and destination out-of-band; record scope, owner and deadline. Resolve the candidate by server-authoritative profile linkage, not a browser-supplied ID. With least-privilege trusted access, assemble a private export containing profile/contact, ordered career child rows, package context, source/photo files, generated originals and masked outputs, and relevant account metadata. Include a manifest of record IDs, filenames, MIME types, sizes, UTC timestamps and checksums; do not expose Storage object keys or credentials in the client copy. Audit entries, if disclosed, need separate privacy/security approval.
+
+Use encrypted, time-limited delivery with recipient verification; do not send a plaintext archive or password in the same channel. Validate row counts, file hashes and readability against the manifest, log operator/reviewer/time and revoke delivery access after confirmation. Remove temporary export material under an approved retention period. No automated export endpoint is implemented; perform only under a separately approved operational procedure.

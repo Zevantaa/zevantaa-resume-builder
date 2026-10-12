@@ -1,0 +1,51 @@
+name: Quality and security
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run environment:validate -- local
+      - run: npm run security:secrets
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build
+      - name: Production dependency audit (blocking)
+        run: npm audit --omit=dev
+      - name: Full dependency audit (visible dev-only findings)
+        if: always()
+        continue-on-error: true
+        run: npm audit --json > npm-audit-full.json
+      - name: Retain full audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zevantaa-full-audit
+          path: npm-audit-full.json
+          if-no-files-found: warn
+          retention-days: 30
+      - run: git diff --check
+      - name: Generate dependency SBOM
+        run: npm sbom --sbom-format cyclonedx --omit=dev > zevantaa-sbom.cdx.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zevantaa-production-sbom
+          path: zevantaa-sbom.cdx.json
+          retention-days: 30

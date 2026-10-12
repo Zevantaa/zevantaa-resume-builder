@@ -15,6 +15,8 @@ export type SecurityEvent = {
   targetUserId?: string;
   candidateProfileId?: string;
   outcome: "success" | "denied" | "failed";
+  /** Controlled classification only; never candidate content or free-form notes. */
+  detailCode?: "package-assignment" | "profile-update";
 };
 
 /** Best-effort record after a completed operation; never accept arbitrary event metadata. */
@@ -26,7 +28,7 @@ export async function recordSecurityEvent(event: SecurityEvent): Promise<boolean
       target_user_id: event.targetUserId ?? null,
       candidate_profile_id: event.candidateProfileId ?? null,
       outcome: event.outcome,
-      metadata: {},
+      metadata: event.detailCode ? { detail_code: event.detailCode } : {},
     });
     return !error;
   } catch {

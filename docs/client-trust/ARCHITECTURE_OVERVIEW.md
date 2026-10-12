@@ -1,0 +1,5 @@
+# Architecture overview
+
+Next.js 16 serves protected admin and client portals. Supabase Auth issues sessions, `user_roles` maps an authenticated user to `admin` or `client`, and server-side authorization checks active account status. PostgreSQL holds candidate profiles, ordered resume sections, packages, file/document metadata and prepared audit records. Private Supabase Storage holds source resumes, optional GCC photos and generated outputs; document delivery is mediated by protected server routes rather than public bucket URLs. Canonical profile data flows through a shared document mapper into layout-specific PDF builders and a common text-based renderer. The application does not send CV content to a paid AI API.
+
+Trusted server components use a server-only Supabase secret for approved operations; browser code uses the publishable key. Authorization checks precede profile/file access and PDF generation. Deployment topology, production backup entitlement and live remote policies need verification as part of SEC-01 release gates. See `docs/architecture/PLATFORM_VS_ZEVANTAA_BOUNDARIES.md` for component boundaries.
