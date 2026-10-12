@@ -29,9 +29,18 @@ export async function updateRecoveryPasswordAction(password: string) {
     throw new Error("This recovery link is invalid or has expired. Request a new link.");
   }
 
+  if (process.env.NODE_ENV === "production") {
+    await (await import("@/lib/security/rate-limit")).enforceRateLimit("password-update", data.user.id, 5);
+  }
+
   const { error: updateError } = await supabase.auth.updateUser({ password });
   if (updateError) {
     throw new Error("We could not update your password. Request a new link and try again.");
+  }
+  if (process.env.NODE_ENV === "production") {
+    await (await import("@/lib/security/audit-events")).recordSecurityEvent({
+      eventType: "recovery.password.updated", actorUserId: data.user.id, outcome: "success",
+    });
   }
 
   cookieStore.set(RECOVERY_COOKIE_NAME, "", {

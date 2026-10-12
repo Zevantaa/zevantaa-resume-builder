@@ -1,0 +1,11 @@
+# SEC-01 security architecture
+
+The security boundary is the Next.js server, not the dashboard UI. The browser receives only the Supabase publishable key. Supabase SSR cookies establish identity; server layouts, actions and routes check the database-backed `user_roles` record and active status. A service-role client is constructed only in `server-only` modules, after application authorization. Direct client access to protected public tables and both private storage buckets is not intended.
+
+The prepared SEC-01 migration removes unnecessary anon/authenticated table privileges, revokes the public execute grant on the SECURITY DEFINER `rls_auto_enable()` event-trigger function, and adds an index, counters and audit-event table. It is **not applied**. Existing RLS is enabled on all 16 public application tables; 15 intentionally have no browser policies. Service-role bypass of RLS means every service method must scope reads and writes to an authorized user/profile before querying.
+
+Authentication is provider-backed. Portal intent never grants role. Recovery requires a verified Supabase recovery exchange plus a short-lived, signed user-bound proof cookie before `updateUser({ password })`. The configured application origin controls callback redirects. The cookie is HttpOnly, SameSite=Lax, Secure in production and limited to `/reset-password`.
+
+File validation checks allowed extension, MIME, size and format structure. GCC photos additionally undergo full server-only Sharp decode with a 12-megapixel input limit and 4000-pixel per-axis cap. Keys are server-generated UUID paths. Source files are private and extraction is server-only. Parsing untrusted Office/PDF data remains a material risk; no malware engine is present. Client/server PDF downloads are authorized, generated on demand and are not public storage URLs.
+
+Security headers are configured in `next.config.ts`; CSP presently allows inline hydration scripts/styles for Next.js compatibility. A nonce-based CSP needs browser-level verification before tightening. HTTPS, WAF/provider limits, leaked-password protection, alerting, backup and recovery must be configured and evidenced at deployment. No claim of encryption beyond provider-managed transport/at-rest controls is made.

@@ -10,7 +10,7 @@ import { CareerValidationError, validateCareerDraft } from "./career-profile-val
 export type CareerActionState = { status: "idle" | "success" | "error" | "stale"; message: string; savedAt?: number };
 
 export async function saveCareerProfileAction(_previous: CareerActionState, formData: FormData): Promise<CareerActionState> {
-  await requireApplicationRole("client");
+  const actor = await requireApplicationRole("client");
   if ([...formData.keys()].some((key) => key !== "careerData" && key !== "revision")) {
     return { status: "error", message: "This form contains a field that cannot be changed here. Refresh and try again." };
   }
@@ -20,10 +20,18 @@ export async function saveCareerProfileAction(_previous: CareerActionState, form
     return { status: "error", message: "The career form is invalid. Refresh and try again." };
   }
   try {
+    if (process.env.NODE_ENV === "production") {
+      await (await import("@/lib/security/rate-limit")).enforceRateLimit("career-save", actor.userId!, 40);
+    }
     const validated = validateCareerDraft(JSON.parse(raw));
     const result = await saveCurrentClientCareerProfile(validated, revision);
     if (result === "stale") return { status: "stale", message: "Your profile changed since this page was opened. Refresh and review the latest information before saving again." };
     if (result === "missing") return { status: "error", message: "Your linked profile is unavailable. Contact Zevantaa support." };
+    if (process.env.NODE_ENV === "production") {
+      await (await import("@/lib/security/audit-events")).recordSecurityEvent({
+        eventType: "client.career.saved", actorUserId: actor.userId!, outcome: "success",
+      });
+    }
     revalidatePath("/client", "layout");
     revalidatePath("/admin", "layout");
     return { status: "success", message: "Your career updates were saved. Your ATS indicator and the next fresh PDF will use the updated facts.", savedAt: Date.now() };

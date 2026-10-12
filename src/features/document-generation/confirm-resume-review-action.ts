@@ -52,6 +52,9 @@ function reviewedEntries(formData: FormData, proposals: ResumeReviewProposal[]):
 
 export async function confirmResumeReviewAction(userId: string, _previous: ReviewSaveState, formData: FormData): Promise<ReviewSaveState> {
   const admin = await requireApplicationRole("admin");
+  if (process.env.NODE_ENV === "production") {
+    await (await import("@/lib/security/rate-limit")).enforceRateLimit("resume-review", admin.userId!, 20);
+  }
   if (formData.get("confirmReview") !== "yes") return { ok: false, message: "Explicit confirmation is required." };
   const review = await getAdminResumeReview(userId);
   if (!review || review.extraction.status !== "success" || !review.extraction.sourceFileId || !review.sourceHash) {
@@ -70,6 +73,12 @@ export async function confirmResumeReviewAction(userId: string, _previous: Revie
     p_admin_user_id: admin.userId,
     p_approved: approved.map(({ section, fields, sourceLines }) => ({ section, fields, sourceLines })),
   });
+  if (!error && process.env.NODE_ENV === "production") {
+    await (await import("@/lib/security/audit-events")).recordSecurityEvent({
+      eventType: "resume.review.confirmed", actorUserId: admin.userId!,
+      targetUserId: userId, candidateProfileId: review.client.candidateProfileId, outcome: "success",
+    });
+  }
   return error
     ? { ok: false, message: "Confirmation could not be saved. The profile was not partially updated; reload and try again." }
     : { ok: true, message: "Approved entries were saved to the canonical profile." };

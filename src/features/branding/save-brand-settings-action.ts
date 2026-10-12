@@ -6,6 +6,8 @@ import sharp from "sharp";
 
 import { requireApplicationRole } from "@/features/authentication/authorization";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { recordSecurityEvent } from "@/lib/security/audit-events";
 import { BRAND_ACCENTS, BRAND_BUCKET, BRAND_FONTS, type BrandFont } from "./brand-settings-config";
 import { getBrandSettings } from "./brand-settings-service";
 
@@ -35,6 +37,7 @@ export async function saveBrandSettingsAction(_previous: BrandActionState, formD
     typeof accentColor !== "string" || !BRAND_ACCENTS.includes(accentColor as typeof BRAND_ACCENTS[number]))
     return { status: "error", message: "Choose an approved font and accent color." };
   try {
+    await enforceRateLimit("brand-upload", admin.userId!, 20);
     const [logo, mark, previous] = await Promise.all([
       validatedBrandImage(formData.get("logo")), validatedBrandImage(formData.get("mark")), getBrandSettings(),
     ]);
@@ -59,6 +62,7 @@ export async function saveBrandSettingsAction(_previous: BrandActionState, formD
       updated_at: new Date().toISOString(), updated_by_user_id: admin.userId,
     }).eq("id", "default");
     if (error) throw new Error("Appearance could not be saved.");
+    await recordSecurityEvent({ eventType: "brand.settings.changed", actorUserId: admin.userId!, outcome: "success" });
     revalidatePath("/", "layout");
     return { status: "success", message: "Appearance saved. Refresh other open tabs to see the new assets." };
   } catch (error) {

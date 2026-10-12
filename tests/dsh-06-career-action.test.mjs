@@ -12,7 +12,7 @@ registerHooks({ resolve(specifier, context, nextResolve) {
     url: moduleUrl("export async function saveCurrentClientCareerProfile(draft,revision){globalThis.__careerAction.saved.push({draft,revision});return globalThis.__careerAction.result}"), shortCircuit: true,
   };
   if (specifier.startsWith("@/types/")) return nextResolve(new URL(`../src/types/${specifier.slice(8)}.ts`, import.meta.url).href, context);
-  if (specifier.startsWith("./") && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier))
+  if ((specifier.startsWith("./") || specifier.startsWith("../")) && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier))
     return nextResolve(`${specifier}.ts`, context);
   return nextResolve(specifier, context);
 } });

@@ -6,18 +6,21 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --test tests",
+    "security:audit": "npm audit --omit=dev",
+    "security:sbom": "npm sbom --sbom-format cyclonedx --omit=dev"
   },
   "dependencies": {
     "@react-pdf/renderer": "4.9.0",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.117.1",
     "mammoth": "1.13.0",
-    "next": "16.3.5",
+    "next": "^16.4.0",
     "pdfjs-dist": "5.4.624",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "sharp": "0.35.4",
+    "sharp": "^0.35.5",
     "word-extractor": "1.0.4"
   },
   "devDependencies": {
@@ -27,7 +30,7 @@
     "@types/react-dom": "^19",
     "@types/word-extractor": "1.0.6",
     "eslint": "^9",
-    "eslint-config-next": "16.3.5",
+    "eslint-config-next": "^16.4.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

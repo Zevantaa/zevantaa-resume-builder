@@ -17,7 +17,7 @@ export async function saveClientIntakeAction(
   _previous: IntakeActionState,
   formData: FormData,
 ): Promise<IntakeActionState> {
-  await requireApplicationRole("client");
+  const actor = await requireApplicationRole("client");
 
   if ([
     "profileId", "candidateProfileId", "candidate_profile_id",
@@ -52,12 +52,22 @@ export async function saveClientIntakeAction(
   if (Object.keys(errors).length) return { status: "error", errors, message: "Review the highlighted fields and try again." };
 
   try {
+    if (process.env.NODE_ENV === "production") {
+      const { enforceRateLimit } = await import("@/lib/security/rate-limit");
+      if (resume) await enforceRateLimit("resume-upload", actor.userId!, 12);
+      if (photo) await enforceRateLimit("photo-upload", actor.userId!, 12);
+    }
     const result = await saveClientIntake({
       resume,
       photo,
     });
     if (result === "missing") {
       return { status: "error", message: "Your linked profile is unavailable. Contact Zevantaa support." };
+    }
+    if (process.env.NODE_ENV === "production") {
+      const { recordSecurityEvent } = await import("@/lib/security/audit-events");
+      if (resume) await recordSecurityEvent({ eventType: "client.resume.replaced", actorUserId: actor.userId!, outcome: "success" });
+      if (photo) await recordSecurityEvent({ eventType: "client.photo.replaced", actorUserId: actor.userId!, outcome: "success" });
     }
     revalidatePath("/client/profile");
     if (result === "saved-with-warning") {

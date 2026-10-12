@@ -246,6 +246,9 @@ export async function provisionClientAccount({
   temporaryPassword,
 }: ProvisionClientAccountInput): Promise<ProvisionClientAccountResult> {
   const adminContext = await requireApplicationRole("admin");
+  if (process.env.NODE_ENV === "production") {
+    await (await import("@/lib/security/rate-limit")).enforceRateLimit("client-provision", adminContext.userId!, 10);
+  }
   const supabase = createSupabaseAdminClient();
   const creatingProfile = candidateProfileId === "new";
   const linkedProfileId = creatingProfile ? randomUUID() : candidateProfileId;
@@ -331,6 +334,12 @@ export async function provisionClientAccount({
   });
 
   if (!roleError) {
+    if (process.env.NODE_ENV === "production") {
+      await (await import("@/lib/security/audit-events")).recordSecurityEvent({
+        eventType: "client.account.created", actorUserId: adminContext.userId!,
+        targetUserId: authData.user.id, candidateProfileId: linkedProfileId, outcome: "success",
+      });
+    }
     return { ok: true, packageName: selectedPackage.display_name };
   }
 
@@ -361,6 +370,9 @@ export async function updateClientAccount({
   userId,
 }: UpdateClientAccountInput): Promise<UpdateClientAccountResult> {
   const adminContext = await requireApplicationRole("admin");
+  if (process.env.NODE_ENV === "production") {
+    await (await import("@/lib/security/rate-limit")).enforceRateLimit("client-edit", adminContext.userId!, 30);
+  }
   const supabase = createSupabaseAdminClient();
   const { data: role, error: roleLookupError } = await supabase
     .from("user_roles")
@@ -500,6 +512,14 @@ export async function updateClientAccount({
       .maybeSingle();
     if (reloadError || savedProfile?.selected_package_code !== changes.packageCode) {
       return { code: "reconciliation-required", ok: false };
+    }
+    if (process.env.NODE_ENV === "production") {
+      await (await import("@/lib/security/audit-events")).recordSecurityEvent({
+        eventType: accountStatus === "disabled" ? "client.account.disabled"
+          : role.account_status === "disabled" ? "client.account.reactivated" : "client.account.updated",
+        actorUserId: adminContext.userId!, targetUserId: userId,
+        candidateProfileId, outcome: "success",
+      });
     }
     return { ok: true, packageCode: savedProfile.selected_package_code };
   }

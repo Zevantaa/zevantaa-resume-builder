@@ -9,20 +9,31 @@ import {
 } from "@/features/authentication/recovery-proof";
 
 function getRequestOrigin(request: Request) {
-  const requestUrl = new URL(request.url);
-  const forwardedHost = request.headers.get("x-forwarded-host");
-  const forwardedProtocol = request.headers.get("x-forwarded-proto") ?? "https";
-
-  if (process.env.NODE_ENV !== "development" && forwardedHost) {
-    return `${forwardedProtocol}://${forwardedHost}`;
+  // Proxy forwarding headers are request-controlled at some deployments. They
+  // must never choose the destination of a verified recovery redirect.
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configured) {
+    const url = new URL(configured);
+    if (!(["https:", "http:"].includes(url.protocol)) || url.username || url.password ||
+        (process.env.NODE_ENV === "production" && url.protocol !== "https:")) {
+      throw new Error("Invalid application origin configuration.");
+    }
+    return url.origin;
   }
-
-  return requestUrl.origin;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Application origin is not configured.");
+  }
+  return new URL(request.url).origin;
 }
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
-  const origin = getRequestOrigin(request);
+  let origin: string;
+  try {
+    origin = getRequestOrigin(request);
+  } catch {
+    return new Response("Password recovery is temporarily unavailable.", { status: 503 });
+  }
   const portal = getAuthPortalIntent(
     requestUrl.searchParams.get("portal") ?? undefined,
   );
@@ -59,6 +70,9 @@ export async function GET(request: Request) {
       }
 
       if (recoveryUserId) {
+        if (process.env.NODE_ENV === "production") {
+          await (await import("@/lib/security/rate-limit")).enforceRateLimit("recovery-callback", recoveryUserId, 10);
+        }
         const response = NextResponse.redirect(
           new URL(`/reset-password?portal=${portal}`, origin),
         );

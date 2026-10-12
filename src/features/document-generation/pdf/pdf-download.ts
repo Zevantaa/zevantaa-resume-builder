@@ -10,9 +10,24 @@ import { renderPdfDocument } from "./render-pdf";
  * document model from server-trusted data. Never pass browser-supplied facts.
  */
 export async function renderPdfDownloadResponse(model: PdfDocumentModel, filename: string, theme: PdfThemeOverrides = {}): Promise<Response> {
+  let actorId: string | null = null;
+  if (process.env.NODE_ENV === "production") {
+    const { getAuthContext } = await import("@/features/authentication/authorization");
+    const actor = await getAuthContext();
+    if (!actor.userId || actor.accountStatus !== "active") {
+      return new Response("Document access denied.", { status: 403 });
+    }
+    actorId = actor.userId;
+    await (await import("@/lib/security/rate-limit")).enforceRateLimit("pdf-generation", actor.userId, 40);
+  }
   const safeName = sanitizePdfDownloadFilename(filename);
   const asciiFallback = sanitizePdfDownloadFilename(safeName.normalize("NFKD").replace(/\p{M}/gu, "").replace(/[^\x20-\x7e]/g, ""));
   const pdf = await renderPdfDocument(model, theme);
+  if (actorId) {
+    await (await import("@/lib/security/audit-events")).recordSecurityEvent({
+      eventType: "document.generated", actorUserId: actorId, outcome: "success",
+    });
+  }
   const disposition = `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(safeName)}`;
   return new Response(new Uint8Array(pdf), { status: 200, headers: {
     "Content-Type": "application/pdf",

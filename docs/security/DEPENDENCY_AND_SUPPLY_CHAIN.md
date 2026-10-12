@@ -1,0 +1,7 @@
+# SEC-01 dependencies and supply chain
+
+Run from repository root: `npm.cmd ci`, `npm.cmd audit`, `npm.cmd audit --omit=dev`, `npm.cmd outdated`, `npm.cmd ls --all`. The committed lockfile is the install source of truth; review changes before updates. SBOM: `npm.cmd sbom --sbom-format cyclonedx --omit=dev` (capture the JSON in a controlled artifact store; it includes exact versions and should be access-controlled). License inventory: `npm.cmd ls --all --json` is a raw inventory, not a license compliance determination; review package license metadata before redistribution.
+
+At review start, audit reported Next.js 16.3.5 (critical and other advisories) and Sharp 0.35.4 (high). Compatible Next.js 16.4.0, eslint-config-next 16.4.0 and Sharp 0.35.5 were installed. A subsequent `npm.cmd audit` and `npm.cmd audit --omit=dev` each reported zero vulnerabilities at the review time; new advisories can appear later. Do not force downgrade to an older Next branch or blindly upgrade `pdfjs-dist`/TypeScript major versions. Re-run audit in CI; classify transitive dev-only alerts separately from runtime exposure.
+
+Search for secrets, unsafe eval/HTML, debug routes and browser service-role imports before each release. Verify provenance of any new package, scripts and license. The temporary admin PDF and client extraction QA routes are protected but should be removed or feature-gated for production. `npm ci` install scripts are a supply-chain execution surface; do not approve unfamiliar scripts without reviewing package origin and purpose.

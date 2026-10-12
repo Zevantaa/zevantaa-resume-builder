@@ -8,6 +8,7 @@ import { isGccPhotoAvailable } from "@/features/document-generation/package-rout
 
 import { resolveLinkedClientProfile } from "./contact-profile-service";
 import { IntakeFileValidationError, validateIntakeFile } from "./intake-file-validation";
+import { validateDecodedIntakePhoto } from "./decode-intake-photo";
 
 const INTAKE_BUCKET = "candidate-intake-private";
 
@@ -100,6 +101,7 @@ export async function saveClientIntake(values: IntakeSaveValues): Promise<"saved
     values.resume ? validateIntakeFile(values.resume, "source-resume") : null,
     values.photo ? validateIntakeFile(values.photo, "gcc-profile-photo") : null,
   ]);
+  if (photoUpload) await validateDecodedIntakePhoto(photoUpload.bytes, photoUpload.metadata.extension);
   const created: { id: string; key: string }[] = [];
 
   async function store(

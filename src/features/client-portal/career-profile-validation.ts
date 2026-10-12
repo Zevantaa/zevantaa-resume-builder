@@ -1,6 +1,7 @@
 import { ADDITIONAL_ITEM_FIELDS, CAREER_FIELDS, CAREER_SECTION_NAMES,
   type CareerField, type CareerSection } from "./career-profile-model";
 import { normalizeSkillName } from "./skill-name";
+import { isSafeExternalUrl } from "../../lib/security/external-url";
 
 export type ValidatedRow = { key: string; [field: string]: string | boolean | string[] };
 export type ValidatedCareer = { professionalSummary: string; additionalSections: {
@@ -39,9 +40,9 @@ function text(value: unknown, label: string, max: number): string {
 
 function validUrl(value: string, label: string) {
   if (!value) return;
-  try { const url = new URL(value); if (url.protocol === "http:" || url.protocol === "https:") return; }
-  catch { /* A safe field-level error follows. */ }
-  throw new CareerValidationError(`${label} must be a valid HTTP or HTTPS URL.`);
+  if (!isSafeExternalUrl(value)) {
+    throw new CareerValidationError(`${label} must be a valid public HTTP or HTTPS URL.`);
+  }
 }
 
 function validPeriod(start: string, end: string, label: string) {

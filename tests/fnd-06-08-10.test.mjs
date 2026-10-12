@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { test } from "node:test";
+import sharp from "sharp";
 
 const mockModule = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 registerHooks({
@@ -33,6 +34,7 @@ registerHooks({
 });
 
 const { validateIntakeFile, validateIntakeFileMetadata, IntakeFileValidationError } = await import("../src/features/client-portal/intake-file-validation.ts");
+const { validateDecodedIntakePhoto } = await import("../src/features/client-portal/decode-intake-photo.ts");
 const { saveClientIntake, getClientIntakeFiles } = await import("../src/features/client-portal/client-intake-service.ts");
 const { saveClientIntakeAction } = await import("../src/features/client-portal/save-client-intake-action.ts");
 
@@ -151,6 +153,13 @@ test("valid JPEG, PNG and WebP photos pass", async () => {
   ]) {
     await assert.doesNotReject(validateIntakeFile(file(name, mime, bytes), "gcc-profile-photo"), name);
   }
+});
+
+test("photo with excessive decoded dimensions is rejected even when compressed bytes are small", async () => {
+  const wide = await sharp({ create: { width: 4001, height: 1, channels: 3,
+    background: { r: 1, g: 2, b: 3 } } }).png().toBuffer();
+  await assert.rejects(validateDecodedIntakePhoto(wide, "png"),
+    /could not be decoded safely/);
 });
 
 test("photo rejects invalid type and over 5 MB", async () => {

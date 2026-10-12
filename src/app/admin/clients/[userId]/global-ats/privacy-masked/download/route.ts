@@ -30,7 +30,18 @@ export async function POST(request: Request, context: { params: Promise<{ userId
     const mapping = mapCandidateProfileToDocumentData(profile, "resume");
     const { model, referenceId } = buildPrivacyMaskedEmployerResume(mapping);
     const filename = buildPdfFilename({ candidateName: referenceId, output: "global-ats-resume", privacyMasked: true });
-    return await renderPdfDownloadResponse(model, filename);
+    const response = await renderPdfDownloadResponse(model, filename);
+    if (response.ok && process.env.NODE_ENV === "production") {
+      const { getAuthContext } = await import("@/features/authentication/authorization");
+      const actor = await getAuthContext();
+      if (actor.userId) {
+        await (await import("@/lib/security/audit-events")).recordSecurityEvent({
+          eventType: "document.privacy_generated", actorUserId: actor.userId,
+          targetUserId: userId, candidateProfileId: profile.id, outcome: "success",
+        });
+      }
+    }
+    return response;
   } catch (error) {
     if (error instanceof GlobalAtsResumeNotReadyError) {
       return new Response("The candidate profile is incomplete. Review it before generating a resume.", {

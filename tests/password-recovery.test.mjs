@@ -100,6 +100,40 @@ test("PKCE callback works without optional flow ID", async () => {
   assert.deepEqual(state.exchangeArgs, ["opaque", undefined]);
 });
 
+test("recovery redirect ignores untrusted forwarding headers and uses configured origin", async () => {
+  const previous = process.env.NEXT_PUBLIC_APP_URL;
+  process.env.NEXT_PUBLIC_APP_URL = "https://resume.example.test";
+  try {
+    reset();
+    const response = await GET(new Request("http://localhost:3000/auth/callback?portal=admin&code=opaque", {
+      headers: { "x-forwarded-host": "attacker.example", "x-forwarded-proto": "https" },
+    }));
+    assert.equal(response.url, "https://resume.example.test/reset-password?portal=admin");
+  } finally {
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+    else process.env.NEXT_PUBLIC_APP_URL = previous;
+  }
+});
+
+test("production recovery callback fails closed without a canonical HTTPS origin", async () => {
+  const previousOrigin = process.env.NEXT_PUBLIC_APP_URL;
+  const previousNodeEnv = process.env.NODE_ENV;
+  try {
+    process.env.NODE_ENV = "production";
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    const missing = await GET(new Request("http://localhost:3000/auth/callback?code=opaque"));
+    assert.equal(missing.status, 503);
+    process.env.NEXT_PUBLIC_APP_URL = "http://insecure.example.test";
+    const insecure = await GET(new Request("http://localhost:3000/auth/callback?code=opaque"));
+    assert.equal(insecure.status, 503);
+  } finally {
+    if (previousOrigin === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+    else process.env.NEXT_PUBLIC_APP_URL = previousOrigin;
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+  }
+});
+
 test("token-hash recovery callback verifies the one-time recovery token", async () => {
   const state = reset();
   const response = await GET(new Request("http://localhost:3000/auth/callback?portal=admin&token_hash=opaque&type=recovery"));
