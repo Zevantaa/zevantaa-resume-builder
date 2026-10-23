@@ -3,6 +3,7 @@ import { registerHooks } from "node:module";
 import { test } from "node:test";
 
 process.env.SUPABASE_SECRET_KEY = "fictional-test-only-signing-key";
+process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
 
 const mock = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 registerHooks({
@@ -25,8 +26,20 @@ registerHooks({
       url: mock("export async function createServerSupabaseClient() { return globalThis.__recovery.supabase; }"), shortCircuit: true,
     };
     if (specifier === "@/lib/supabase/config") return {
-      url: mock("export function isSupabaseConfigured() { return true; }"), shortCircuit: true,
+      url: mock("export function isSupabaseConfigured() { return true; } export class SupabaseConfigurationError extends Error {}"), shortCircuit: true,
     };
+    if (specifier === "@/lib/supabase/client") return {
+      url: mock("export function createBrowserSupabaseClient() { return globalThis.__recovery.browser; }"), shortCircuit: true,
+    };
+    if (specifier === "@/features/authentication/recovery-origin") return nextResolve(
+      new URL("../src/features/authentication/recovery-origin.ts", import.meta.url).href, context,
+    );
+    if (specifier === "./recovery-origin") return nextResolve(
+      new URL("../src/features/authentication/recovery-origin.ts", import.meta.url).href, context,
+    );
+    if (specifier === "./config" && context.parentURL?.endsWith("auth-service.ts")) return nextResolve(
+      new URL("../src/features/authentication/config.ts", import.meta.url).href, context,
+    );
     if (specifier === "@/features/authentication/recovery-proof") return nextResolve(
       new URL("../src/features/authentication/recovery-proof.ts", import.meta.url).href, context,
     );
@@ -47,6 +60,12 @@ const { updateRecoveryPasswordAction } = await import(
 );
 const { hasVerifiedRecoverySession } = await import(
   "../src/features/authentication/recovery-session.ts"
+);
+const { requestPasswordRecovery } = await import(
+  "../src/features/authentication/auth-service.ts"
+);
+const { getCanonicalRecoveryOrigin } = await import(
+  "../src/features/authentication/recovery-origin.ts"
 );
 
 const userId = "11111111-1111-4111-8111-111111111111";
@@ -80,10 +99,36 @@ function reset() {
         async signOut() { state.signedOut = true; return { error: null }; },
       },
     },
+    browser: {
+      auth: {
+        async resetPasswordForEmail(_email, options) {
+          state.requestRedirect = options.redirectTo;
+          return { error: null };
+        },
+      },
+    },
   };
   globalThis.__recovery = state;
   return state;
 }
+
+test("recovery request uses only configured canonical origin, never caller origin", async () => {
+  const previous = process.env.NEXT_PUBLIC_APP_URL;
+  process.env.NEXT_PUBLIC_APP_URL = "https://resume.example.test";
+  try {
+    const state = reset();
+    await requestPasswordRecovery({
+      email: "fictional@example.test", portal: "admin", redirectOrigin: "https://attacker.example",
+    });
+    assert.equal(state.requestRedirect, "https://resume.example.test/auth/callback?portal=admin");
+    assert.equal(getCanonicalRecoveryOrigin("https://resume.example.test/extra", true), null);
+    assert.equal(getCanonicalRecoveryOrigin("https://resume.example.test?x=1", true), null);
+    assert.equal(getCanonicalRecoveryOrigin("http://resume.example.test", true), null);
+    assert.equal(getCanonicalRecoveryOrigin("http://localhost:3000", false), "http://localhost:3000");
+  } finally {
+    process.env.NEXT_PUBLIC_APP_URL = previous;
+  }
+});
 
 test("PKCE callback preserves portal and forwards an explicit flow ID", async () => {
   const state = reset();
@@ -126,6 +171,9 @@ test("production recovery callback fails closed without a canonical HTTPS origin
     process.env.NEXT_PUBLIC_APP_URL = "http://insecure.example.test";
     const insecure = await GET(new Request("http://localhost:3000/auth/callback?code=opaque"));
     assert.equal(insecure.status, 503);
+    process.env.NEXT_PUBLIC_APP_URL = "https://resume.example.test/extra";
+    const nonCanonical = await GET(new Request("http://localhost:3000/auth/callback?code=opaque"));
+    assert.equal(nonCanonical.status, 503);
   } finally {
     if (previousOrigin === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
     else process.env.NEXT_PUBLIC_APP_URL = previousOrigin;

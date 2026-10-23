@@ -43,6 +43,12 @@ Password recovery returns through the application callback before the user sets
 a new password. Add these exact local URLs under
 **Authentication > URL Configuration > Redirect URLs**:
 
+The recovery request and callback both require `NEXT_PUBLIC_APP_URL` to be a
+clean configured origin; neither uses the browser's current origin or forwarded
+Host headers as a redirect authority. Production requires HTTPS. A missing or
+malformed origin fails recovery closed instead of constructing a link from the
+incoming request. Configure the matching origin before live recovery QA.
+
 - `http://localhost:3000/auth/callback?portal=admin`
 - `http://localhost:3000/auth/callback?portal=client`
 

@@ -62,6 +62,27 @@ test("security headers cover framing, MIME sniffing, referrer, permissions and C
   assert.equal(headers["X-Frame-Options"], "DENY");
   assert.ok(headers["Referrer-Policy"]);
   assert.ok(headers["Permissions-Policy"]);
+  assert.equal(headers["Cross-Origin-Opener-Policy"], "same-origin");
+  assert.equal(headers["Cross-Origin-Resource-Policy"], "same-origin");
+});
+
+test("production header policy includes HSTS and excludes development websocket/eval allowances", async () => {
+  const previous = process.env.NODE_ENV;
+  process.env.NODE_ENV = "production";
+  try {
+    const { default: productionConfig } = await import("../next.config.ts?rel-01-production");
+    const entries = await productionConfig.headers();
+    const headers = Object.fromEntries(entries[0].headers.map(({ key, value }) => [key, value]));
+    assert.match(headers["Strict-Transport-Security"], /max-age=31536000/);
+    assert.match(headers["Content-Security-Policy"], /upgrade-insecure-requests/);
+    assert.match(headers["Content-Security-Policy"], /frame-ancestors 'none'/);
+    assert.doesNotMatch(headers["Content-Security-Policy"], /unsafe-eval|ws:\/\/localhost/);
+    assert.equal(headers["Cross-Origin-Opener-Policy"], "same-origin");
+    assert.equal(headers["Cross-Origin-Resource-Policy"], "same-origin");
+  } finally {
+    if (previous === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previous;
+  }
 });
 
 test("skill library and brand mutation stay behind server-only and admin boundaries", () => {

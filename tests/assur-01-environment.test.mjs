@@ -23,10 +23,34 @@ test("preview and production require separated, non-placeholder configuration", 
   assert.ok(validateEnvironment("production", { ...valid, SUPABASE_SECRET_KEY: "your-secret-key" }).some((item) => item.includes("SUPABASE_SECRET_KEY")));
 });
 
+test("supported legacy keys work but invalid preferred keys never fall back silently", () => {
+  const base = { ...valid };
+  delete base.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  delete base.SUPABASE_SECRET_KEY;
+  assert.deepEqual(validateEnvironment("production", {
+    ...base, NEXT_PUBLIC_SUPABASE_ANON_KEY: "legacy-anon-fixture",
+    SUPABASE_SERVICE_ROLE_KEY: "legacy-server-fixture",
+  }), []);
+  assert.ok(validateEnvironment("production", {
+    ...base, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "your-supabase-publishable-key",
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: "legacy-anon-fixture",
+    SUPABASE_SERVICE_ROLE_KEY: "legacy-server-fixture",
+  }).some((item) => item.includes("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")));
+  assert.ok(validateEnvironment("production", {
+    ...base, NEXT_PUBLIC_SUPABASE_ANON_KEY: "legacy-anon-fixture",
+    SUPABASE_SECRET_KEY: "your-supabase-secret-key",
+    SUPABASE_SERVICE_ROLE_KEY: "legacy-server-fixture",
+  }).some((item) => item.includes("SUPABASE_SECRET_KEY")));
+});
+
 test("production rejects localhost, insecure origins and secret keys in public variable", () => {
   assert.ok(validateEnvironment("production", { ...valid, NEXT_PUBLIC_APP_URL: "http://localhost:3000" }).length > 0);
   assert.ok(validateEnvironment("production", { ...valid, NEXT_PUBLIC_SUPABASE_URL: "http://project.supabase.co" }).length > 0);
   assert.ok(validateEnvironment("production", { ...valid, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "service_role_fixture" }).some((item) => item.includes("browser")));
+  assert.ok(validateEnvironment("production", { ...valid, NEXT_PUBLIC_APP_URL: "https://resume.example.test/extra" }).length > 0);
+  assert.ok(validateEnvironment("production", { ...valid, NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co/extra" }).length > 0);
+  assert.ok(validateEnvironment("production", { ...valid, SECURITY_RATE_LIMIT_KEY: "too-short" }).length > 0);
+  assert.ok(validateEnvironment("production", { ...valid, SUPABASE_SECRET_KEY: "sb_publishable_fixture" }).some((item) => item.includes("server")));
 });
 
 test("release workflow requires core checks without embedding privileged configuration", () => {

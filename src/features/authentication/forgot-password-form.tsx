@@ -41,7 +41,6 @@ export function ForgotPasswordForm({ portal }: ForgotPasswordFormProps) {
       await requestPasswordRecovery({
         email: normalizedEmail,
         portal,
-        redirectOrigin: window.location.origin,
       });
       setIsComplete(true);
     } catch (error) {

@@ -26,7 +26,6 @@ export type PasswordSignInResult = {
 export type PasswordRecoveryRequest = {
   email: string;
   portal: AuthPortalIntent;
-  redirectOrigin: string;
 };
 
 export type PasswordUpdateRequest = {

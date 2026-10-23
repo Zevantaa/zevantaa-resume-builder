@@ -2,6 +2,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { SupabaseConfigurationError } from "@/lib/supabase/config";
 
 import { AUTH_PORTALS } from "./config";
+import { getCanonicalRecoveryOrigin } from "./recovery-origin";
 import type {
   AuthServiceErrorCode,
   AuthPortalIntent,
@@ -83,10 +84,19 @@ export async function signInWithPassword({
 export async function requestPasswordRecovery({
   email,
   portal,
-  redirectOrigin,
 }: PasswordRecoveryRequest) {
   try {
-    const callbackUrl = new URL("/auth/callback", redirectOrigin);
+    const origin = getCanonicalRecoveryOrigin(
+      process.env.NEXT_PUBLIC_APP_URL,
+      process.env.NODE_ENV === "production",
+    );
+    if (!origin) {
+      throw new AuthServiceError(
+        "configuration",
+        "Password recovery is not configured. Please contact Zevantaa support.",
+      );
+    }
+    const callbackUrl = new URL("/auth/callback", origin);
     callbackUrl.searchParams.set("portal", portal);
 
     const supabase = createBrowserSupabaseClient();

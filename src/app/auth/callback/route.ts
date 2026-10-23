@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getAuthPortalIntent } from "@/features/authentication";
+import { getCanonicalRecoveryOrigin } from "@/features/authentication/recovery-origin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   createRecoveryProof,
@@ -8,30 +9,14 @@ import {
   RECOVERY_COOKIE_OPTIONS,
 } from "@/features/authentication/recovery-proof";
 
-function getRequestOrigin(request: Request) {
-  // Proxy forwarding headers are request-controlled at some deployments. They
-  // must never choose the destination of a verified recovery redirect.
-  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (configured) {
-    const url = new URL(configured);
-    if (!(["https:", "http:"].includes(url.protocol)) || url.username || url.password ||
-        (process.env.NODE_ENV === "production" && url.protocol !== "https:")) {
-      throw new Error("Invalid application origin configuration.");
-    }
-    return url.origin;
-  }
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Application origin is not configured.");
-  }
-  return new URL(request.url).origin;
-}
-
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
-  let origin: string;
-  try {
-    origin = getRequestOrigin(request);
-  } catch {
+  // A recovery link can arrive through untrusted Host/Forwarded headers.
+  const origin = getCanonicalRecoveryOrigin(
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NODE_ENV === "production",
+  );
+  if (!origin) {
     return new Response("Password recovery is temporarily unavailable.", { status: 503 });
   }
   const portal = getAuthPortalIntent(

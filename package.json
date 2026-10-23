@@ -11,7 +11,8 @@
     "security:audit": "npm audit --omit=dev",
     "security:sbom": "npm sbom --sbom-format cyclonedx --omit=dev",
     "security:secrets": "node scripts/check-secrets.mjs",
-    "environment:validate": "node scripts/validate-environment.mjs"
+    "environment:validate": "node scripts/validate-environment.mjs",
+    "release:verify": "node scripts/release-verify.mjs"
   },
   "dependencies": {
     "@react-pdf/renderer": "4.9.0",
