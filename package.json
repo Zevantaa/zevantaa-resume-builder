@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests",
+    "test": "node scripts/run-tests.mjs",
     "security:audit": "npm audit --omit=dev",
     "security:sbom": "npm sbom --sbom-format cyclonedx --omit=dev",
     "security:secrets": "node scripts/check-secrets.mjs",
