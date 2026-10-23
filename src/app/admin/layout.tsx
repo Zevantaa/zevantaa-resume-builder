@@ -4,6 +4,8 @@ import { DashboardShell, type DashboardNavigationItem } from "@/components/dashb
 import { requireApplicationRole } from "@/features/authentication/authorization";
 import { brandLogoPath, getBrandSettings } from "@/features/branding/brand-settings-service";
 
+export const dynamic = "force-dynamic";
+
 const navigation: readonly DashboardNavigationItem[] = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/clients", label: "Client directory" },
