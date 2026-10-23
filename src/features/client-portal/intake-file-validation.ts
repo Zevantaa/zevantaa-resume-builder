@@ -38,9 +38,10 @@ export function hasSupportedFileSignature(bytes: Uint8Array, extension: string):
   if (extension === "pdf") {
     const header = buffer.subarray(0, 8).toString("ascii");
     const tail = buffer.subarray(Math.max(0, buffer.length - 1024)).toString("latin1");
-    return /^%PDF-[12]\.\d/.test(header) &&
-      tail.includes("startxref") && tail.includes("%%EOF") &&
-      tail.indexOf("startxref") < tail.lastIndexOf("%%EOF");
+    const trailer = tail.match(/startxref\s+(\d+)\s+%%EOF\s*$/);
+    const crossReferenceOffset = trailer ? Number(trailer[1]) : NaN;
+    return /^%PDF-[12]\.\d/.test(header) && Number.isSafeInteger(crossReferenceOffset) &&
+      crossReferenceOffset > 0 && crossReferenceOffset < buffer.length;
   }
   if (extension === "doc") {
     const magic = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);

@@ -9,9 +9,12 @@ registerHooks({ resolve(specifier, context, nextResolve) {
   if (specifier === "@/features/document-generation/admin-global-ats-service") return {
     url: mock("export async function loadCandidateProfileById(id){return id===globalThis.__careerDb.profile.id?globalThis.__careerDb.profile:null}"), shortCircuit: true,
   };
-  if (specifier === "./contact-profile-service" && context.parentURL?.endsWith("career-profile-service.ts")) return {
+  if (specifier === "./contact-profile-service" &&
+      (context.parentURL?.endsWith("career-profile-service.ts") || context.parentURL?.endsWith("client-ats-score-service.ts"))) return {
     url: mock("export async function resolveLinkedClientProfile(){return globalThis.__careerDb.linked}"), shortCircuit: true,
   };
+  if (specifier.startsWith("@/features/document-generation/"))
+    return nextResolve(new URL(`../src/features/document-generation/${specifier.slice("@/features/document-generation/".length)}.ts`, import.meta.url).href, context);
   if (specifier.startsWith("@/types/")) return nextResolve(new URL(`../src/types/${specifier.slice(8)}.ts`, import.meta.url).href, context);
   if ((specifier.startsWith("./") || specifier.startsWith("../")) && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier))
     return nextResolve(`${specifier}.ts`, context);
@@ -22,6 +25,7 @@ const { createLongGlobalAtsQaProfile } = await import("../src/features/document-
 const { toCareerDraft } = await import("../src/features/client-portal/career-profile-model.ts");
 const { validateCareerDraft } = await import("../src/features/client-portal/career-profile-validation.ts");
 const { getCurrentClientCareerProfile, saveCurrentClientCareerProfile } = await import("../src/features/client-portal/career-profile-service.ts");
+const { getCurrentClientAtsScore } = await import("../src/features/client-portal/client-ats-score-service.ts");
 const actor = "99999999-9999-4999-8999-999999999999";
 
 function setup() {
@@ -130,6 +134,29 @@ test("an older form is rejected before writing", async () => {
   state.forceStale = true;
   assert.equal(await saveCurrentClientCareerProfile(draft, 7), "stale");
   assert.equal(state.calls.length, 1);
+});
+
+test("ATS score uses fresh saved career data, not unsaved or stale drafts", async () => {
+  const state = setup();
+  const initial = await getCurrentClientAtsScore();
+  assert.equal(initial.status, "ready");
+  const draft = toCareerDraft(state.profile);
+  draft.professionalSummary = "";
+  draft.skills = [];
+  assert.deepEqual(await getCurrentClientAtsScore(), initial, "opening and editing a local draft cannot alter server score");
+  assert.equal(await saveCurrentClientCareerProfile(validateCareerDraft(draft), 6), "stale");
+  assert.deepEqual(await getCurrentClientAtsScore(), initial, "rejected stale save cannot alter score");
+  assert.equal(state.calls.length, 0);
+  assert.equal(await saveCurrentClientCareerProfile(validateCareerDraft(draft), 7), "saved");
+  const refreshed = await getCurrentClientAtsScore();
+  assert.equal(refreshed.status, "ready");
+  assert.ok(refreshed.score < initial.score);
+  assert.deepEqual(await getCurrentClientAtsScore(), refreshed, "a fresh request reads the same canonical saved data");
+  assert.equal(state.calls.length, 1);
+  state.linked = null;
+  assert.equal(await getCurrentClientAtsScore(), null);
+  state.linked = { profileId: "22222222-2222-4222-8222-222222222222", userId: actor };
+  assert.equal(await getCurrentClientAtsScore(), null, "a substituted link cannot load this candidate's score");
 });
 
 test("missing or cross-client linkage cannot invoke the privileged RPC", async () => {

@@ -714,6 +714,14 @@ test("browser auth maps login intent and signs out the local session", async () 
     () => signInWithPassword({ email: "fictional@example.invalid", password: "wrong", portal: "client" }),
     /email address or password is incorrect/i,
   );
+  await assert.rejects(
+    () => signInWithPassword({ email: "unknown@example.invalid", password: "ValidPassword1!", portal: "client" }),
+    /email address or password is incorrect/i,
+  );
+  const adminIntent = await signInWithPassword({
+    email: "fictional@example.invalid", password: "ValidPassword1!", portal: "admin",
+  });
+  assert.equal(adminIntent.redirectTo, "/admin");
   assert.deepEqual(await signOut("client"), { redirectTo: "/login?portal=client" });
   assert.equal(signOutScope, "local");
   assert.equal(activeSession, false);

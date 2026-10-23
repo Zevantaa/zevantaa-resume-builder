@@ -1,13 +1,9 @@
 import { loadAdminCandidateProfile } from "@/features/document-generation/admin-global-ats-service";
 import { GlobalAtsResumeNotReadyError } from "@/features/document-generation/global-ats-resume";
 import { packageAllowsOutput } from "@/features/document-generation/package-routing";
-import { renderPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
-import { buildPdfFilename } from "@/features/document-generation/pdf/pdf-filename";
-import {
-  buildPrivacyMaskedEmployerResume,
-  PrivacyMaskReviewRequiredError,
-} from "@/features/document-generation/privacy-masked-resume";
-import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
+import { persistedPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
+import { PrivacyMaskReviewRequiredError } from "@/features/document-generation/privacy-masked-resume";
+import { generateAndPersistAdminDocument } from "@/features/document-generation/persistent-document-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,21 +23,8 @@ export async function POST(request: Request, context: { params: Promise<{ userId
   }
 
   try {
-    const mapping = mapCandidateProfileToDocumentData(profile, "resume");
-    const { model, referenceId } = buildPrivacyMaskedEmployerResume(mapping);
-    const filename = buildPdfFilename({ candidateName: referenceId, output: "global-ats-resume", privacyMasked: true });
-    const response = await renderPdfDownloadResponse(model, filename);
-    if (response.ok && process.env.NODE_ENV === "production") {
-      const { getAuthContext } = await import("@/features/authentication/authorization");
-      const actor = await getAuthContext();
-      if (actor.userId) {
-        await (await import("@/lib/security/audit-events")).recordSecurityEvent({
-          eventType: "document.privacy_generated", actorUserId: actor.userId,
-          targetUserId: userId, candidateProfileId: profile.id, outcome: "success",
-        });
-      }
-    }
-    return response;
+    return persistedPdfDownloadResponse(await generateAndPersistAdminDocument(profile.id,
+      "global-ats-employer-masked"));
   } catch (error) {
     if (error instanceof GlobalAtsResumeNotReadyError) {
       return new Response("The candidate profile is incomplete. Review it before generating a resume.", {

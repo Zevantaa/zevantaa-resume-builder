@@ -1,8 +1,7 @@
 import { loadAdminCandidateProfile } from "@/features/document-generation/admin-global-ats-service";
-import { buildDomesticResumeModel, DomesticResumeNotReadyError, isDomesticDesignId } from "@/features/document-generation/domestic-resumes";
-import { renderPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
-import { buildPdfFilename } from "@/features/document-generation/pdf/pdf-filename";
-import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
+import { DomesticResumeNotReadyError, isDomesticDesignId } from "@/features/document-generation/domestic-resumes";
+import { persistedPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
+import { generateAndPersistAdminDocument } from "@/features/document-generation/persistent-document-service";
 import { packageAllowsOutput } from "@/features/document-generation/package-routing";
 
 export const runtime = "nodejs";
@@ -25,10 +24,8 @@ export async function POST(request: Request, context: { params: Promise<{ userId
   }
 
   try {
-    const mapping = mapCandidateProfileToDocumentData(profile, "resume");
-    const output = buildDomesticResumeModel(mapping, design);
-    const filename = buildPdfFilename({ candidateName: profile.fullName, output: `domestic-resume-${design}` });
-    return await renderPdfDownloadResponse(output.model, filename, output.theme);
+    return persistedPdfDownloadResponse(await generateAndPersistAdminDocument(profile.id,
+      `domestic-resume-${design}`));
   } catch (error) {
     if (error instanceof DomesticResumeNotReadyError) return new Response("This profile or package is not ready for a domestic resume.", { status: 422 });
     return new Response("The domestic resume could not be generated.", { status: 500, headers: { "Cache-Control": "private, no-store" } });

@@ -83,7 +83,7 @@ test("all five protected download routes enforce the canonical entitlement after
     assert.match(source, /loadAdminCandidateProfile\(userId\)/);
     assert.match(source, /packageAllowsOutput\(profile\.selectedPackage,/);
     assert.match(source, /Cross-origin PDF requests are not allowed/);
-    assert.match(source, /renderPdfDownloadResponse/);
+    assert.match(source, /generateAndPersistAdminDocument/);
   }
 });
 

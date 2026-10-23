@@ -1,13 +1,22 @@
 import Link from "next/link";
+import { after } from "next/server";
 
 import { InlineAlert, StatusBadge } from "@/components/ui";
+import { requireApplicationRole } from "@/features/authentication/authorization";
+import { processDocumentRegenerationJobs } from "@/features/document-generation/document-regeneration-service";
 
 import { getCurrentClientAtsScore } from "./client-ats-score-service";
 import { getClientDashboardEvidence } from "./client-dashboard-service";
 import { buildClientDashboardView } from "./client-dashboard-view";
-import { getClientDashboardSummary } from "./contact-profile-service";
+import { getClientDashboardSummary, resolveLinkedClientProfile } from "./contact-profile-service";
 
 export async function ClientDocumentWorkspace({ coverLettersOnly = false }: { coverLettersOnly?: boolean }) {
+  const actor = await requireApplicationRole("client");
+  const linked = await resolveLinkedClientProfile();
+  if (linked && actor.userId) after(async () => {
+    try { await processDocumentRegenerationJobs(linked.profileId, actor.userId!, 1); }
+    catch { /* Queue remains durable for the next authorized visit. */ }
+  });
   const [summary, evidence, score] = await Promise.all([
     getClientDashboardSummary(), getClientDashboardEvidence(), getCurrentClientAtsScore(),
   ]);
@@ -25,9 +34,15 @@ export async function ClientDocumentWorkspace({ coverLettersOnly = false }: { co
           <div className="client-v8-doc-library">
             {outputs.map((item) => <article className="client-v8-doc-card" key={item.id}>
               <div className="client-v8-doc-card-top"><span aria-hidden="true" className="client-v8-doc-icon">{item.label.slice(0, 2).toUpperCase()}</span>
-                <StatusBadge variant={item.documentId ? "success" : "neutral"}>{item.documentId ? "Available" : item.state}</StatusBadge></div>
+                <StatusBadge variant={item.documentId ? "success" : evidence.documentUpdates[item.id] === "failed" ? "error" : "neutral"}>
+                  {item.documentId ? "Current" : evidence.documentUpdates[item.id] === "failed" ? "Update failed" : evidence.documentUpdates[item.id] === "updating" ? "Updating" : item.state}
+                </StatusBadge></div>
               <h2 className="type-heading-3">{item.label}</h2>
-              <p className="type-supporting text-text-muted">{item.documentId ? "Verified private PDF · current stored version" : "No verified stored PDF yet"}</p>
+              <p className="type-supporting text-text-muted">{item.documentId
+                ? `Verified private PDF · v${evidence.documentDetails[item.id]?.version ?? 1} · generated ${evidence.documentDetails[item.id]?.generatedAt ? new Date(evidence.documentDetails[item.id]!.generatedAt).toLocaleDateString("en-IN") : "recently"}`
+                : evidence.documentUpdates[item.id] === "failed" ? "A document update failed; Zevantaa can retry it."
+                  : evidence.documentUpdates[item.id] === "updating" ? "Your updated document is being prepared."
+                    : "No verified stored PDF yet"}</p>
               {item.documentId ? <Link className="type-button dashboard-primary-link" href={`/client/documents/${item.documentId}/download`}>Download PDF</Link>
                 : <span className="type-supporting text-text-muted">Zevantaa will prepare this entitled output.</span>}
             </article>)}

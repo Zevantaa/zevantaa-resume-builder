@@ -1,11 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { requireApplicationRole } from "@/features/authentication/authorization";
+import { processDocumentRegenerationJobs } from "@/features/document-generation/document-regeneration-service";
 
 import { saveCurrentClientCareerProfile } from "./career-profile-service";
 import { CareerValidationError, validateCareerDraft } from "./career-profile-validation";
+import { resolveLinkedClientProfile } from "./contact-profile-service";
 
 export type CareerActionState = { status: "idle" | "success" | "error" | "stale"; message: string; savedAt?: number };
 
@@ -32,9 +35,18 @@ export async function saveCareerProfileAction(_previous: CareerActionState, form
         eventType: "client.career.saved", actorUserId: actor.userId!, outcome: "success",
       });
     }
+    try {
+      const linked = await resolveLinkedClientProfile();
+      if (linked) {
+        after(async () => {
+          try { await processDocumentRegenerationJobs(linked.profileId, actor.userId!, 1); }
+          catch { /* Durable jobs stay pending/failed for a later bounded retry. */ }
+        });
+      }
+    } catch { /* The canonical save committed; a durable queue can resume later. */ }
     revalidatePath("/client", "layout");
     revalidatePath("/admin", "layout");
-    return { status: "success", message: "Your career updates were saved. Your ATS indicator and the next fresh PDF will use the updated facts.", savedAt: Date.now() };
+    return { status: "success", message: "Profile saved. Previously generated documents are updating; check the document library for current versions or failed updates.", savedAt: Date.now() };
   } catch (error) {
     if (error instanceof CareerValidationError || error instanceof SyntaxError) {
       return { status: "error", message: error instanceof CareerValidationError ? error.message : "The career form is invalid. Refresh and try again." };

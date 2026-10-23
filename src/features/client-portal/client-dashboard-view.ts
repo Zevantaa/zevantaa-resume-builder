@@ -39,7 +39,10 @@ export function buildClientDashboardView(
       id: output,
       label: OUTPUT_TITLES[output],
       documentId,
-      state: documentId ? "Download available" : !reviewConfirmed
+      state: documentId ? "Download available"
+        : evidence?.documentUpdates?.[output] === "failed" ? "Update failed"
+          : evidence?.documentUpdates?.[output] === "updating" ? "Updating"
+            : !reviewConfirmed
         ? "Available after profile review" : output === "global-ats-resume" && score?.status === "ready"
           ? "Ready to generate" : "Not yet available",
     };

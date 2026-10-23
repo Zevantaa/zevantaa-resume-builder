@@ -101,7 +101,7 @@ admin per-client Global ATS page use the same scoring and display components.
 | Professional summary | 10 | Candidate-supplied text (5); at least 80 characters (another 5) |
 | Experience completeness | 25 | Any role (10); all roles have title/employer/start (5); all have supplied narrative/bullets (6); two or more roles (4) |
 | Education completeness | 10 | Any education (6); complete qualification/institution (2); explicit date/year on each (2) |
-| Skills coverage | 15 | One, four and eight individually stored skills (5 each) |
+| Skills coverage | 15 | One, four and eight distinct normalized skill names (5 each); duplicate aliases count once |
 | ATS formatting | 10 | Global ATS model has identity first, no running header/footer, and standard text sections |
 | Date consistency | 5 | At least one dated role/education entry and all supplied month dates are well-formed and ordered |
 | Optional profile depth | 10 | Supplied certifications (4), projects (3), languages (3) |

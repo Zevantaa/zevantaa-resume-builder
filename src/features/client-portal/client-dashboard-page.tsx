@@ -77,7 +77,7 @@ export async function ClientDashboardPage() {
               {view.outputs.map((item) => <div key={item.id}>
                 <strong>{item.label}</strong>
                 {item.documentId ? <Link className="type-button dashboard-text-link" href={`/client/documents/${item.documentId}/download`}>Download PDF</Link>
-                  : <StatusBadge variant="neutral">{item.state}</StatusBadge>}
+                  : <StatusBadge variant={item.state === "Update failed" ? "error" : "neutral"}>{item.state}</StatusBadge>}
               </div>)}
               {!view.outputs.length && <p className="type-supporting text-text-muted">No document outputs can be shown for this package. Contact Zevantaa support.</p>}
               {view.outputs.length > 0 && view.outputs.every((item) => !item.documentId) &&

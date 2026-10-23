@@ -1,7 +1,7 @@
 import "server-only";
 
 import { requireApplicationRole } from "@/features/authentication/authorization";
-import { isDownloadableClientDocument, resolveStoredDocumentOutput,
+import { isDownloadableAdminDocument, resolveStoredDocumentOutput,
   type StoredDocumentFileRow, type StoredDocumentRow } from "@/features/client-portal/client-document-access";
 import { OUTPUT_TITLES } from "@/features/client-portal/client-dashboard-view";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -18,17 +18,21 @@ export type AdminStoredDocument = {
   profileId: string;
   label: string;
   createdAt: string;
+  status: string;
+  version: number;
+  generatedAt: string | null;
 };
 
-/** Count only available, generated, unmasked PDFs with a verified private file. */
+/** Load verified private PDFs; admins may inspect history and masked copies. */
 async function loadVerifiedDocuments(
   db: ReturnType<typeof createSupabaseAdminClient>,
   profileIds: string[],
 ): Promise<AdminStoredDocument[]> {
   if (!profileIds.length) return [];
   const { data: documents, count, error } = await db.from("document_records")
-    .select("id, candidate_profile_id, category, origin, status, package_code, resume_format_family, cover_letter_type, is_privacy_masked, file_name_stem, file_record_id, created_at", { count: "exact" })
-    .in("candidate_profile_id", profileIds).eq("origin", "generated").eq("status", "available")
+    .select("id, candidate_profile_id, category, origin, status, package_code, resume_format_family, cover_letter_type, is_privacy_masked, file_name_stem, file_record_id, output_kind, source_career_revision, version_number, generated_at, created_at", { count: "exact" })
+    .in("candidate_profile_id", profileIds).eq("origin", "generated")
+    .in("status", ["available", "superseded", "outdated"])
     .is("archived_at", null).order("created_at", { ascending: false }).range(0, MAX_DOCUMENT_ROWS - 1);
   if (error || (count ?? 0) > MAX_DOCUMENT_ROWS) throw new Error("Stored documents could not be loaded completely.");
   const documentRows = (documents ?? []) as (StoredDocumentRow & { created_at: string })[];
@@ -40,11 +44,15 @@ async function loadVerifiedDocuments(
   if (fileError) throw new Error("Stored document files could not be loaded.");
   const byId = new Map(((files ?? []) as StoredDocumentFileRow[]).map((file) => [file.id, file]));
   return documentRows.flatMap((document) => {
-    const output = resolveStoredDocumentOutput(document);
-    if (!output || !isDownloadableClientDocument(document, byId.get(document.file_record_id ?? "") ?? null,
-      document.candidate_profile_id, document.package_code)) return [];
+    const output = document.output_kind === "global-ats-employer-masked"
+      ? null : resolveStoredDocumentOutput({ ...document, status: "available" });
+    if ((!output && document.output_kind !== "global-ats-employer-masked") ||
+        !isDownloadableAdminDocument(document, byId.get(document.file_record_id ?? "") ?? null,
+          document.candidate_profile_id)) return [];
     return [{ id: document.id, profileId: document.candidate_profile_id,
-      label: OUTPUT_TITLES[output], createdAt: document.created_at }];
+      label: output ? OUTPUT_TITLES[output] : "Employer-masked Global ATS",
+      createdAt: document.created_at, status: document.status,
+      version: document.version_number, generatedAt: document.generated_at }];
   });
 }
 

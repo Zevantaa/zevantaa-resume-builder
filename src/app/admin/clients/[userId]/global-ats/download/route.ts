@@ -1,8 +1,7 @@
 import { loadAdminCandidateProfile } from "@/features/document-generation/admin-global-ats-service";
-import { buildGlobalAtsResumeModel, GlobalAtsResumeNotReadyError } from "@/features/document-generation/global-ats-resume";
-import { renderPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
-import { buildPdfFilename } from "@/features/document-generation/pdf/pdf-filename";
-import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
+import { GlobalAtsResumeNotReadyError } from "@/features/document-generation/global-ats-resume";
+import { persistedPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
+import { generateAndPersistAdminDocument } from "@/features/document-generation/persistent-document-service";
 import { packageAllowsOutput } from "@/features/document-generation/package-routing";
 
 export const runtime = "nodejs";
@@ -22,11 +21,9 @@ export async function POST(request: Request, context: { params: Promise<{ userId
     return new Response("This package does not include the requested resume.", { status: 422 });
   }
 
-  const mapping = mapCandidateProfileToDocumentData(profile, "resume");
   try {
-    const model = buildGlobalAtsResumeModel(mapping);
-    const filename = buildPdfFilename({ candidateName: profile.fullName, output: "global-ats-resume" });
-    return await renderPdfDownloadResponse(model, filename);
+    return persistedPdfDownloadResponse(await generateAndPersistAdminDocument(profile.id,
+      "global-ats-resume"));
   } catch (error) {
     if (error instanceof GlobalAtsResumeNotReadyError) {
       return new Response("The candidate profile is incomplete. Review it before generating a resume.", { status: 422 });

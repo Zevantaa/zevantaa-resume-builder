@@ -48,23 +48,26 @@ const evidence = (packageCode, overrides = {}) => ({ packageCode,
 function setup() {
   const state = {
     profileId: own, publicBucket: false, downloaded: [],
-    profiles: [{ id: own, selected_package_code: "indian-domestic", existing_resume_file_id: sourceId,
+    profiles: [{ id: own, selected_package_code: "indian-domestic", career_revision: 0, existing_resume_file_id: sourceId,
       gcc_photo_file_id: null, archived_at: null }],
     files: [
       { id: sourceId, candidate_profile_id: own, purpose: "source-resume", original_file_name: "source.pdf",
         status: "available", version_number: 1, archived_at: null },
-      { id: generatedId, candidate_profile_id: own, purpose: "source-resume", original_file_name: `${stem}.pdf`,
+      { id: generatedId, candidate_profile_id: own, purpose: "generated-document", original_file_name: `${stem}.pdf`,
         status: "available", version_number: 1, access_level: "private", mime_type: "application/pdf",
         file_extension: "pdf", size_bytes: pdfBytes.length, stored_file_name: `${generatedId}.pdf`,
-        storage_bucket_name: "candidate-intake-private", storage_object_key: `${own}/generated/${generatedId}.pdf`, archived_at: null },
+        storage_bucket_name: "candidate-documents-private", storage_object_key: `${own}/${documentId}/${generatedId}.pdf`, archived_at: null },
     ],
     reviews: [{ id: "66666666-6666-4666-8666-666666666666", candidate_profile_id: own, source_file_id: sourceId }],
     documents: [{ id: documentId, candidate_profile_id: own, category: "resume", origin: "generated", status: "available",
       package_code: "indian-domestic", resume_format_family: "global-ats", cover_letter_type: null,
-      is_privacy_masked: false, file_name_stem: stem, file_record_id: generatedId, archived_at: null, created_at: "2026-10-01" }],
+      is_privacy_masked: false, file_name_stem: stem, file_record_id: generatedId,
+      output_kind: "global-ats-resume", source_career_revision: 0, version_number: 1,
+      generated_at: "2026-10-01", archived_at: null, created_at: "2026-10-01" }],
   };
   const records = { candidate_profiles: state.profiles, file_records: state.files,
-    profile_resume_reviews: state.reviews, document_records: state.documents };
+    profile_resume_reviews: state.reviews, document_records: state.documents,
+    document_regeneration_jobs: [] };
   state.db = {
     from(table) {
       const filters = [];
@@ -140,7 +143,7 @@ test("private download succeeds only for an owned, entitled, available generated
   assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0");
   assert.match(response.headers.get("content-disposition"), /Rohan_Kapoor_Global_ATS_Resume\.pdf/);
   assert.deepEqual(Buffer.from(await response.arrayBuffer()), pdfBytes);
-  assert.deepEqual(state.downloaded, [`${own}/generated/${generatedId}.pdf`]);
+  assert.deepEqual(state.downloaded, [`${own}/${documentId}/${generatedId}.pdf`]);
 });
 
 test("cross-client, forged IDs, non-entitled package and public storage fail closed", async () => {
@@ -161,13 +164,25 @@ test("tampered file path, wrong file owner and non-PDF records cannot download",
   const state = setup();
   state.files[1].storage_object_key = `${other}/generated/${generatedId}.pdf`;
   assert.equal(await downloadCurrentClientDocument(documentId), null);
-  state.files[1].storage_object_key = `${own}/generated/${generatedId}.pdf`;
+  state.files[1].storage_object_key = `${own}/${documentId}/${generatedId}.pdf`;
   state.files[1].candidate_profile_id = other;
   assert.equal(await downloadCurrentClientDocument(documentId), null);
   state.files[1].candidate_profile_id = own;
   state.files[1].mime_type = "image/png";
   assert.equal(await downloadCurrentClientDocument(documentId), null);
   assert.deepEqual(state.downloaded, []);
+});
+
+test("outdated career revisions and privacy-masked employer copies are never client downloads", async () => {
+  const state = setup();
+  state.profiles[0].career_revision = 1;
+  assert.equal(await downloadCurrentClientDocument(documentId), null);
+  assert.equal((await getClientDashboardEvidence()).downloadableDocuments["global-ats-resume"], undefined);
+  state.profiles[0].career_revision = 0;
+  state.documents[0].is_privacy_masked = true;
+  state.documents[0].output_kind = "global-ats-employer-masked";
+  assert.equal(await downloadCurrentClientDocument(documentId), null);
+  assert.equal((await getClientDashboardEvidence()).downloadableDocuments["global-ats-resume"], undefined);
 });
 
 test("signed-out and wrong-role callers are denied before private queries", async () => {

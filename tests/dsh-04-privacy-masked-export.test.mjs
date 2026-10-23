@@ -9,6 +9,9 @@ registerHooks({ resolve(specifier, context, nextResolve) {
     url: "data:text/javascript,export async function loadAdminCandidateProfile(userId){if(globalThis.__maskAccess!=='admin')throw Error('ACCESS_DENIED');return userId===globalThis.__maskUserId?globalThis.__maskProfile:null}",
     shortCircuit: true,
   };
+  if (specifier === "@/features/document-generation/persistent-document-service") return {
+    url: "data:text/javascript,export async function generateAndPersistAdminDocument(profileId,output){return globalThis.__doc13RouteMock(profileId,output)}", shortCircuit: true,
+  };
   if (specifier.startsWith("@/features/document-generation/")) {
     const relative = specifier.slice("@/features/document-generation/".length);
     return nextResolve(new URL(`../src/features/document-generation/${relative}.ts`, import.meta.url).href, context);
@@ -28,6 +31,8 @@ const { buildPrivacyMaskedEmployerResume, createCandidateReferenceId, PrivacyMas
 const { renderPdfDocument } = await import("../src/features/document-generation/pdf/render-pdf.ts");
 const { POST } = await import("../src/app/admin/clients/[userId]/global-ats/privacy-masked/download/route.ts");
 const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+const { mockPersistedRoutePdf } = await import("./doc13-route-mock.mjs");
+globalThis.__doc13RouteMock = async (_id, output) => mockPersistedRoutePdf(globalThis.__maskProfile, output);
 
 const userId = "88888888-8888-4888-8888-888888888888";
 const profile = () => createLongGlobalAtsQaProfile();
@@ -164,6 +169,28 @@ test("multi-page employer PDF keeps structured content and selectable text", asy
   }
   for (const removed of [source.primaryEmail, source.mobileNumber, source.whatsappNumber]) assert.ok(!text.includes(removed));
   assert.ok(!text.replace(/\s+/g, "").includes(source.linkedinUrl));
+});
+
+test("masked PDF metadata and annotations do not expose direct candidate contacts", async () => {
+  const source = profile();
+  const { model } = buildPrivacyMaskedEmployerResume(mapCandidateProfileToDocumentData(source, "resume"));
+  const bytes = await renderPdfDocument(model);
+  const task = getDocument({ data: new Uint8Array(bytes), disableFontFace: true, isEvalSupported: false });
+  const pdf = await task.promise;
+  try {
+    const metadata = await pdf.getMetadata();
+    const metadataText = JSON.stringify(metadata.info);
+    const links = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      links.push(...(await (await pdf.getPage(pageNumber)).getAnnotations()).map((item) => item.url ?? ""));
+    }
+    const exposed = `${metadataText} ${links.join(" ")}`.replace(/\s+/g, "");
+    for (const contact of [source.primaryEmail, source.mobileNumber, source.whatsappNumber, source.linkedinUrl]) {
+      assert.ok(!exposed.includes(contact.replace(/\s+/g, "")), contact);
+    }
+    assert.equal(model.header, undefined);
+    assert.equal(model.footer, undefined);
+  } finally { await task.destroy(); }
 });
 
 test("protected route reloads linked profile, ignores posted facts, and returns private reference filename", async () => {

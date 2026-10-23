@@ -37,3 +37,16 @@ export async function renderPdfDownloadResponse(model: PdfDocumentModel, filenam
     "X-Content-Type-Options": "nosniff",
   } });
 }
+
+/** Download only bytes returned by successful private Storage + DB publication. */
+export function persistedPdfDownloadResponse(pdf: { bytes: Uint8Array; filename: string }): Response {
+  const safeName = sanitizePdfDownloadFilename(pdf.filename);
+  const asciiFallback = sanitizePdfDownloadFilename(safeName.normalize("NFKD").replace(/\p{M}/gu, "").replace(/[^\x20-\x7e]/g, ""));
+  return new Response(new Uint8Array(pdf.bytes), { status: 200, headers: {
+    "Content-Type": "application/pdf",
+    "Content-Disposition": `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(safeName)}`,
+    "Content-Length": String(pdf.bytes.length),
+    "Cache-Control": "private, no-store, max-age=0",
+    "X-Content-Type-Options": "nosniff",
+  } });
+}

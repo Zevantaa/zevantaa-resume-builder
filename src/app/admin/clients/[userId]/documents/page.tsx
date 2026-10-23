@@ -29,7 +29,7 @@ export default async function AdminClientDocumentsPage({ params }: {
     <header className="dashboard-workspace-intro">
       <p className="type-label dashboard-kicker">Admin · Client documents</p>
       <h1 className="type-heading-1">{client.fullName}</h1>
-      <p className="type-body text-text-muted">Stored PDF downloads and on-demand generators are separate. Package: {client.packageName}.</p>
+      <p className="type-body text-text-muted">Private current and historical PDFs for this client. Package: {client.packageName}.</p>
     </header>
     {profile && <section aria-labelledby="career-profile-heading" className="dashboard-workspace-panel">
       <h2 className="type-heading-3" id="career-profile-heading">Current structured career profile</h2>
@@ -48,15 +48,15 @@ export default async function AdminClientDocumentsPage({ params }: {
       </details>
     </section>}
     <section aria-labelledby="stored-documents-heading" className="dashboard-workspace-panel">
-      <h2 className="type-heading-3" id="stored-documents-heading">Available stored PDFs ({documents.length})</h2>
+      <h2 className="type-heading-3" id="stored-documents-heading">Stored PDFs ({documents.length})</h2>
       {documents.length ? <ul className="admin-stored-document-list">{documents.map((document) => <li key={document.id}>
-        <span>{document.label} · {new Date(document.createdAt).toLocaleDateString("en-IN")}</span>
+        <span>{document.label} · v{document.version} · {document.status} · {new Date(document.generatedAt ?? document.createdAt).toLocaleDateString("en-IN")}</span>
         <Link href={`/admin/clients/${userId}/documents/${document.id}/download`}>Download stored PDF</Link>
-      </li>)}</ul> : <p className="type-supporting text-text-muted">No verified, stored generated PDFs are available for this client yet. You can open an entitled on-demand generator below for a fresh download; that does not store a client deliverable.</p>}
+      </li>)}</ul> : <p className="type-supporting text-text-muted">No verified, stored generated PDFs are available for this client yet.</p>}
     </section>
     <section aria-labelledby="generators-heading" className="dashboard-workspace-panel">
-      <h2 className="type-heading-3" id="generators-heading">Open an on-demand generator</h2>
-      <p className="type-supporting text-text-muted">These routes generate a new PDF on request. They are not stored downloads and are not counted above.</p>
+      <h2 className="type-heading-3" id="generators-heading">Generate and store an entitled PDF</h2>
+      <p className="type-supporting text-text-muted">A successful generation creates a new private version and updates the current client document.</p>
       <div className="admin-generator-links">{generatorLinks.filter((link) => routing?.allowedOutputs.some((output) => output === link.output))
         .map((link) => <Link key={link.path} href={`/admin/clients/${userId}/${link.path}`}>{link.label}</Link>)}</div>
       {!routing && <p className="type-supporting text-text-muted">No generator entitlement is available for this package.</p>}

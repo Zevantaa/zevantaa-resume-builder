@@ -5,6 +5,7 @@ import type {
 } from "@/types/client-profile";
 import type { EntityId, IsoDateTime } from "@/types/core";
 import type { DocumentCategory } from "@/types/document-record";
+import { normalizeSkillName } from "../client-portal/skill-name";
 
 /** Transient, layout-neutral projection; never a second persisted profile. */
 export interface DocumentData {
@@ -39,7 +40,8 @@ export type DocumentDataPurpose = Exclude<DocumentCategory, "source-resume">;
 export type DocumentDataFindingCode =
   | "missing_full_name" | "missing_primary_email" | "missing_mobile_number"
   | "missing_package" | "missing_target_market" | "missing_resume_content"
-  | "missing_cover_letter_context" | "incomplete_section_item" | "inconsistent_current_role";
+  | "missing_cover_letter_context" | "incomplete_section_item" | "inconsistent_current_role"
+  | "duplicate_skill";
 
 export interface DocumentDataFinding {
   code: DocumentDataFindingCode;
@@ -112,8 +114,16 @@ export function mapCandidateProfileToDocumentData(
       highlights: bullets(item.highlights),
     }];
   });
+  const seenSkillKeys = new Set<string>();
   const skills = ordered(profile.skills).flatMap((item): SkillEntry[] => {
     if (!hasText(item.name)) { incomplete(`skills.${item.id}`); return []; }
+    const normalizedKey = normalizeSkillName(item.name).key;
+    if (seenSkillKeys.has(normalizedKey)) {
+      finding("duplicate_skill", "warning", `skills.${item.id}`,
+        "A duplicate skill was omitted from document output; review the stored candidate data.");
+      return [];
+    }
+    seenSkillKeys.add(normalizedKey);
     return [{ id: item.id, sortOrder: item.sortOrder, name: item.name,
       ...(hasText(item.category) ? { category: item.category } : {}) }];
   });

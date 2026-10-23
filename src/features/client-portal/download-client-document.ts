@@ -18,11 +18,11 @@ export async function downloadCurrentClientDocument(documentId: string): Promise
   if (!linked || !UUID.test(documentId)) return null;
   const db = createSupabaseAdminClient();
   const { data: profile, error: profileError } = await db.from("candidate_profiles")
-    .select("selected_package_code").eq("id", linked.profileId)
+    .select("selected_package_code, career_revision").eq("id", linked.profileId)
     .is("archived_at", null).maybeSingle();
   if (profileError || !profile) return null;
   const { data: document, error: documentError } = await db.from("document_records")
-    .select("id, candidate_profile_id, category, origin, status, package_code, resume_format_family, cover_letter_type, is_privacy_masked, file_name_stem, file_record_id")
+    .select("id, candidate_profile_id, category, origin, status, package_code, resume_format_family, cover_letter_type, is_privacy_masked, file_name_stem, file_record_id, output_kind, source_career_revision, version_number, generated_at")
     .eq("id", documentId).eq("candidate_profile_id", linked.profileId)
     .eq("origin", "generated").eq("status", "available")
     .is("archived_at", null).maybeSingle();
@@ -33,7 +33,7 @@ export async function downloadCurrentClientDocument(documentId: string): Promise
     .eq("status", "available").is("archived_at", null).maybeSingle();
   const storedFile = file as StoredDocumentFileRow | null;
   if (fileError || !isDownloadableClientDocument(document as StoredDocumentRow,
-    storedFile, linked.profileId, profile.selected_package_code)) return null;
+    storedFile, linked.profileId, profile.selected_package_code, profile.career_revision)) return null;
 
   const { data: bucket, error: bucketError } = await db.storage.getBucket(PRIVATE_DOCUMENT_BUCKET);
   if (bucketError || !bucket || bucket.public) return null;

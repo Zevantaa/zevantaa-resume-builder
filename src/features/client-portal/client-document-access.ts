@@ -1,7 +1,7 @@
 import { packageAllowsOutput, V1_DOCUMENT_OUTPUTS } from "@/features/document-generation/package-routing";
-import { buildPdfFilename, type PdfOutputKind } from "@/features/document-generation/pdf/pdf-filename";
+import type { PdfOutputKind } from "@/features/document-generation/pdf/pdf-filename";
 
-export const PRIVATE_DOCUMENT_BUCKET = "candidate-intake-private";
+export const PRIVATE_DOCUMENT_BUCKET = "candidate-documents-private";
 export const MAX_CLIENT_PDF_BYTES = 10 * 1024 * 1024;
 
 export type StoredDocumentRow = {
@@ -16,6 +16,10 @@ export type StoredDocumentRow = {
   is_privacy_masked: boolean;
   file_name_stem: string | null;
   file_record_id: string | null;
+  output_kind: string | null;
+  source_career_revision: number | null;
+  version_number: number;
+  generated_at: string | null;
 };
 
 export type StoredDocumentFileRow = {
@@ -32,31 +36,11 @@ export type StoredDocumentFileRow = {
   storage_object_key: string | null;
 };
 
-const RESUME_FAMILY: Partial<Record<PdfOutputKind, string>> = {
-  "global-ats-resume": "global-ats",
-  "domestic-resume-1": "domestic",
-  "domestic-resume-2": "domestic",
-  "domestic-resume-3": "domestic",
-  "domestic-resume-4": "domestic",
-  "domestic-resume-5": "domestic",
-  "gcc-resume": "gcc-middle-east",
-  "europass-eu-resume": "europass-european-union",
-};
-
-/** A document's family alone cannot distinguish the five domestic designs. */
+/** Output identity is a database enum, never inferred from a mutable filename. */
 export function resolveStoredDocumentOutput(document: StoredDocumentRow): PdfOutputKind | null {
   if (document.origin !== "generated" || document.status !== "available" ||
       document.is_privacy_masked || !document.file_name_stem || !document.file_record_id) return null;
-  for (const output of V1_DOCUMENT_OUTPUTS) {
-    const suffix = buildPdfFilename({ candidateName: "Candidate", output }).slice("Candidate".length, -4);
-    if (!document.file_name_stem.endsWith(suffix)) continue;
-    if (output.endsWith("cover-letter")) {
-      if (document.category === "cover-letter" && document.cover_letter_type === output.slice(0, -"-cover-letter".length) &&
-          document.resume_format_family === null) return output;
-    } else if (document.category === "resume" && document.resume_format_family === RESUME_FAMILY[output] &&
-               document.cover_letter_type === null) return output;
-  }
-  return null;
+  return V1_DOCUMENT_OUTPUTS.find((output) => output === document.output_kind) ?? null;
 }
 
 /** Metadata gate shared by dashboard visibility and the final download boundary. */
@@ -65,15 +49,36 @@ export function isDownloadableClientDocument(
   file: StoredDocumentFileRow | null,
   profileId: string,
   packageCode: unknown,
+  careerRevision?: number,
 ): file is StoredDocumentFileRow {
   const output = resolveStoredDocumentOutput(document);
   if (!output || !packageAllowsOutput(packageCode, output) || document.package_code !== packageCode ||
+      (careerRevision !== undefined && document.source_career_revision !== careerRevision) ||
       document.candidate_profile_id !== profileId || !file || document.file_record_id !== file.id ||
-      file.candidate_profile_id !== profileId || file.purpose === "gcc-profile-photo" ||
+      file.candidate_profile_id !== profileId || file.purpose !== "generated-document" ||
       file.status !== "available" || file.access_level !== "private" ||
       file.mime_type !== "application/pdf" || file.file_extension !== "pdf" ||
       !Number.isSafeInteger(file.size_bytes) || file.size_bytes <= 0 || file.size_bytes > MAX_CLIENT_PDF_BYTES ||
       file.storage_bucket_name !== PRIVATE_DOCUMENT_BUCKET || file.stored_file_name !== `${file.id}.pdf` ||
-      file.storage_object_key !== `${profileId}/generated/${file.id}.pdf`) return false;
+      file.storage_object_key !== `${profileId}/${document.id}/${file.id}.pdf`) return false;
+  return true;
+}
+
+/** Admin history includes superseded/outdated and privacy-masked versions. */
+export function isDownloadableAdminDocument(
+  document: StoredDocumentRow, file: StoredDocumentFileRow | null, profileId: string,
+): file is StoredDocumentFileRow {
+  if (document.candidate_profile_id !== profileId || document.origin !== "generated" ||
+      !["available", "superseded", "outdated"].includes(document.status) ||
+      !document.output_kind || !document.file_record_id || !document.file_name_stem ||
+      (document.is_privacy_masked !== (document.output_kind === "global-ats-employer-masked")) ||
+      !file || file.id !== document.file_record_id || file.candidate_profile_id !== profileId ||
+      file.purpose !== "generated-document" || file.status !== "available" ||
+      file.access_level !== "private" || file.mime_type !== "application/pdf" ||
+      file.file_extension !== "pdf" || !Number.isSafeInteger(file.size_bytes) ||
+      file.size_bytes <= 0 || file.size_bytes > MAX_CLIENT_PDF_BYTES ||
+      file.storage_bucket_name !== PRIVATE_DOCUMENT_BUCKET ||
+      file.stored_file_name !== `${file.id}.pdf` ||
+      file.storage_object_key !== `${profileId}/${document.id}/${file.id}.pdf`) return false;
   return true;
 }

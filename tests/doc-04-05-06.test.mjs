@@ -7,7 +7,7 @@ registerHooks({ resolve(specifier, context, nextResolve) {
   if (specifier.startsWith("@/types/")) {
     return nextResolve(new URL(`../src/types/${specifier.slice("@/types/".length)}.ts`, import.meta.url).href, context);
   }
-  if (specifier.startsWith("./") && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
+  if ((specifier.startsWith("./") || specifier.startsWith("../")) && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
     return nextResolve(`${specifier}.ts`, context);
   }
   return nextResolve(specifier, context);
@@ -86,6 +86,52 @@ test("skills alone are insufficient for an indicative resume score", () => {
   assert.match(result.reasons.join(" "), /employment, education, or project/);
 });
 
+test("ATS score remains bounded and finite for missing optional data and many skills", () => {
+  const value = profile();
+  value.workExperience = [{ ...item(3), jobTitle: "Coordinator", employerName: "Fictional Employer", startDate: "2022-01", currentRole: true, highlights: [] }];
+  value.professionalSummary = null;
+  value.whatsappNumber = null;
+  value.linkedinUrl = null;
+  value.certifications = null;
+  value.languages = null;
+  value.projects = null;
+  for (const skills of [[], Array.from({ length: 30 }, (_, index) => ({ ...item(index + 10), name: `Skill ${index + 1}` }))]) {
+    value.skills = skills;
+    const result = evaluate(value);
+    assert.equal(result.status, "ready");
+    assert.ok(Number.isFinite(result.score));
+    assert.ok(result.score >= 0 && result.score <= 100);
+    assert.equal(result.breakdown.reduce((total, part) => total + part.score, 0), result.score);
+    assert.ok(result.breakdown.every((part) => Number.isFinite(part.score) && part.score >= 0 && part.score <= part.maximum));
+  }
+  value.workExperience = [];
+  assert.equal(evaluate(value).status, "not-ready");
+});
+
+test("normalized duplicate skills cannot inflate ATS skills coverage", () => {
+  const value = profile();
+  value.workExperience = [{ ...item(3), jobTitle: "Coordinator", employerName: "Fictional Employer", startDate: "2022-01", currentRole: true, highlights: [] }];
+  value.skills = [{ ...item(10), name: "Microsoft Excel" }];
+  const single = evaluate(value);
+  value.skills = ["Microsoft Excel", "MS Excel", "Excel", " excel ", "MICROSOFT EXCEL", "microsoft excel", "MS EXCEL", "Excel " ]
+    .map((name, index) => ({ ...item(index + 10), name }));
+  const duplicated = evaluate(value);
+  assert.equal(single.status, "ready");
+  assert.equal(duplicated.status, "ready");
+  assert.equal(duplicated.score, single.score);
+  assert.equal(duplicated.breakdown.find((part) => part.dimension === "skills").score, 5);
+});
+
+test("unrecognized package has no score or implied ATS entitlement", () => {
+  const value = profile();
+  value.workExperience = [{ ...item(3), jobTitle: "Coordinator", employerName: "Fictional Employer", startDate: "2022-01", currentRole: true, highlights: [] }];
+  value.selectedPackage = "unknown-package";
+  const result = evaluate(value);
+  assert.equal(result.status, "not-ready");
+  assert.equal("score" in result, false);
+  assert.match(result.reasons.join(" "), /does not include a Global ATS resume/);
+});
+
 test("dashboard display and server-side authorization boundaries remain explicit", () => {
   const panel = read("src/features/document-generation/indicative-ats-panel.tsx");
   assert.match(panel, /Indicative ATS Score/);
@@ -93,6 +139,9 @@ test("dashboard display and server-side authorization boundaries remain explicit
   assert.match(panel, /not a third-party ATS guarantee/);
   assert.match(panel, /result\.score/);
   assert.match(panel, /result\.breakdown/);
+  assert.match(panel, /out of 100/);
+  assert.match(panel, /\/100/);
+  assert.doesNotMatch(panel, /certified ATS|guaranteed employer|passed ATS/i);
   assert.match(read("src/features/client-portal/client-dashboard-page.tsx"), /IndicativeAtsPanel/);
   assert.match(read("src/app/client/ats/page.tsx"), /getCurrentClientAtsScore/);
   assert.match(read("src/app/client/ats/page.tsx"), /IndicativeAtsPanel/);

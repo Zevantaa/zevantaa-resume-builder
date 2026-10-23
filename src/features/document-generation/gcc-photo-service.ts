@@ -14,8 +14,7 @@ const PHOTO_MIME: Record<ProfilePhotoFileExtension, ProfilePhotoMimeType> = {
 type PhotoReference = PrivateFileReference<ProfilePhotoMimeType, ProfilePhotoFileExtension>;
 
 /** Strictly validate the profile's current private photo pointer; never accept a browser path. */
-export async function loadAdminGccPhotoReference(profileId: string): Promise<PhotoReference | null> {
-  await requireApplicationRole("admin");
+async function loadGccPhotoReference(profileId: string): Promise<PhotoReference | null> {
   const db = createSupabaseAdminClient();
   const { data: profile, error: profileError } = await db.from("candidate_profiles")
     .select("gcc_photo_file_id").eq("id", profileId).is("archived_at", null).maybeSingle();
@@ -42,6 +41,11 @@ export async function loadAdminGccPhotoReference(profileId: string): Promise<Pho
     accessLevel: "private", uploadedAt: file.uploaded_at };
 }
 
+export async function loadAdminGccPhotoReference(profileId: string): Promise<PhotoReference | null> {
+  await requireApplicationRole("admin");
+  return loadGccPhotoReference(profileId);
+}
+
 /** Decode, autorotate and center-crop into a portrait PNG; corrupt images are omitted. */
 export async function prepareGccPhotoBytes(
   bytes: Uint8Array, mimeType: ProfilePhotoMimeType, extension: ProfilePhotoFileExtension,
@@ -58,8 +62,9 @@ export async function prepareGccPhotoBytes(
 }
 
 /** Returns only in-memory image bytes; the original private object is never exposed or altered. */
-export async function loadAdminGccPhoto(profileId: string): Promise<{ reference: PhotoReference; png: Uint8Array } | null> {
-  const reference = await loadAdminGccPhotoReference(profileId);
+/** Internal use only after another server boundary has resolved/authorized the profile. */
+export async function loadTrustedGccPhoto(profileId: string): Promise<{ reference: PhotoReference; png: Uint8Array } | null> {
+  const reference = await loadGccPhotoReference(profileId);
   if (!reference) return null;
   const db = createSupabaseAdminClient();
   const { data: object, error } = await db.storage.from(PRIVATE_BUCKET).download(reference.storage.objectKey);
@@ -68,4 +73,9 @@ export async function loadAdminGccPhoto(profileId: string): Promise<{ reference:
   if (bytes.length !== reference.sizeBytes) return null;
   const png = await prepareGccPhotoBytes(bytes, reference.mimeType, reference.fileExtension);
   return png ? { reference, png } : null;
+}
+
+export async function loadAdminGccPhoto(profileId: string): Promise<{ reference: PhotoReference; png: Uint8Array } | null> {
+  await requireApplicationRole("admin");
+  return loadTrustedGccPhoto(profileId);
 }

@@ -59,14 +59,14 @@ function setup() {
       ],
       file_records: [
         ...[[s2, p2], [s3, p3], [s4, p4]].map(([id, candidate_profile_id]) => ({ id, candidate_profile_id, purpose: "source-resume", status: "available", archived_at: null })),
-        { id: f3, candidate_profile_id: p3, purpose: "source-resume", status: "available", access_level: "private", mime_type: "application/pdf", file_extension: "pdf", size_bytes: bytes.length, stored_file_name: `${f3}.pdf`, storage_bucket_name: "candidate-intake-private", storage_object_key: `${p3}/generated/${f3}.pdf`, archived_at: null },
+        { id: f3, candidate_profile_id: p3, purpose: "generated-document", status: "available", access_level: "private", mime_type: "application/pdf", file_extension: "pdf", size_bytes: bytes.length, stored_file_name: `${f3}.pdf`, storage_bucket_name: "candidate-documents-private", storage_object_key: `${p3}/${d3}/${f3}.pdf`, archived_at: null },
       ],
       profile_resume_reviews: [
         { candidate_profile_id: p3, source_file_id: s3 },
         { candidate_profile_id: p4, source_file_id: s4 },
       ],
       document_records: [
-        { id: d3, candidate_profile_id: p3, category: "resume", origin: "generated", status: "available", package_code: "europass-european-union", resume_format_family: "global-ats", cover_letter_type: null, is_privacy_masked: false, file_name_stem: stem, file_record_id: f3, archived_at: null, created_at: "2026-10-01" },
+        { id: d3, candidate_profile_id: p3, category: "resume", origin: "generated", status: "available", package_code: "europass-european-union", resume_format_family: "global-ats", cover_letter_type: null, is_privacy_masked: false, file_name_stem: stem, file_record_id: f3, output_kind: "global-ats-resume", source_career_revision: 0, version_number: 1, generated_at: "2026-10-01", archived_at: null, created_at: "2026-10-01" },
         { id: "66666666-6666-4666-8666-666666666666", candidate_profile_id: p3, category: "resume", origin: "generated", status: "pending", file_record_id: null, archived_at: null },
         { id: "55555555-5555-4555-8555-555555555555", candidate_profile_id: p3, category: "source-resume", origin: "uploaded", status: "available", file_record_id: s3, archived_at: null },
       ],
@@ -209,7 +209,7 @@ test("admin download requires the selected client's own document and private buc
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "private, no-store, max-age=0");
   assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes);
-  assert.deepEqual(state.downloaded, [`${p3}/generated/${f3}.pdf`]);
+  assert.deepEqual(state.downloaded, [`${p3}/${d3}/${f3}.pdf`]);
   state.downloaded = [];
   assert.equal(await downloadAdminStoredDocument(u2, d3), null);
   assert.equal(await downloadAdminStoredDocument(u3, p1), null);
@@ -227,7 +227,7 @@ test("directory and detail links distinguish Open, Review, stored Download and g
   assert.ok(directory.includes('/resume-review`}>Review'));
   assert.ok(directory.includes('/documents`}>Documents'));
   assert.match(detail, /Download stored PDF/u);
-  assert.match(detail, /Open an on-demand generator/u);
+  assert.match(detail, /Generate and store an entitled PDF/u);
   assert.match(css, /admin-directory-table-container.*max-width: 100%/u);
   assert.match(css, /overflow-x: auto/u);
   assert.match(css, /admin-directory-filters \{ display: grid/u);

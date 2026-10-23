@@ -1,7 +1,7 @@
 import "server-only";
 
 import { requireApplicationRole } from "@/features/authentication/authorization";
-import { isDownloadableClientDocument, PRIVATE_DOCUMENT_BUCKET,
+import { isDownloadableAdminDocument, PRIVATE_DOCUMENT_BUCKET,
   type StoredDocumentFileRow, type StoredDocumentRow } from "@/features/client-portal/client-document-access";
 import { sanitizePdfDownloadFilename } from "@/features/document-generation/pdf/pdf-filename";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -21,17 +21,18 @@ export async function downloadAdminStoredDocument(userId: string, documentId: st
   if (!client) return null;
   const db = createSupabaseAdminClient();
   const { data: document, error: documentError } = await db.from("document_records")
-    .select("id, candidate_profile_id, category, origin, status, package_code, resume_format_family, cover_letter_type, is_privacy_masked, file_name_stem, file_record_id")
+    .select("id, candidate_profile_id, category, origin, status, package_code, resume_format_family, cover_letter_type, is_privacy_masked, file_name_stem, file_record_id, output_kind, source_career_revision, version_number, generated_at")
     .eq("id", documentId).eq("candidate_profile_id", client.candidateProfileId)
-    .eq("origin", "generated").eq("status", "available").is("archived_at", null).maybeSingle();
+    .eq("origin", "generated").in("status", ["available", "superseded", "outdated"])
+    .is("archived_at", null).maybeSingle();
   if (documentError || !document?.file_record_id) return null;
   const { data: file, error: fileError } = await db.from("file_records")
     .select("id, candidate_profile_id, purpose, status, access_level, mime_type, file_extension, size_bytes, stored_file_name, storage_bucket_name, storage_object_key")
     .eq("id", document.file_record_id).eq("candidate_profile_id", client.candidateProfileId)
     .eq("status", "available").is("archived_at", null).maybeSingle();
   const storedFile = file as StoredDocumentFileRow | null;
-  if (fileError || !isDownloadableClientDocument(document as StoredDocumentRow, storedFile,
-    client.candidateProfileId, document.package_code)) return null;
+  if (fileError || !isDownloadableAdminDocument(document as StoredDocumentRow, storedFile,
+    client.candidateProfileId)) return null;
   const { data: bucket, error: bucketError } = await db.storage.getBucket(PRIVATE_DOCUMENT_BUCKET);
   if (bucketError || !bucket || bucket.public) return null;
   const { data: object, error: downloadError } = await db.storage.from(PRIVATE_DOCUMENT_BUCKET)

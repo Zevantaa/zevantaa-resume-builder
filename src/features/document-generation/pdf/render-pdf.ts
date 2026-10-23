@@ -5,6 +5,8 @@ import { Document, Font, Image, Link, Page, Text, View, renderToBuffer } from "@
 import { jsx } from "react/jsx-runtime";
 import { cloneElement, type ComponentProps, type ReactElement, type ReactNode } from "react";
 
+import { isSafeExternalUrl } from "../../../lib/security/external-url";
+
 import type { PdfBlock, PdfContactItem, PdfDocumentModel, PdfPageAdornment, PdfSection } from "./pdf-model";
 import { resolvePdfTheme, type PdfTheme, type PdfThemeOverrides } from "./pdf-theme";
 
@@ -21,6 +23,10 @@ Font.register({ family: "Zevantaa PDF Devanagari", fonts: [
   { src: fontPath("noto-sans-devanagari-regular.woff"), fontWeight: 400 },
   { src: fontPath("noto-sans-devanagari-bold.woff"), fontWeight: 700 },
 ] });
+// React-PDF's automatic hyphenation can insert new characters into candidate
+// names and role titles, changing copied/searched text. Let words wrap only at
+// authored boundaries; unusually long contact URLs are wrapped below.
+Font.registerHyphenationCallback((word) => [word]);
 
 const hasText = (value: string | undefined): value is string => Boolean(value?.trim());
 const ADORNMENT_HEIGHT = 16;
@@ -46,10 +52,11 @@ function text(value: string, style: Record<string, string | number>, theme: PdfT
 }
 
 function safeHref(href: string | undefined): string | null {
-  if (!href) return null;
+  if (!href || /[\u0000-\u001f\u007f]/u.test(href)) return null;
   try {
     const parsed = new URL(href);
-    return ["https:", "mailto:", "tel:"].includes(parsed.protocol) ? href : null;
+    if (parsed.protocol === "https:") return isSafeExternalUrl(href) ? href : null;
+    return ["mailto:", "tel:"].includes(parsed.protocol) ? href : null;
   } catch { return null; }
 }
 
@@ -74,9 +81,15 @@ function shortEntry(block: Extract<PdfBlock, { kind: "entry" }>, theme: PdfTheme
 }
 
 function contactItem(item: PdfContactItem, theme: PdfTheme, key: string) {
-  const content = text(item.text, { fontSize: theme.typography.smallSize, color: theme.mutedColor }, theme, `${key}-text`);
+  // Very long unspaced URLs need explicit display line breaks. The link target
+  // stays exact; unlike word hyphenation this inserts no visible fake character.
+  const display = item.text.startsWith("https://") && item.text.length > 64
+    ? item.text.match(/.{1,64}/gu)?.join("\n") ?? item.text : item.text;
+  const content = text(display, { fontSize: theme.typography.smallSize, color: theme.mutedColor,
+    maxWidth: "100%" }, theme, `${key}-text`);
   const href = safeHref(item.href);
-  return href ? jsx(Link, { src: href, children: content }, key) : jsx(View, { children: content }, key);
+  const style = { maxWidth: "100%", flexShrink: 1 };
+  return href ? jsx(Link, { src: href, style, children: content }, key) : jsx(View, { style, children: content }, key);
 }
 
 function entryOpening(block: Extract<PdfBlock, { kind: "entry" }>, theme: PdfTheme, key: string): ReactNode[] {

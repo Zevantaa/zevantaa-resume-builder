@@ -1,8 +1,7 @@
 import { loadAdminCandidateProfile } from "@/features/document-generation/admin-global-ats-service";
-import { buildCoverLetterModel, CoverLetterNotReadyError, isCoverLetterType } from "@/features/document-generation/cover-letters";
-import { renderPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
-import { buildPdfFilename } from "@/features/document-generation/pdf/pdf-filename";
-import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
+import { CoverLetterNotReadyError, isCoverLetterType } from "@/features/document-generation/cover-letters";
+import { persistedPdfDownloadResponse } from "@/features/document-generation/pdf/pdf-download";
+import { generateAndPersistAdminDocument } from "@/features/document-generation/persistent-document-service";
 import { packageAllowsOutput } from "@/features/document-generation/package-routing";
 
 export const runtime = "nodejs";
@@ -25,9 +24,8 @@ export async function POST(request: Request, context: { params: Promise<{ userId
     return new Response("This package does not include the requested cover letter.", { status: 422 });
   }
   try {
-    const output = buildCoverLetterModel(mapCandidateProfileToDocumentData(profile, "cover-letter"), type);
-    const filename = buildPdfFilename({ candidateName: profile.fullName, output: `${type}-cover-letter` });
-    return await renderPdfDownloadResponse(output.model, filename, output.theme);
+    return persistedPdfDownloadResponse(await generateAndPersistAdminDocument(profile.id,
+      `${type}-cover-letter`));
   } catch (error) {
     if (error instanceof CoverLetterNotReadyError) {
       return new Response("This profile or package is not ready for a cover letter.", { status: 422 });

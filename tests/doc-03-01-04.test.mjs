@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 registerHooks({ resolve(specifier, context, nextResolve) {
   if (specifier === "server-only") return { url: "data:text/javascript,export {}", shortCircuit: true };
-  if (specifier.startsWith("./") && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
+  if ((specifier.startsWith("./") || specifier.startsWith("../")) && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
     return nextResolve(`${specifier}.ts`, context);
   }
   return nextResolve(specifier, context);
@@ -123,7 +123,8 @@ test("long supplied names, employer lines and URLs stay within A4 bounds", async
   assert.match(content, /candidate-review-segment/);
   for (const page of pages) for (const item of page.items) {
     assert.ok(item.transform[4] >= 15);
-    assert.ok(item.transform[4] + item.width <= page.width - 15, "Long text stays within the page width.");
+    assert.ok(item.transform[4] + item.width <= page.width - 15,
+      `Long text stays within the page width: ${item.str} at ${item.transform[4]} + ${item.width} / ${page.width}.`);
     assert.ok(item.transform[5] >= 15 && item.transform[5] <= page.height - 15);
   }
 });

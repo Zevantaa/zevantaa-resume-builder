@@ -11,13 +11,16 @@ registerHooks({ resolve(specifier, context, nextResolve) {
   if (specifier === "@/features/document-generation/admin-global-ats-service") return {
     url: "data:text/javascript,export async function loadAdminCandidateProfile(userId){if(globalThis.__letterQaRole!=='admin')throw Error('ACCESS_DENIED');globalThis.__letterLoadedUserId=userId;return globalThis.__letterQaProfile}", shortCircuit: true,
   };
+  if (specifier === "@/features/document-generation/persistent-document-service") return {
+    url: "data:text/javascript,export async function generateAndPersistAdminDocument(profileId,output){return globalThis.__doc13RouteMock(profileId,output)}", shortCircuit: true,
+  };
   if (specifier.startsWith("@/features/document-generation/")) {
     return nextResolve(new URL(`../src/features/document-generation/${specifier.slice("@/features/document-generation/".length)}.ts`, import.meta.url).href, context);
   }
   if (specifier.startsWith("@/types/")) {
     return nextResolve(new URL(`../src/types/${specifier.slice("@/types/".length)}.ts`, import.meta.url).href, context);
   }
-  if (specifier.startsWith("./") && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
+  if ((specifier.startsWith("./") || specifier.startsWith("../")) && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
     return nextResolve(`${specifier}.ts`, context);
   }
   return nextResolve(specifier, context);
@@ -32,6 +35,8 @@ const { buildPdfFilename } = await import("../src/features/document-generation/p
 const { POST: productionDownload } = await import("../src/app/admin/clients/[userId]/cover-letters/download/route.ts");
 const { POST: qaDownload } = await import("../src/app/admin/pdf-render-test/download/route.ts");
 const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+const { mockPersistedRoutePdf } = await import("./doc13-route-mock.mjs");
+globalThis.__doc13RouteMock = async (_id, output) => mockPersistedRoutePdf(globalThis.__letterQaProfile, output);
 const map = (profile) => mapCandidateProfileToDocumentData(profile, "cover-letter");
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
 

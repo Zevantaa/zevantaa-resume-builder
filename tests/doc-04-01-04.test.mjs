@@ -9,6 +9,9 @@ registerHooks({ resolve(specifier, context, nextResolve) {
     url: "data:text/javascript,export async function loadAdminCandidateProfile(userId){return globalThis.__atsQaLoad(userId)}",
     shortCircuit: true,
   };
+  if (specifier === "@/features/document-generation/persistent-document-service") return {
+    url: "data:text/javascript,export async function generateAndPersistAdminDocument(profileId,output){return globalThis.__doc13RouteMock(profileId,output)}", shortCircuit: true,
+  };
   if (specifier.startsWith("@/features/document-generation/")) {
     const relative = specifier.replace("@/features/document-generation/", "");
     return nextResolve(new URL(`../src/features/document-generation/${relative}.ts`, import.meta.url).href, context);
@@ -16,7 +19,7 @@ registerHooks({ resolve(specifier, context, nextResolve) {
   if (specifier.startsWith("@/types/")) {
     return nextResolve(new URL(`../src/types/${specifier.slice("@/types/".length)}.ts`, import.meta.url).href, context);
   }
-  if (specifier.startsWith("./") && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
+  if ((specifier.startsWith("./") || specifier.startsWith("../")) && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
     return nextResolve(`${specifier}.ts`, context);
   }
   return nextResolve(specifier, context);
@@ -28,6 +31,8 @@ const { renderPdfDocument } = await import("../src/features/document-generation/
 const { buildPdfFilename } = await import("../src/features/document-generation/pdf/pdf-filename.ts");
 const { POST } = await import("../src/app/admin/clients/[userId]/global-ats/download/route.ts");
 const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+const { mockPersistedRoutePdf } = await import("./doc13-route-mock.mjs");
+globalThis.__doc13RouteMock = async (_id, output) => mockPersistedRoutePdf(await globalThis.__atsQaLoad(id(30)), output);
 
 const id = (number) => `00000000-0000-4000-8000-${String(number).padStart(12, "0")}`;
 const baseProfile = () => ({
@@ -222,6 +227,6 @@ test("admin loader and route remain server-only, linked, and absent from client 
   assert.doesNotMatch(read("src/app/client/layout.tsx"), /global-ats/);
   const route = read("src/app/admin/clients/[userId]/global-ats/download/route.ts");
   assert.match(route, /loadAdminCandidateProfile\(userId\)/);
-  assert.match(route, /renderPdfDownloadResponse/);
+  assert.match(route, /generateAndPersistAdminDocument/);
   assert.doesNotMatch(route, /request\.formData|SUPABASE_SECRET_KEY|service_role/);
 });

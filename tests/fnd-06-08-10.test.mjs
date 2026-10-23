@@ -145,6 +145,26 @@ test("truncated or header-only resume content is rejected", async () => {
   ]) await assert.rejects(validateIntakeFile(file(name, mime, bytes), "source-resume"), IntakeFileValidationError, name);
 });
 
+test("DOCX upload rejects missing essential OOXML members and malformed ZIP directory", async () => {
+  for (const bytes of [
+    storedZip([["[Content_Types].xml", "<Types/>"]]),
+    storedZip([["word/document.xml", "<w:document/>"]]),
+    DOCX.subarray(0, DOCX.length - 3),
+  ]) {
+    await assert.rejects(validateIntakeFile(file("resume.docx", DOCX_MIME, bytes), "source-resume"), IntakeFileValidationError);
+  }
+});
+
+test("PDF upload rejects absent or truncated EOF and malformed cross-reference marker", async () => {
+  for (const bytes of [
+    Buffer.from("%PDF-1.7\n1 0 obj<</Type/Catalog>>endobj\nstartxref\n9\n"),
+    Buffer.from("%PDF-1.7\n1 0 obj<</Type/Catalog>>endobj\nnotxref\n9\n%%EOF\n"),
+    Buffer.from("%PDF-1.7\n1 0 obj<</Type/Catalog>>endobj\nstartxref\n999999\n%%EOF\n"),
+  ]) {
+    await assert.rejects(validateIntakeFile(file("resume.pdf", "application/pdf", bytes), "source-resume"), IntakeFileValidationError);
+  }
+});
+
 test("valid JPEG, PNG and WebP photos pass", async () => {
   for (const [name, mime, bytes] of [
     ["portrait.jpg", "image/jpeg", JPEG],
@@ -160,6 +180,12 @@ test("photo with excessive decoded dimensions is rejected even when compressed b
     background: { r: 1, g: 2, b: 3 } } }).png().toBuffer();
   await assert.rejects(validateDecodedIntakePhoto(wide, "png"),
     /could not be decoded safely/);
+});
+
+test("photo with excessive decoded pixel count is rejected", async () => {
+  const oversizedPixels = await sharp({ create: { width: 4000, height: 4000, channels: 3,
+    background: { r: 1, g: 2, b: 3 } } }).png().toBuffer();
+  await assert.rejects(validateDecodedIntakePhoto(oversizedPixels, "png"), /could not be decoded safely/);
 });
 
 test("photo rejects invalid type and over 5 MB", async () => {

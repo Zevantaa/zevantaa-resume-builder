@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getPackageRouting } from "@/features/document-generation/package-routing";
+import { getPackageRouting, V1_DOCUMENT_OUTPUTS } from "@/features/document-generation/package-routing";
 import type { PdfOutputKind } from "@/features/document-generation/pdf/pdf-filename";
 
 import { isDownloadableClientDocument, resolveStoredDocumentOutput,
@@ -14,6 +14,8 @@ export type ClientDashboardEvidence = {
   photo: { fileName: string; status: string } | null;
   reviewConfirmed: boolean;
   downloadableDocuments: Partial<Record<PdfOutputKind, string>>;
+  documentDetails: Partial<Record<PdfOutputKind, { version: number; generatedAt: string }>>;
+  documentUpdates: Partial<Record<PdfOutputKind, "updating" | "failed">>;
 };
 
 /** Only the active client's trusted role-to-profile link determines every query. */
@@ -22,13 +24,13 @@ export async function getClientDashboardEvidence(): Promise<ClientDashboardEvide
   if (!linked) return null;
   const db = createSupabaseAdminClient();
   const { data: profile, error: profileError } = await db.from("candidate_profiles")
-    .select("selected_package_code, existing_resume_file_id, gcc_photo_file_id")
+    .select("selected_package_code, existing_resume_file_id, gcc_photo_file_id, career_revision")
     .eq("id", linked.profileId).is("archived_at", null).maybeSingle();
   if (profileError) throw new Error("The client dashboard could not be loaded.");
   if (!profile) return null;
 
   const currentIds = [profile.existing_resume_file_id, profile.gcc_photo_file_id].filter((id): id is string => typeof id === "string");
-  const [currentFilesResult, reviewResult, documentsResult] = await Promise.all([
+  const [currentFilesResult, reviewResult, documentsResult, jobsResult] = await Promise.all([
     currentIds.length ? db.from("file_records")
       .select("id, purpose, original_file_name, status, version_number, candidate_profile_id")
       .eq("candidate_profile_id", linked.profileId).in("id", currentIds).is("archived_at", null)
@@ -38,11 +40,14 @@ export async function getClientDashboardEvidence(): Promise<ClientDashboardEvide
       .eq("source_file_id", profile.existing_resume_file_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     db.from("document_records")
-      .select("id, candidate_profile_id, category, origin, status, package_code, resume_format_family, cover_letter_type, is_privacy_masked, file_name_stem, file_record_id")
+      .select("id, candidate_profile_id, category, origin, status, package_code, resume_format_family, cover_letter_type, is_privacy_masked, file_name_stem, file_record_id, output_kind, source_career_revision, version_number, generated_at")
       .eq("candidate_profile_id", linked.profileId).eq("origin", "generated")
       .eq("status", "available").is("archived_at", null).order("created_at", { ascending: false }),
+    db.from("document_regeneration_jobs").select("output_kind, status")
+      .eq("candidate_profile_id", linked.profileId).eq("source_career_revision", profile.career_revision)
+      .in("status", ["pending", "processing", "failed"]),
   ]);
-  if (currentFilesResult.error || reviewResult.error || documentsResult.error) {
+  if (currentFilesResult.error || reviewResult.error || documentsResult.error || jobsResult.error) {
     throw new Error("The client dashboard status could not be loaded.");
   }
 
@@ -60,12 +65,22 @@ export async function getClientDashboardEvidence(): Promise<ClientDashboardEvide
   if (filesError) throw new Error("The document status could not be loaded.");
   const filesById = new Map(((fileRows ?? []) as StoredDocumentFileRow[]).map((row) => [row.id, row]));
   const downloadableDocuments: ClientDashboardEvidence["downloadableDocuments"] = {};
+  const documentDetails: ClientDashboardEvidence["documentDetails"] = {};
+  const documentUpdates: ClientDashboardEvidence["documentUpdates"] = {};
+  for (const job of jobsResult.data ?? []) {
+    if (V1_DOCUMENT_OUTPUTS.some((output) => output === job.output_kind)) {
+      documentUpdates[job.output_kind as PdfOutputKind] = job.status === "failed" ? "failed" : "updating";
+    }
+  }
   if (getPackageRouting(profile.selected_package_code)) {
     for (const document of documents) {
       const output = resolveStoredDocumentOutput(document);
       if (output && !downloadableDocuments[output] &&
           isDownloadableClientDocument(document, filesById.get(document.file_record_id ?? "") ?? null,
-            linked.profileId, profile.selected_package_code)) downloadableDocuments[output] = document.id;
+            linked.profileId, profile.selected_package_code, profile.career_revision)) {
+        downloadableDocuments[output] = document.id;
+        documentDetails[output] = { version: document.version_number, generatedAt: document.generated_at ?? "" };
+      }
     }
   }
   return {
@@ -75,5 +90,7 @@ export async function getClientDashboardEvidence(): Promise<ClientDashboardEvide
     photo: photoRow ? { fileName: photoRow.original_file_name, status: photoRow.status } : null,
     reviewConfirmed: Boolean(reviewResult.data && resumeRow?.status === "available"),
     downloadableDocuments,
+    documentDetails,
+    documentUpdates,
   };
 }

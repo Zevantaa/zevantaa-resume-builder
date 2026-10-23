@@ -9,7 +9,7 @@ registerHooks({ resolve(specifier, context, nextResolve) {
     url: "data:text/javascript,export async function requireApplicationRole(role){return globalThis.__pdfQaRequireRole(role)}",
     shortCircuit: true,
   };
-  if (specifier.startsWith("./") && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
+  if ((specifier.startsWith("./") || specifier.startsWith("../")) && context.parentURL?.endsWith(".ts") && !/\.[cm]?[jt]s$/.test(specifier)) {
     return nextResolve(`${specifier}.ts`, context);
   }
   return nextResolve(specifier, context);

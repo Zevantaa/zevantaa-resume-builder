@@ -837,6 +837,7 @@ body {
 
 .auth-page {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 100vh;
   place-items: center;
   padding-block: var(--layout-page-padding-block);
@@ -847,6 +848,7 @@ body {
 .auth-shell {
   display: grid;
   width: min(100%, 70rem);
+  min-width: 0;
   overflow: hidden;
   border: var(--card-border-width) solid var(--border);
   border-radius: var(--card-radius);
@@ -1167,6 +1169,7 @@ body {
 .client-intake-file-block { display: grid; align-content: start; gap: var(--space-2); min-width: 0; }
 .client-intake-file-block p { margin: 0; overflow-wrap: anywhere; }
 .client-intake-file-block input[type="file"] { height: auto; }
+.client-intake-file-block input[type="file"], .brand-v8-setting input[type="file"] { width: 100%; min-width: 0; max-width: 100%; }
 .client-intake-file-block input[type="file"]::file-selector-button { margin-right: var(--space-3); padding: var(--space-2); border: 1px solid var(--border); border-radius: var(--form-control-radius); background: var(--surface-muted); color: var(--text); font: inherit; cursor: pointer; }
 .extraction-test-button { width: fit-content; }
 .extraction-test-warnings { margin: 0; padding-left: var(--space-6); }
@@ -1255,6 +1258,9 @@ body {
 .admin-generator-links { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-6); }
 @media (min-width: 48rem) {
   .admin-directory-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-6); }
+  .admin-directory-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 64rem) {
   .admin-directory-filters { grid-template-columns: minmax(15rem, 2fr) repeat(2, minmax(10rem, 1fr)) auto; }
 }
 @media (max-width: 63.99rem) {
@@ -1317,15 +1323,16 @@ body {
 .career-v8-entry-card h3, .career-v8-entry-card p { margin: 0; }
 .career-v8-entry-head { display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: .75rem;
   padding-bottom: .75rem; border-bottom: 1px solid var(--border); }
+.career-v8-entry-head > div { min-width: 0; overflow-wrap: anywhere; }
 .career-v8-save-bar { position: relative; display: flex; justify-content: space-between; align-items: center;
   gap: .8rem; padding: .65rem 1rem; border-top: 1px solid var(--border); background: var(--surface); }
 .career-v8-save-bar > div { display: flex; flex-wrap: wrap; gap: .55rem; }
 .career-v8-save-bar .auth-submit { min-height: 2.65rem; }
 .career-v8-skill-chips { display: flex; flex-wrap: wrap; gap: .45rem; }
 .career-v8-skill-chip { display: inline-flex; align-items: center; gap: .4rem; padding: .35rem .55rem;
-  border: 1px solid #d0dcff; border-radius: 999px; background: #eaf1ff; color: #3159bd; font-weight: 700; }
+  max-width: 100%; overflow-wrap: anywhere; border: 1px solid #d0dcff; border-radius: 999px; background: #eaf1ff; color: #3159bd; font-weight: 700; }
 .career-v8-skill-chip button { border: 0; background: transparent; color: inherit; cursor: pointer; }
-.career-v8-skill-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .5rem; }
+.career-v8-skill-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: .5rem; }
 .career-v8-skill-results button { display: flex; justify-content: space-between; gap: .5rem; min-height: 2.5rem;
   padding: .45rem .65rem; border: 1px solid var(--border); border-radius: .6rem; background: var(--surface);
   color: var(--text); cursor: pointer; text-align: left; }

@@ -1,6 +1,7 @@
 import { buildGlobalAtsResumeModel } from "./global-ats-resume";
 import { isAtsScoreVisible } from "./package-routing";
 import type { DocumentDataMappingResult } from "./profile-mapper";
+import { normalizeSkillName } from "../client-portal/skill-name";
 
 /** Fixed optimization target, never a minimum or adjustment to the calculated score. */
 export const ATS_BENCHMARK = 90;
@@ -56,6 +57,7 @@ export function calculateIndicativeAtsScore(mapping: DocumentDataMappingResult):
   const employment = data.employment ?? [];
   const education = data.education ?? [];
   const skills = data.skills ?? [];
+  const distinctSkillCount = new Set(skills.map((item) => normalizeSkillName(item.name).key).filter(Boolean)).size;
   const summaryLength = data.professionalSummary?.text.trim().length ?? 0;
   const dated = employment.length + education.filter((item) => item.startDate || item.endDate || item.completionYear).length;
   const consistentDates = employment.every((item) => validMonth(item.startDate) &&
@@ -86,8 +88,8 @@ export function calculateIndicativeAtsScore(mapping: DocumentDataMappingResult):
     (education.every((item) => Boolean(item.completionYear || item.endDate || item.startDate)) ? 2 : 0);
   add("education", educationScore, `${education.length} education entries; dates count only when explicitly supplied.`,
     "Add verified education details or dates if available.");
-  const skillScore = (skills.length >= 1 ? 5 : 0) + (skills.length >= 4 ? 5 : 0) + (skills.length >= 8 ? 5 : 0);
-  add("skills", skillScore, `${skills.length} individually stored skills.`, "Add relevant, verified skills individually.");
+  const skillScore = (distinctSkillCount >= 1 ? 5 : 0) + (distinctSkillCount >= 4 ? 5 : 0) + (distinctSkillCount >= 8 ? 5 : 0);
+  add("skills", skillScore, `${distinctSkillCount} distinct, individually stored skills.`, "Add relevant, verified skills individually.");
   const sectionIds = resume.sections.map((section) => section.id);
   const formatScore = resume.sections[0]?.id === "identity" &&
     sectionIds.every((id, index) => index === 0 || id !== "identity") &&
