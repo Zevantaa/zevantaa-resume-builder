@@ -5,7 +5,14 @@ begin;
 
 -- The event trigger invokes this function internally; the application never
 -- needs direct EXECUTE, including through its service-role client.
-revoke execute on function public.rls_auto_enable() from public, anon, authenticated, service_role;
+do $$
+begin
+  if to_regprocedure('public.rls_auto_enable()') is not null then
+    revoke execute on function public.rls_auto_enable()
+      from public, anon, authenticated, service_role;
+  end if;
+end
+$$;
 
 revoke all on all tables in schema public from anon, authenticated;
 revoke all on all sequences in schema public from anon, authenticated;
