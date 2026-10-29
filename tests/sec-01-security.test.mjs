@@ -19,7 +19,7 @@ test("external URL validator rejects active, internal, credential and malformed 
 
 test("prepared migration revokes direct table/RPC access and covers review FK", () => {
   const sql = source("supabase/migrations/20261010212007_sec_01_least_privilege_and_audit.sql");
-  assert.match(sql, /revoke execute on function public\.rls_auto_enable\(\) from public, anon, authenticated, service_role/i);
+  assert.match(sql, /revoke execute on function public\.rls_auto_enable\(\)\s+from public, anon, authenticated, service_role/i);
   assert.match(sql, /revoke all on all tables in schema public from anon, authenticated/i);
   assert.match(sql, /grant select on public\.user_roles to authenticated/i);
   assert.match(sql, /on public\.profile_resume_reviews \(confirmed_by_user_id\)/i);
