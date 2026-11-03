@@ -119,9 +119,9 @@ test("unknown, null, and mismatched package state show no entitlements", () => {
 
 test("profile status uses real upload and review evidence; GCC photo is optional", () => {
   assert.equal(buildClientDashboardView(summary("gcc-middle-east"), evidence("gcc-middle-east", { resume: null }), score).profileStatus, "Profile setup incomplete");
-  assert.equal(buildClientDashboardView(summary("gcc-middle-east"), evidence("gcc-middle-east", { reviewConfirmed: false }), score).profileStatus, "Resume under review");
+  assert.equal(buildClientDashboardView(summary("gcc-middle-east"), evidence("gcc-middle-east", { reviewConfirmed: false }), score).profileStatus, "Resume processing or input required");
   assert.equal(buildClientDashboardView(summary("gcc-middle-east"), evidence("gcc-middle-east"), { status: "not-ready", benchmark: 90, reasons: [] }).profileStatus, "Profile reviewed/confirmed");
-  assert.equal(buildClientDashboardView(summary("gcc-middle-east"), evidence("gcc-middle-east"), score).profileStatus, "Ready for document generation");
+  assert.equal(buildClientDashboardView(summary("gcc-middle-east"), evidence("gcc-middle-east"), score).profileStatus, "Document generation in progress");
   assert.equal(buildClientDashboardView(summary("gcc-middle-east"), evidence("gcc-middle-east"), score).photoAvailable, false);
 });
 

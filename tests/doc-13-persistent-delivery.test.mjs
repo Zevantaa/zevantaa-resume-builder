@@ -33,7 +33,7 @@ registerHooks({ resolve(specifier, context, nextResolve) {
 const { createLongGlobalAtsQaProfile } = await import("../src/features/document-generation/global-ats-qa-fixture.ts");
 const { generateAndPersistDocument, generateAndPersistAdminDocument, assertGeneratedPdf } =
   await import("../src/features/document-generation/persistent-document-service.ts");
-const { processDocumentRegenerationJobs } = await import("../src/features/document-generation/document-regeneration-service.ts");
+const { processDocumentRegenerationJobs, processGlobalDocumentRegenerationJobs } = await import("../src/features/document-generation/document-regeneration-service.ts");
 const { V1_DOCUMENT_OUTPUTS } = await import("../src/features/document-generation/package-routing.ts");
 const source = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -74,11 +74,12 @@ function setup() {
     },
     rpc: async (name, args) => {
       if (name === "claim_document_regeneration_job") {
-        const job = state.jobs.find((entry) => entry.status === "pending" && entry.candidate_profile_id === args.p_profile_id);
+        const job = state.jobs.find((entry) => entry.status === "pending" &&
+          (args.p_profile_id === null || entry.candidate_profile_id === args.p_profile_id));
         if (!job) return { data: [], error: null };
         job.status = "processing";
         job.lease_token = `lease-${job.job_id}`;
-        return { data: [job], error: null };
+        return { data: [{ ...job, actor_user_id: job.actor_user_id }], error: null };
       }
       if (name === "fail_document_regeneration_job") {
         const job = state.jobs.find((entry) => entry.job_id === args.p_job_id && entry.lease_token === args.p_lease_token);
@@ -165,6 +166,16 @@ test("bounded job claims publish the current revision once; failed work remains 
   assert.equal(state.docs.length, 1);
 });
 
+test("global bounded claims use the active linked client provenance actor", async () => {
+  const state = setup();
+  state.jobs.push({ job_id: "global-job", candidate_profile_id: state.profile.id,
+    output_kind: "global-ats-resume", source_career_revision: 0, status: "pending",
+    actor_user_id: "client-test" });
+  assert.deepEqual(await processGlobalDocumentRegenerationJobs(1), { completed: 1, failed: 0 });
+  assert.equal(state.jobs[0].status, "completed");
+  assert.equal(state.docs.length, 1);
+});
+
 test("stale career revision and an unentitled job cannot publish a current document", async () => {
   const state = setup();
   state.revision = 2;
@@ -203,4 +214,20 @@ test("migration keeps dedicated private bucket, output uniqueness, leases and se
   assert.match(sql, /enable row level security/);
   assert.match(sql, /grant execute on function public\.publish_generated_document[\s\S]*to service_role/);
   assert.doesNotMatch(sql, /grant .*document_regeneration_jobs to authenticated/);
+});
+
+test("entitlement orchestration enqueues exact outputs and preserves inaccessible history", () => {
+  const sql = source("supabase/migrations/20261103221521_automated_entitlement_orchestration.sql");
+  assert.match(sql, /when 'executive-transition-agency-distribution' then[\s\S]*p_output <> 'global-ats-employer-masked'/i);
+  assert.match(sql, /profile_resume_reviews_enqueue_outputs/i);
+  assert.match(sql, /candidate_profiles_reconcile_package_outputs/i);
+  assert.match(sql, /perform public\.enqueue_entitled_document_outputs\(new\.id\)/i);
+  assert.match(sql, /set status = 'outdated'[\s\S]*not public\.is_v1_output_entitled/i);
+  assert.match(sql, /last_error_code = 'no-longer-entitled'/i);
+  assert.match(sql, /on conflict \(candidate_profile_id, output_kind, source_career_revision\)/i);
+  assert.match(sql, /p_profile_id is null or q\.candidate_profile_id = p_profile_id/i);
+  assert.match(sql, /for update of q skip locked/i);
+  assert.match(sql, /document_regeneration_jobs_global_claim_idx/i);
+  assert.match(sql, /revoke all on function public\.enqueue_entitled_document_outputs\(uuid\)[\s\S]*from public, anon, authenticated/i);
+  assert.doesNotMatch(sql, /delete from public\.document_records/i);
 });
