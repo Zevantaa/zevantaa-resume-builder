@@ -9,7 +9,8 @@ export type ResumeProcessingFindingCode =
   | "source-unreadable"
   | "source-needs-replacement"
   | "ambiguous-career-facts"
-  | "missing-substantive-career-history";
+  | "missing-substantive-career-history"
+  | "existing-profile-merge-required";
 
 export type ResumeProcessingFinding = {
   code: ResumeProcessingFindingCode;
@@ -118,5 +119,21 @@ export function assessResumeExtraction(extraction: ResumeExtractionResult): Resu
       parserWarnings: draft.warnings,
       extractionWarnings: extraction.warnings,
     },
+  };
+}
+
+/** Prevent a replacement source from silently appending to canonical facts. */
+export function requireExistingProfileMergeInput(
+  assessment: Extract<ResumeProcessingAssessment, { outcome: "completed" | "needs-input" }>,
+): Extract<ResumeProcessingAssessment, { outcome: "completed" | "needs-input" }> {
+  if (assessment.outcome !== "completed") return assessment;
+  return {
+    ...assessment,
+    outcome: "needs-input",
+    findings: [{
+      code: "existing-profile-merge-required",
+      message: "Review the extracted details against the existing profile before replacing or adding career facts.",
+    }],
+    structuredResult: { ...assessment.structuredResult, autoAcceptable: false },
   };
 }
