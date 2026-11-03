@@ -73,6 +73,9 @@ function setup() {
       }),
     },
     rpc: async (name, args) => {
+      if (name === "record_ats_assessment_snapshot") {
+        return { data: "ats-snapshot", error: null };
+      }
       if (name === "claim_document_regeneration_job") {
         const job = state.jobs.find((entry) => entry.status === "pending" &&
           (args.p_profile_id === null || entry.candidate_profile_id === args.p_profile_id));

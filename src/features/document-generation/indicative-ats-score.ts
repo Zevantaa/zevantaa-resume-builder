@@ -5,6 +5,7 @@ import { normalizeSkillName } from "../client-portal/skill-name";
 
 /** Fixed optimization target, never a minimum or adjustment to the calculated score. */
 export const ATS_BENCHMARK = 90;
+export const ATS_ALGORITHM_VERSION = "zevantaa-indicative-ats-v1";
 export const ATS_SCORE_WEIGHTS = {
   contact: 15,
   summary: 10,
