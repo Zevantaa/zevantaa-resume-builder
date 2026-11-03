@@ -30,13 +30,17 @@ export async function getClientDashboardEvidence(): Promise<ClientDashboardEvide
   if (!profile) return null;
 
   const currentIds = [profile.existing_resume_file_id, profile.gcc_photo_file_id].filter((id): id is string => typeof id === "string");
-  const [currentFilesResult, reviewResult, documentsResult, jobsResult] = await Promise.all([
+  const [currentFilesResult, reviewResult, processingResult, documentsResult, jobsResult] = await Promise.all([
     currentIds.length ? db.from("file_records")
       .select("id, purpose, original_file_name, status, version_number, candidate_profile_id")
       .eq("candidate_profile_id", linked.profileId).in("id", currentIds).is("archived_at", null)
       : Promise.resolve({ data: [], error: null }),
     profile.existing_resume_file_id ? db.from("profile_resume_reviews")
       .select("id").eq("candidate_profile_id", linked.profileId)
+      .eq("source_file_id", profile.existing_resume_file_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    profile.existing_resume_file_id ? db.from("resume_processing_jobs")
+      .select("status, input_confirmed_by_user_id").eq("candidate_profile_id", linked.profileId)
       .eq("source_file_id", profile.existing_resume_file_id).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     db.from("document_records")
@@ -47,7 +51,7 @@ export async function getClientDashboardEvidence(): Promise<ClientDashboardEvide
       .eq("candidate_profile_id", linked.profileId).eq("source_career_revision", profile.career_revision)
       .in("status", ["pending", "processing", "failed"]),
   ]);
-  if (currentFilesResult.error || reviewResult.error || documentsResult.error || jobsResult.error) {
+  if (currentFilesResult.error || reviewResult.error || processingResult.error || documentsResult.error || jobsResult.error) {
     throw new Error("The client dashboard status could not be loaded.");
   }
 
@@ -88,7 +92,8 @@ export async function getClientDashboardEvidence(): Promise<ClientDashboardEvide
     resume: resumeRow ? { fileName: resumeRow.original_file_name, status: resumeRow.status,
       versionNumber: resumeRow.version_number } : null,
     photo: photoRow ? { fileName: photoRow.original_file_name, status: photoRow.status } : null,
-    reviewConfirmed: Boolean(reviewResult.data && resumeRow?.status === "available"),
+    reviewConfirmed: Boolean(resumeRow?.status === "available" && (reviewResult.data ||
+      (processingResult.data?.status === "completed" && processingResult.data.input_confirmed_by_user_id))),
     downloadableDocuments,
     documentDetails,
     documentUpdates,

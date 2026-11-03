@@ -67,7 +67,7 @@ function setup() {
   };
   const records = { candidate_profiles: state.profiles, file_records: state.files,
     profile_resume_reviews: state.reviews, document_records: state.documents,
-    document_regeneration_jobs: [] };
+    document_regeneration_jobs: [], resume_processing_jobs: [] };
   state.db = {
     from(table) {
       const filters = [];

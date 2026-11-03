@@ -45,7 +45,13 @@ current lease token; stale workers cannot publish a result. Each invocation is
 bounded to at most two jobs.
 
 The upload Server Action schedules one best-effort request-time job after the
-durable database commit. This reduces latency but is not the unattended
-scheduler. A later phase will add the reviewed Supabase/Vercel scheduled worker,
-automatic canonical-profile acceptance, ATS provenance, and entitled document
-generation.
+durable database commit. Supabase Cron can also invoke the protected Vercel
+worker every minute after the explicit environment activation gate described in
+`AUTOMATION_SCHEDULER_RUNBOOK.md`.
+
+Unambiguous first-source proposals are accepted atomically. A replacement that
+would merge with existing career facts becomes `needs-input`. The linked client
+can confirm or correct only the stored proposals, or update the authoritative
+career profile and explicitly confirm it. Both paths re-check the current
+source and active client link in the database before entitled outputs are
+queued.

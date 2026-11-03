@@ -7,12 +7,14 @@ import { ClientIntakeForm } from "./client-intake-form";
 import { getClientIntakeFiles } from "./client-intake-service";
 import { getClientContactProfile } from "./contact-profile-service";
 import { getClientProfileDetails } from "./profile-details-service";
+import { getClientResumeInputReview } from "./client-resume-input-service";
 
 export async function ClientProfilePage() {
-  const [profile, details, files] = await Promise.all([
+  const [profile, details, files, resumeInput] = await Promise.all([
     getClientContactProfile(),
     getClientProfileDetails(),
     getClientIntakeFiles(),
+    getClientResumeInputReview(),
   ]);
 
   return (
@@ -45,6 +47,7 @@ export async function ClientProfilePage() {
               </InlineAlert>
             )}
           </Card>
+          {resumeInput && <InlineAlert variant="warning">Your current resume needs a few verified details. <Link href="/client/resume-input">Review the requested details</Link>.</InlineAlert>}
           <section className="dashboard-profile-upcoming" aria-labelledby="career-profile-heading">
             <p className="type-label dashboard-kicker">Career updates</p>
             <h2 className="type-heading-3" id="career-profile-heading">Keep your career facts current</h2>
