@@ -9,6 +9,11 @@ alter table public.profile_resume_reviews
 comment on column public.profile_resume_reviews.review_mode is
   'How reviewed source facts entered the canonical profile; never an assertion of fact quality.';
 
+-- Existing grants intentionally allow only SELECT/INSERT. The service-only
+-- acceptance paths below update this one provenance column after the atomic
+-- review insert, so grant only the missing column privilege.
+grant update (review_mode) on public.profile_resume_reviews to service_role;
+
 -- Preserve the existing atomic write implementation while allowing the active
 -- linked client to be the provenance actor. EXECUTE remains service-role-only.
 create or replace function public.confirm_resume_review(

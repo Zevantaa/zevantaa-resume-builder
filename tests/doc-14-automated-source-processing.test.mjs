@@ -166,7 +166,7 @@ test("migration creates a private durable lease queue tied to source-pointer cha
   assert.match(sql, /revoke all on public\.resume_processing_jobs from public, anon, authenticated/i);
   assert.match(sql, /candidate_profiles_enqueue_source_processing/i);
   assert.match(sql, /for update skip locked/i);
-  assert.match(sql, /lease_until = now\(\) \+ interval '5 minutes'/i);
+  assert.match(sql, /lease_until = now\(\) \+ interval '6 minutes'/i);
   assert.match(sql, /unique \(candidate_profile_id, source_file_id\)/i);
   assert.match(sql, /source-replaced/i);
   assert.doesNotMatch(sql, /grant .*resume_processing_jobs to authenticated/i);
@@ -181,6 +181,7 @@ test("automatic acceptance is service-only, atomic and refuses profile merges", 
   assert.match(sql, /jsonb_array_length\(p_readiness_findings\) <> 0/i);
   assert.match(sql, /public\.confirm_resume_review_v2/i);
   assert.match(sql, /set review_mode = 'automatic'/i);
+  assert.match(sql, /grant update \(review_mode\) on public\.profile_resume_reviews to service_role/i);
   assert.match(sql, /from public\.user_roles r[\s\S]*r\.role_code = 'client'[\s\S]*r\.candidate_profile_id = v_job\.candidate_profile_id/i);
   assert.match(sql, /revoke all on function public\.accept_automated_resume_processing_job[\s\S]*from public, anon, authenticated/i);
   assert.doesNotMatch(sql, /grant execute on function public\.accept_automated_resume_processing_job[\s\S]*to authenticated/i);

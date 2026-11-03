@@ -52,7 +52,10 @@ export function isDownloadableClientDocument(
   careerRevision?: number,
 ): file is StoredDocumentFileRow {
   const output = resolveStoredDocumentOutput(document);
-  if (!output || !packageAllowsOutput(packageCode, output) || document.package_code !== packageCode ||
+  // package_code records the package under which this immutable version was
+  // generated. Current entitlement is authoritative for access, so a package
+  // change must not hide a still-entitled shared output or rewrite history.
+  if (!output || !packageAllowsOutput(packageCode, output) ||
       (careerRevision !== undefined && document.source_career_revision !== careerRevision) ||
       document.candidate_profile_id !== profileId || !file || document.file_record_id !== file.id ||
       file.candidate_profile_id !== profileId || file.purpose !== "generated-document" ||

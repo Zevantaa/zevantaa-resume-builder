@@ -122,6 +122,8 @@ test("migration binds input to active client, current source and stored proposal
   assert.match(sql, /r\.user_id = p_actor_user_id[\s\S]*r\.candidate_profile_id = v_job\.candidate_profile_id/i);
   assert.match(sql, /stored->>'id' = approved->>'id'/i);
   assert.match(sql, /stored->'sourceLines' = approved->'sourceLines'/i);
+  assert.match(sql, /item->>'section' in \('employment', 'education', 'projects'\)/i);
+  assert.match(sql, /Substantive career history is required before document generation/i);
   assert.match(sql, /set review_mode = 'client-confirmed'/i);
   assert.match(sql, /input_confirmed_by_user_id = p_actor_user_id/i);
   assert.match(sql, /perform public\.enqueue_entitled_document_outputs/i);

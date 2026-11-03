@@ -221,7 +221,9 @@ test("migration keeps dedicated private bucket, output uniqueness, leases and se
 
 test("entitlement orchestration enqueues exact outputs and preserves inaccessible history", () => {
   const sql = source("supabase/migrations/20261103221521_automated_entitlement_orchestration.sql");
-  assert.match(sql, /when 'executive-transition-agency-distribution' then[\s\S]*p_output <> 'global-ats-employer-masked'/i);
+  const executive = sql.match(/when 'executive-transition-agency-distribution' then p_output in \(([\s\S]*?)\)\s*else false/i)?.[1] ?? "";
+  assert.equal((executive.match(/'[^']+'/g) ?? []).length, 11);
+  assert.doesNotMatch(executive, /global-ats-employer-masked/i);
   assert.match(sql, /profile_resume_reviews_enqueue_outputs/i);
   assert.match(sql, /candidate_profiles_reconcile_package_outputs/i);
   assert.match(sql, /perform public\.enqueue_entitled_document_outputs\(new\.id\)/i);
@@ -231,6 +233,7 @@ test("entitlement orchestration enqueues exact outputs and preserves inaccessibl
   assert.match(sql, /p_profile_id is null or q\.candidate_profile_id = p_profile_id/i);
   assert.match(sql, /for update of q skip locked/i);
   assert.match(sql, /document_regeneration_jobs_global_claim_idx/i);
+  assert.match(sql, /lease_until = now\(\) \+ interval '6 minutes'/i);
   assert.match(sql, /revoke all on function public\.enqueue_entitled_document_outputs\(uuid\)[\s\S]*from public, anon, authenticated/i);
   assert.doesNotMatch(sql, /delete from public\.document_records/i);
 });

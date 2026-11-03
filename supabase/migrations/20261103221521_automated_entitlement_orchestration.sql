@@ -29,8 +29,12 @@ as $$
       'global-ats-resume', 'domestic-resume-1', 'domestic-resume-2',
       'domestic-resume-3', 'domestic-resume-4', 'domestic-resume-5',
       'gcc-resume', 'europass-eu-resume')
-    when 'executive-transition-agency-distribution' then
-      p_output <> 'global-ats-employer-masked'
+    when 'executive-transition-agency-distribution' then p_output in (
+      'global-ats-resume', 'domestic-resume-1', 'domestic-resume-2',
+      'domestic-resume-3', 'domestic-resume-4', 'domestic-resume-5',
+      'gcc-resume', 'europass-eu-resume',
+      'general-corporate-cover-letter', 'international-relocation-cover-letter',
+      'technology-startup-cover-letter')
     else false
   end;
 $$;
@@ -171,7 +175,7 @@ as $$
 begin
   update public.document_regeneration_jobs j
   set status = 'processing', lease_token = gen_random_uuid(),
-      lease_until = now() + interval '3 minutes', attempts = j.attempts + 1,
+      lease_until = now() + interval '6 minutes', attempts = j.attempts + 1,
       updated_at = now()
   where j.id = (
     select q.id

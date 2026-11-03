@@ -61,6 +61,24 @@ begin
     raise exception 'Confirmed entries must match the stored proposal set';
   end if;
 
+  -- A client cannot clear a critical readiness gate by confirming only a
+  -- summary, skill, language or certification. Require substantive career
+  -- history either in this exact approved set or already in the canonical
+  -- profile before the review insert can enqueue package outputs.
+  if not exists (
+    select 1 from jsonb_array_elements(p_approved) item
+    where item->>'section' in ('employment', 'education', 'projects')
+  ) and not (
+    exists (select 1 from public.profile_work_experiences x
+      where x.candidate_profile_id = v_job.candidate_profile_id and x.archived_at is null)
+    or exists (select 1 from public.profile_education_entries x
+      where x.candidate_profile_id = v_job.candidate_profile_id and x.archived_at is null)
+    or exists (select 1 from public.profile_projects x
+      where x.candidate_profile_id = v_job.candidate_profile_id and x.archived_at is null)
+  ) then
+    raise exception 'Substantive career history is required before document generation';
+  end if;
+
   select jsonb_agg(item - 'id' order by ordinal)
   into v_clean_approved
   from jsonb_array_elements(p_approved) with ordinality entries(item, ordinal);

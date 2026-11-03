@@ -153,7 +153,7 @@ begin
   update public.resume_processing_jobs j
   set status = 'processing',
       lease_token = gen_random_uuid(),
-      lease_until = now() + interval '5 minutes',
+      lease_until = now() + interval '6 minutes',
       attempts = j.attempts + 1,
       updated_at = now(),
       last_error_code = null
