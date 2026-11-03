@@ -43,6 +43,8 @@ group by status order by status;
 
 select status::text, count(*) as jobs,
   count(*) filter (where attempts >= 3) as at_max_attempts,
+  count(*) filter (where status = 'processing' and lease_until < now())
+    as expired_document_leases,
   min(created_at) as oldest_created_at
 from public.document_regeneration_jobs
 group by status order by status;
@@ -72,6 +74,43 @@ from (
 ```
 
 The metadata join detects some orphan references, but it cannot prove that Storage object bytes are intact or that no unreferenced Storage objects exist. Validate sampled private bytes with a trusted server read-back and checksum during live QA. Do not expose row-level object keys in an admin page or diagnostic response. Any nonzero missing-file, missing-object, wrong-bucket, or duplicate-current count blocks release until investigated. Pending/failed/max-attempt source or document jobs require age-based triage. A request-time worker kick is an optimization only; release still requires the approved unattended scheduler and recovery verification.
+
+## Automation and ATS provenance
+
+Run this section only after the automation and ATS migrations have been reviewed and applied. It reports schedule metadata and aggregate provenance integrity without exposing bearer values, candidate prose, document bytes or object keys.
+
+```sql
+select jobname, schedule, active
+from cron.job
+where jobname = 'zevantaa-automation-worker';
+
+select status, count(*) as scheduler_runs,
+  max(end_time) as latest_scheduler_completion
+from cron.job_run_details
+where jobid in (
+  select jobid from cron.job where jobname = 'zevantaa-automation-worker'
+)
+  and start_time >= now() - interval '24 hours'
+group by status order by status;
+
+select count(*) as invalid_ats_snapshot_totals
+from public.ats_assessment_snapshots s
+where s.score <> (
+  select coalesce(sum((item->>'score')::integer), -1)
+  from jsonb_array_elements(s.breakdown) item
+)
+or 100 <> (
+  select coalesce(sum((item->>'maximum')::integer), -1)
+  from jsonb_array_elements(s.breakdown) item
+);
+
+select count(*) as stale_current_ats_snapshots
+from public.ats_assessment_snapshots s
+join public.candidate_profiles p on p.id = s.candidate_profile_id
+where s.career_revision > p.career_revision;
+```
+
+Exactly one active `zevantaa-automation-worker` schedule with the reviewed one-minute expression is expected after activation. No schedule before the authorized activation step is expected and must not be misreported as failure. Investigate failed Cron runs alongside Vercel route logs using only request/run identifiers. Both ATS integrity counts must remain zero; the comparison UI additionally withholds results unless the latest snapshot matches the current revision and both snapshots use the same algorithm version.
 
 ## Database plus Storage restore preparation
 

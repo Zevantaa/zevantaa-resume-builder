@@ -8,7 +8,8 @@ test("release diagnostics cover role and DOC-13 failure states without write SQL
   for (const required of ["active_unlinked_clients", "disabled_unlinked_clients",
     "duplicate_profile_link_groups", "resume_processing_jobs", "document_regeneration_jobs", "at_max_attempts",
     "available_documents_missing_file_record", "available_documents_missing_storage_metadata",
-    "duplicate_current_output_groups", "storage.objects"]) {
+    "duplicate_current_output_groups", "expired_document_leases", "storage.objects",
+    "zevantaa-automation-worker", "invalid_ats_snapshot_totals", "stale_current_ats_snapshots"]) {
     assert.ok(queries.includes(required), required);
   }
   assert.doesNotMatch(queries, /\b(?:update|delete|insert|alter|drop|truncate|execute)\b/i);
