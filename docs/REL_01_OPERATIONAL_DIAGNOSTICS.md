@@ -33,6 +33,14 @@ The previously observed active unlinked client-role row cannot enter `/client`: 
 ## DOC-13 queue and integrity
 
 ```sql
+select status::text, count(*) as source_processing_jobs,
+  count(*) filter (where attempts >= 3) as source_at_max_attempts,
+  count(*) filter (where status = 'processing' and lease_until < now())
+    as expired_source_leases,
+  min(created_at) as oldest_source_created_at
+from public.resume_processing_jobs
+group by status order by status;
+
 select status::text, count(*) as jobs,
   count(*) filter (where attempts >= 3) as at_max_attempts,
   min(created_at) as oldest_created_at
@@ -63,7 +71,7 @@ from (
 ) duplicates;
 ```
 
-The metadata join detects some orphan references, but it cannot prove that Storage object bytes are intact or that no unreferenced Storage objects exist. Validate sampled private bytes with a trusted server read-back and checksum during live QA. Do not expose row-level object keys in an admin page or diagnostic response. Any nonzero missing-file, missing-object, wrong-bucket, or duplicate-current count blocks release until investigated. Pending/failed/max-attempt jobs require age-based triage; the request-driven worker is not an unattended scheduler.
+The metadata join detects some orphan references, but it cannot prove that Storage object bytes are intact or that no unreferenced Storage objects exist. Validate sampled private bytes with a trusted server read-back and checksum during live QA. Do not expose row-level object keys in an admin page or diagnostic response. Any nonzero missing-file, missing-object, wrong-bucket, or duplicate-current count blocks release until investigated. Pending/failed/max-attempt source or document jobs require age-based triage. A request-time worker kick is an optimization only; release still requires the approved unattended scheduler and recovery verification.
 
 ## Database plus Storage restore preparation
 

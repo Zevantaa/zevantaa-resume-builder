@@ -1,7 +1,9 @@
 "use server";
 
 import { requireApplicationRole } from "@/features/authentication/authorization";
+import { processResumeProcessingJobs } from "@/features/document-generation/resume-processing-service";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { saveClientIntake } from "./client-intake-service";
 import type { IntakeActionState } from "./client-intake-types";
@@ -64,17 +66,26 @@ export async function saveClientIntakeAction(
     if (result === "missing") {
       return { status: "error", message: "Your linked profile is unavailable. Contact Zevantaa support." };
     }
+    if (result === "unchanged") {
+      return { status: "success", savedAt: Date.now(), message: "This resume is already your current private source file. No duplicate version was created." };
+    }
     if (process.env.NODE_ENV === "production") {
       const { recordSecurityEvent } = await import("@/lib/security/audit-events");
       if (resume) await recordSecurityEvent({ eventType: "client.resume.replaced", actorUserId: actor.userId!, outcome: "success" });
       if (photo) await recordSecurityEvent({ eventType: "client.photo.replaced", actorUserId: actor.userId!, outcome: "success" });
+    }
+    if (resume) {
+      after(async () => {
+        try { await processResumeProcessingJobs(1); }
+        catch { /* The durable job remains available for the scheduled worker. */ }
+      });
     }
     revalidatePath("/client/profile");
     if (result === "saved-with-warning") {
       return { status: "warning", savedAt: Date.now(), message: "Your intake was saved, but a previous file's history status could not be updated. Contact Zevantaa support if the file list looks incorrect." };
     }
     const saved = [resume ? "source resume" : null, photo ? "GCC photograph" : null].filter(Boolean).join(" and ");
-    return { status: "success", savedAt: Date.now(), message: `Your ${saved} was saved privately. ${resume ? "The new source resume needs administrator review before extracted changes can affect your structured profile. " : ""}No document processing has started.` };
+    return { status: "success", savedAt: Date.now(), message: `Your ${saved} was saved privately. ${resume ? "Automatic resume processing has started. You will only be asked to review details that cannot be resolved safely. " : ""}` };
   } catch (error) {
     if (error instanceof IntakeFileValidationError && error.field) {
       return { status: "error", errors: { [error.field]: error.message }, message: "Review the highlighted file and try again." };

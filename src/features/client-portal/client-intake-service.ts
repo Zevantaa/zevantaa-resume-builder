@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { FilePurpose } from "@/types/file-upload";
@@ -23,6 +23,7 @@ type FileRow = {
   mime_type: string;
   status: string;
   version_number: number;
+  content_sha256: string | null;
 };
 
 async function loadCurrentFile(
@@ -34,7 +35,7 @@ async function loadCurrentFile(
   if (!fileId) return null;
   const { data, error } = await supabase
     .from("file_records")
-    .select("id, candidate_profile_id, purpose, original_file_name, mime_type, status, version_number")
+    .select("id, candidate_profile_id, purpose, original_file_name, mime_type, status, version_number, content_sha256")
     .eq("id", fileId)
     .eq("candidate_profile_id", profileId)
     .eq("purpose", purpose)
@@ -72,7 +73,7 @@ export type IntakeSaveValues = {
   photo: File | null;
 };
 
-export async function saveClientIntake(values: IntakeSaveValues): Promise<"saved" | "saved-with-warning" | "missing"> {
+export async function saveClientIntake(values: IntakeSaveValues): Promise<"saved" | "saved-with-warning" | "unchanged" | "missing"> {
   const linked = await resolveLinkedClientProfile();
   if (!linked) return "missing";
   const supabase = createSupabaseAdminClient();
@@ -97,16 +98,27 @@ export async function saveClientIntake(values: IntakeSaveValues): Promise<"saved
   }
 
   // Validate all supplied bytes before writing anything to Storage or Postgres.
-  const [resumeUpload, photoUpload] = await Promise.all([
+  const [validatedResumeUpload, photoUpload] = await Promise.all([
     values.resume ? validateIntakeFile(values.resume, "source-resume") : null,
     values.photo ? validateIntakeFile(values.photo, "gcc-profile-photo") : null,
   ]);
+  let resumeUpload = validatedResumeUpload;
   if (photoUpload) await validateDecodedIntakePhoto(photoUpload.bytes, photoUpload.metadata.extension);
+  const resumeSha256 = resumeUpload
+    ? createHash("sha256").update(resumeUpload.bytes).digest("hex")
+    : null;
+  if (resumeUpload && oldResume?.content_sha256 === resumeSha256) {
+    // Re-uploading the current validated bytes is idempotent: do not create a
+    // duplicate private object, file version, or processing job.
+    resumeUpload = null;
+  }
+  if (!resumeUpload && !photoUpload) return "unchanged";
   const created: { id: string; key: string }[] = [];
 
   async function store(
     upload: NonNullable<typeof resumeUpload>,
     prior: FileRow | null,
+    contentSha256: string | null = null,
   ): Promise<string> {
     const id = randomUUID();
     // Object keys contain only a server-resolved profile UUID and generated UUID.
@@ -136,6 +148,7 @@ export async function saveClientIntake(values: IntakeSaveValues): Promise<"saved
       status: "available",
       version_number: prior ? prior.version_number + 1 : 1,
       replaces_file_id: prior?.id ?? null,
+      content_sha256: contentSha256,
       uploaded_at: now,
       created_by_user_id: linked!.userId,
       updated_by_user_id: linked!.userId,
@@ -145,7 +158,7 @@ export async function saveClientIntake(values: IntakeSaveValues): Promise<"saved
   }
 
   try {
-    const resumeId = resumeUpload ? await store(resumeUpload, oldResume) : oldResume!.id;
+    const resumeId = resumeUpload ? await store(resumeUpload, oldResume, resumeSha256) : oldResume!.id;
     const photoId = photoUpload ? await store(photoUpload, oldPhoto) : oldPhoto?.id ?? null;
     let update = supabase
       .from("candidate_profiles")
