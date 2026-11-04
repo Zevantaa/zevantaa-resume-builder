@@ -4,7 +4,7 @@ Classification matters: **V1 design limitation** describes the intended implemen
 
 | Item | Class | Handover implication |
 | --- | --- | --- |
-| No always-on regeneration worker; bounded request-driven processing | V1 design limitation | Career saves/authorized library visits can schedule limited jobs; idle queues need operator monitoring. Do not claim unattended processing. |
+| Supabase Cron automation is prepared but not activated | Temporary release gate | Apply the reviewed migrations, configure matching Vercel/Vault secrets, explicitly activate the Zevantaa-owned schedule, and verify recovery/queue progress. Request-time kicks remain an optimization, not the unattended guarantee. |
 | Legacy generated rows with null output identity | Temporary release gate | Identity cannot be guessed. Review and reconcile before treating historical rows as current client outputs. |
 | DOC-13 migration filename/history timestamp discrepancy | Temporary release gate | Both DOC-13 SQL bodies were recorded under later remote versions; do not replay. Complete the 15-row equivalence/reconciliation review. |
 | Production domain, Vercel variables, Supabase Auth/Storage, SMTP and live QAT | Temporary release gate | Provider/manual evidence is OPEN; no production-live claim. |

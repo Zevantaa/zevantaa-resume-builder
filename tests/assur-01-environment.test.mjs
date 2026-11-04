@@ -9,6 +9,7 @@ const valid = {
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_fixture",
   SUPABASE_SECRET_KEY: "fixture-secret-for-validator-only",
   SECURITY_RATE_LIMIT_KEY: "fixture-long-rate-key-which-is-not-a-credential",
+  AUTOMATION_WORKER_SECRET: "fixture-automation-key-which-is-not-a-credential",
 };
 
 test("deployment environment is explicit and local development stays usable", () => {
@@ -50,6 +51,7 @@ test("production rejects localhost, insecure origins and secret keys in public v
   assert.ok(validateEnvironment("production", { ...valid, NEXT_PUBLIC_APP_URL: "https://resume.example.test/extra" }).length > 0);
   assert.ok(validateEnvironment("production", { ...valid, NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co/extra" }).length > 0);
   assert.ok(validateEnvironment("production", { ...valid, SECURITY_RATE_LIMIT_KEY: "too-short" }).length > 0);
+  assert.ok(validateEnvironment("production", { ...valid, AUTOMATION_WORKER_SECRET: "too-short" }).length > 0);
   assert.ok(validateEnvironment("production", { ...valid, SUPABASE_SECRET_KEY: "sb_publishable_fixture" }).some((item) => item.includes("server")));
 });
 

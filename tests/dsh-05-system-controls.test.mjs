@@ -94,11 +94,13 @@ test("source and photo replacement validate first, swap own linkage, preserve hi
   assert.match(intake, /isGccPhotoAvailable\(profile\.selected_package_code\)/);
 });
 
-test("client action remains role-checked and rejects administrative field tampering", () => {
+test("client action remains role-checked, rejects administrative tampering, and starts durable processing", () => {
   assert.match(intakeAction, /requireApplicationRole\("client"\)/);
   assert.match(intakeAction, /candidateProfileId/);
   assert.match(intakeAction, /selected_package_code/);
-  assert.match(intakeAction, /needs administrator review/);
+  assert.match(intakeAction, /Automatic resume processing has started/);
+  assert.match(intakeAction, /processResumeProcessingJobs\(1\)/);
+  assert.doesNotMatch(intakeAction, /needs administrator review/);
   assert.match(source("src/features/client-portal/client-intake-form.tsx"), /disabled=\{isPending\}/);
 });
 

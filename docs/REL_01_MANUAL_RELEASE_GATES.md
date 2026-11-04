@@ -14,6 +14,8 @@ This register is deliberately separate from `npm run release:verify`. No item be
 | GitHub branch rules / plan | Confirm whether current plan permits effective `develop`/`main` rules; upgrade to Team or choose an approved compensating control if enforcement requires it; record required Quality and security check context | OPEN |
 | Authenticated live QAT | Admin/client login/logout/session, disabled user, cross-role and cross-client denial, recovery newest/reused/expired link | OPEN |
 | DOC-13 live QA | Private read-back, eleven output families, version/current uniqueness, regeneration jobs, new-session downloads, masked lineage and orphan count | OPEN |
+| Unattended automation | Apply the scheduler migration; configure separate matching Vercel/Vault secrets; explicitly activate Supabase Cron; verify authenticated minute invocation, bounded progress, safe overlap, retry and expired-lease recovery | OPEN |
+| ATS provenance | Apply the snapshot migration; generate two reviewed career revisions; verify genuine versioned comparison, no 90-point floor, stale/cross-version withholding and service-role-only access | OPEN |
 | Mobile-device QA | Mainstream phone/tablet/desktop interaction and horizontal-overflow evidence | OPEN |
 | Human PDF visual QA | Long-content and Unicode visual inspection across output families and masked copy | OPEN |
 | Database + Storage restore drill | Isolated restore with both DB and private object bytes; measured RTO/RPO and reviewer sign-off | OPEN |

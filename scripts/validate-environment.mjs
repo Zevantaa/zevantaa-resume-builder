@@ -1,7 +1,10 @@
 import { pathToFileURL } from "node:url";
 
 const PLACEHOLDER = /^(?:$|your[-_]|replace[-_]|placeholder|example|change[-_])/i;
-const REQUIRED = ["NEXT_PUBLIC_APP_URL", "NEXT_PUBLIC_SUPABASE_URL", "SECURITY_RATE_LIMIT_KEY"];
+const REQUIRED = [
+  "NEXT_PUBLIC_APP_URL", "NEXT_PUBLIC_SUPABASE_URL", "SECURITY_RATE_LIMIT_KEY",
+  "AUTOMATION_WORKER_SECRET",
+];
 
 export function validateEnvironment(environment, values = process.env) {
   const problems = [];
@@ -46,6 +49,10 @@ export function validateEnvironment(environment, values = process.env) {
   if (values.SECURITY_RATE_LIMIT_KEY && !PLACEHOLDER.test(values.SECURITY_RATE_LIMIT_KEY.trim()) &&
       values.SECURITY_RATE_LIMIT_KEY.length < 32) {
     problems.push("SECURITY_RATE_LIMIT_KEY must contain at least 32 characters.");
+  }
+  if (values.AUTOMATION_WORKER_SECRET && !PLACEHOLDER.test(values.AUTOMATION_WORKER_SECRET.trim()) &&
+      values.AUTOMATION_WORKER_SECRET.trim().length < 32) {
+    problems.push("AUTOMATION_WORKER_SECRET must contain at least 32 characters.");
   }
   return problems;
 }

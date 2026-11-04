@@ -81,7 +81,7 @@ export async function ClientDashboardPage() {
               </div>)}
               {!view.outputs.length && <p className="type-supporting text-text-muted">No document outputs can be shown for this package. Contact Zevantaa support.</p>}
               {view.outputs.length > 0 && view.outputs.every((item) => !item.documentId) &&
-                <InlineAlert variant="information">No stored PDFs are available yet. Zevantaa will prepare eligible documents after profile review.</InlineAlert>}
+                <InlineAlert variant="information">No stored PDFs are available yet. Every eligible document is queued automatically as soon as the profile is ready.</InlineAlert>}
             </div>
             <Link className="type-button dashboard-text-link" href="/client/documents">View document workspace</Link>
           </section>

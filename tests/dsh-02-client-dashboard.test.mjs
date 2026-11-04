@@ -67,7 +67,7 @@ function setup() {
   };
   const records = { candidate_profiles: state.profiles, file_records: state.files,
     profile_resume_reviews: state.reviews, document_records: state.documents,
-    document_regeneration_jobs: [] };
+    document_regeneration_jobs: [], resume_processing_jobs: [] };
   state.db = {
     from(table) {
       const filters = [];
@@ -119,9 +119,9 @@ test("unknown, null, and mismatched package state show no entitlements", () => {
 
 test("profile status uses real upload and review evidence; GCC photo is optional", () => {
   assert.equal(buildClientDashboardView(summary("gcc-middle-east"), evidence("gcc-middle-east", { resume: null }), score).profileStatus, "Profile setup incomplete");
-  assert.equal(buildClientDashboardView(summary("gcc-middle-east"), evidence("gcc-middle-east", { reviewConfirmed: false }), score).profileStatus, "Resume under review");
+  assert.equal(buildClientDashboardView(summary("gcc-middle-east"), evidence("gcc-middle-east", { reviewConfirmed: false }), score).profileStatus, "Resume processing or input required");
   assert.equal(buildClientDashboardView(summary("gcc-middle-east"), evidence("gcc-middle-east"), { status: "not-ready", benchmark: 90, reasons: [] }).profileStatus, "Profile reviewed/confirmed");
-  assert.equal(buildClientDashboardView(summary("gcc-middle-east"), evidence("gcc-middle-east"), score).profileStatus, "Ready for document generation");
+  assert.equal(buildClientDashboardView(summary("gcc-middle-east"), evidence("gcc-middle-east"), score).profileStatus, "Document generation in progress");
   assert.equal(buildClientDashboardView(summary("gcc-middle-east"), evidence("gcc-middle-east"), score).photoAvailable, false);
 });
 
@@ -146,18 +146,22 @@ test("private download succeeds only for an owned, entitled, available generated
   assert.deepEqual(state.downloaded, [`${own}/${documentId}/${generatedId}.pdf`]);
 });
 
-test("cross-client, forged IDs, non-entitled package and public storage fail closed", async () => {
+test("cross-client, forged IDs, removed entitlements and public storage fail closed", async () => {
   const state = setup();
   state.profileId = other;
   assert.equal(await downloadCurrentClientDocument(documentId), null);
   state.profileId = own;
   assert.equal(await downloadCurrentClientDocument("../"), null);
   state.profiles[0].selected_package_code = "gcc-middle-east";
+  assert.ok(await downloadCurrentClientDocument(documentId),
+    "a historical package code must not hide a still-entitled shared output");
+  state.documents[0].output_kind = "domestic-resume-1";
   assert.equal(await downloadCurrentClientDocument(documentId), null);
+  state.documents[0].output_kind = "global-ats-resume";
   state.profiles[0].selected_package_code = "indian-domestic";
   state.publicBucket = true;
   assert.equal(await downloadCurrentClientDocument(documentId), null);
-  assert.deepEqual(state.downloaded, []);
+  assert.equal(state.downloaded.length, 1);
 });
 
 test("tampered file path, wrong file owner and non-PDF records cannot download", async () => {

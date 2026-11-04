@@ -31,8 +31,8 @@ export function buildClientDashboardView(
   const reviewConfirmed = Boolean(resumeAvailable && evidence?.reviewConfirmed);
   const profileStatus = !summary || !evidence || !resumeAvailable
     ? "Profile setup incomplete"
-    : !reviewConfirmed ? "Resume under review"
-      : score?.status === "ready" ? "Ready for document generation" : "Profile reviewed/confirmed";
+    : !reviewConfirmed ? "Resume processing or input required"
+      : score?.status === "ready" ? "Document generation in progress" : "Profile reviewed/confirmed";
   const outputs = (routing?.allowedOutputs ?? []).map((output) => {
     const documentId = evidence?.downloadableDocuments[output] ?? null;
     return {
@@ -43,8 +43,8 @@ export function buildClientDashboardView(
         : evidence?.documentUpdates?.[output] === "failed" ? "Update failed"
           : evidence?.documentUpdates?.[output] === "updating" ? "Updating"
             : !reviewConfirmed
-        ? "Available after profile review" : output === "global-ats-resume" && score?.status === "ready"
-          ? "Ready to generate" : "Not yet available",
+        ? "Available when profile details are ready" : score?.status === "ready"
+          ? "Queued automatically" : "Not yet available",
     };
   });
   return { routing, profileStatus, outputs, resumeAvailable, reviewConfirmed,

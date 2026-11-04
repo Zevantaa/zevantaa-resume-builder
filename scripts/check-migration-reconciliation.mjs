@@ -12,7 +12,9 @@ export function readLocalMigrations(directory = migrationsDir) {
   return readdirSync(directory).filter((file) => file.endsWith(".sql")).sort().map((file) => {
     const match = versionPattern.exec(file);
     if (!match) throw new Error(`Invalid migration filename: ${file}`);
-    const body = readFileSync(join(directory, file), "utf8");
+    // Git normalizes repository text to LF, but Windows worktrees may contain
+    // CRLF. Migration equivalence is based on SQL content, not checkout EOLs.
+    const body = readFileSync(join(directory, file), "utf8").replace(/\r\n/g, "\n");
     return {
       version: match[1], name: match[2],
       // Supabase's recorded SQL sometimes omits the source file's final EOL.
