@@ -44,11 +44,11 @@ export async function ClientDocumentWorkspace({ coverLettersOnly = false }: { co
                   : evidence.documentUpdates[item.id] === "updating" ? "Your updated document is being prepared."
                     : "No verified stored PDF yet"}</p>
               {item.documentId ? <Link className="type-button dashboard-primary-link" href={`/client/documents/${item.documentId}/download`}>Download PDF</Link>
-                : <span className="type-supporting text-text-muted">Zevantaa will prepare this entitled output.</span>}
+                : <span className="type-supporting text-text-muted">This entitled output will be prepared automatically.</span>}
             </article>)}
             {!outputs.length && <p className="type-supporting text-text-muted">This package does not include {coverLettersOnly ? "cover letters" : "resume outputs"}. Contact Zevantaa if you need a different package.</p>}
             {outputs.length > 0 && outputs.every((item) => !item.documentId) &&
-              <InlineAlert variant="information">No stored PDFs are available yet. Zevantaa will make eligible documents available after profile review and document preparation.</InlineAlert>}
+              <InlineAlert variant="information">No stored PDFs are available yet. Every eligible document is queued automatically once the profile is ready.</InlineAlert>}
           </div>}
       </section>}
     <Link className="type-button dashboard-text-link" href="/client">Return to overview</Link>

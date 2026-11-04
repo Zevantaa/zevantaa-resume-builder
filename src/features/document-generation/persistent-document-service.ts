@@ -8,6 +8,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { CandidateProfile } from "@/types/client-profile";
 
 import { buildCoverLetterModel } from "./cover-letters";
+import { recordIndicativeAtsAssessment } from "./ats-assessment-snapshot-service";
 import { buildDomesticResumeModel, type DomesticDesignId } from "./domestic-resumes";
 import { buildEuropeanResumeModel } from "./european-resume";
 import { buildGccResumeModel } from "./gcc-resume";
@@ -21,6 +22,7 @@ import type { PdfThemeOverrides } from "./pdf/pdf-theme";
 import { renderPdfDocument } from "./pdf/render-pdf";
 import { buildPrivacyMaskedEmployerResume } from "./privacy-masked-resume";
 import { mapCandidateProfileToDocumentData } from "./profile-mapper";
+import { calculateIndicativeAtsScore } from "./indicative-ats-score";
 
 export const GENERATED_DOCUMENT_BUCKET = "candidate-documents-private";
 export const MAX_GENERATED_PDF_BYTES = 10 * 1024 * 1024;
@@ -97,6 +99,8 @@ export async function generateAndPersistDocument(
   }
   const { profile, revision } = await loadStableProfile(profileId);
   if (options.job && options.job.revision !== revision) throw new Error("Regeneration job is stale.");
+  const atsMapping = mapCandidateProfileToDocumentData(profile, "resume");
+  await recordIndicativeAtsAssessment(profileId, revision, calculateIndicativeAtsScore(atsMapping));
   const db = createSupabaseAdminClient();
   let sourceId: string | null = null;
   if (output === "global-ats-employer-masked") {

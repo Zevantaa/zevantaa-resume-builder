@@ -83,7 +83,7 @@ export function ClientIntakeForm({
       <form action={formAction} aria-busy={isPending} className="client-contact-form" onSubmit={validateBeforeSubmit}>
         <div className="client-profile-section-divider">
           <h2 className="type-heading-3 text-text">Source files</h2>
-          <p className="type-supporting text-text-muted">Your uploads remain private. Saving files does not parse or generate documents.</p>
+          <p className="type-supporting text-text-muted">Your uploads remain private. A saved resume is processed automatically; only uncertain details require your input, and ready profiles generate every package-entitled document automatically.</p>
         </div>
         {state.message && <InlineAlert variant={state.status === "success" ? "success" : state.status === "warning" ? "warning" : "error"}>{state.message}</InlineAlert>}
         <div className="client-intake-file-grid">

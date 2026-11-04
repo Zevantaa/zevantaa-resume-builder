@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { test } from "node:test";
@@ -12,6 +13,8 @@ registerHooks({
       "@/lib/supabase/admin": "export function createSupabaseAdminClient(){return globalThis.__intakeQa.admin}",
       "@/features/authentication/authorization": "export async function requireApplicationRole(role){return globalThis.__intakeQa.requireRole(role)}",
       "next/cache": "export function revalidatePath(path){globalThis.__intakeQa.revalidated=path}",
+      "next/server": "export function after(callback){globalThis.__intakeQa.after=callback}",
+      "@/features/document-generation/resume-processing-service": "export async function processResumeProcessingJobs(){globalThis.__intakeQa.processed=true;return {completed:0,needsInput:0,failed:0}}",
     };
     if (specifier in modules) return { url: mockModule(modules[specifier]), shortCircuit: true };
     if (specifier === "./contact-profile-service" && context.parentURL?.endsWith("client-intake-service.ts")) {
@@ -220,8 +223,8 @@ const oldResumeId = "44444444-4444-4444-8444-444444444444";
 const oldPhotoId = "55555555-5555-4555-8555-555555555555";
 function setupService() {
   const rows = new Map([
-    [oldResumeId, { id: oldResumeId, candidate_profile_id: ownId, purpose: "source-resume", original_file_name: "old.pdf", mime_type: "application/pdf", status: "available", version_number: 1 }],
-    [oldPhotoId, { id: oldPhotoId, candidate_profile_id: ownId, purpose: "gcc-profile-photo", original_file_name: "old.png", mime_type: "image/png", status: "available", version_number: 1 }],
+    [oldResumeId, { id: oldResumeId, candidate_profile_id: ownId, purpose: "source-resume", original_file_name: "old.pdf", mime_type: "application/pdf", status: "available", version_number: 1, content_sha256: null }],
+    [oldPhotoId, { id: oldPhotoId, candidate_profile_id: ownId, purpose: "gcc-profile-photo", original_file_name: "old.png", mime_type: "image/png", status: "available", version_number: 1, content_sha256: null }],
   ]);
   const written = [];
   const uploaded = [];
@@ -291,6 +294,9 @@ test("replacement links only own profile, increments versions and keeps history"
   assert.equal(records.length, 2);
   assert.deepEqual(records.map((item) => item.value.replaces_file_id).sort(), [oldResumeId, oldPhotoId].sort());
   assert.ok(records.every((item) => item.value.version_number === 2 && item.value.candidate_profile_id === ownId && item.value.access_level === "private"));
+  const resumeRecord = records.find((item) => item.value.purpose === "source-resume");
+  assert.equal(resumeRecord.value.content_sha256, createHash("sha256").update(PDF).digest("hex"));
+  assert.equal(records.find((item) => item.value.purpose === "gcc-profile-photo").value.content_sha256, null);
   assert.ok(uploaded.every((item) => item.key.startsWith(`${ownId}/`) && !item.key.includes("new.")));
   assert.notEqual(profile.existing_resume_file_id, oldResumeId);
   assert.notEqual(profile.gcc_photo_file_id, oldPhotoId);
@@ -303,6 +309,15 @@ test("replacement links only own profile, increments versions and keeps history"
   assert.equal(profile.full_name, "Admin Managed Name");
   assert.equal(profile.primary_email, "admin-managed@example.invalid");
   assert.equal(profile.selected_package_code, "domestic-gcc");
+});
+
+test("re-uploading the current resume bytes is idempotent", async () => {
+  const { written, uploaded, rows, profile } = setupService();
+  rows.get(oldResumeId).content_sha256 = createHash("sha256").update(PDF).digest("hex");
+  assert.equal(await saveClientIntake({ resume: file("same.pdf", "application/pdf", PDF), photo: null }), "unchanged");
+  assert.deepEqual(written, []);
+  assert.deepEqual(uploaded, []);
+  assert.equal(profile.existing_resume_file_id, oldResumeId);
 });
 
 test("failed private resume replacement preserves prior linkage and version", async () => {
