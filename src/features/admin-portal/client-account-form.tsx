@@ -24,7 +24,7 @@ export function ClientAccountForm({ candidates, packages }: { candidates: Candid
   } : null);
 
   return (
-    <form action={formAction} className="client-account-form">
+    <form action={formAction} aria-busy={isPending} className="client-account-form">
       {state.status === "success" && state.credentials ? (
         <InlineAlert variant="success">
           <strong>{state.message}</strong>
@@ -48,7 +48,7 @@ export function ClientAccountForm({ candidates, packages }: { candidates: Candid
               setCopyStatus("Copy failed. Select the message text manually.");
             }
           }}>Copy welcome message</button>
-          <span role="status">{copyStatus}</span>
+          <span aria-live="polite" role="status">{copyStatus}</span>
           <a className="auth-text-link" href={state.credentials.emailLink}>Open manual email draft (no password)</a>
           {state.credentials.whatsappLink && <a className="auth-text-link" href={state.credentials.whatsappLink} target="_blank" rel="noopener noreferrer">Open manual WhatsApp draft (no password)</a>}
         </InlineAlert>

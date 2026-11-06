@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { InlineAlert, StatusBadge } from "@/components/ui";
+import { InlineAlert, PageHeader, StatusBadge } from "@/components/ui";
 import { IndicativeAtsPanel } from "@/features/document-generation/indicative-ats-panel";
 
 import { getCurrentClientAtsScore } from "./client-ats-score-service";
@@ -17,11 +17,11 @@ export async function ClientDashboardPage() {
   const view = buildClientDashboardView(summary, evidence, score);
 
   return <div className="dashboard-page dashboard-workspace-page dashboard-client-home">
-    <header className="dashboard-workspace-intro">
-      <p className="type-label dashboard-kicker">Client portal · Your workspace</p>
-      <h1 className="type-heading-1">{summary ? `Welcome, ${summary.fullName}` : "Client dashboard"}</h1>
-      <p className="type-body text-text-muted">Your Zevantaa package, reviewed profile, uploads and available documents in one place.</p>
-    </header>
+    <PageHeader
+      description="Your Zevantaa package, reviewed profile, uploads and available documents in one place."
+      eyebrow="Client portal · Your workspace"
+      title={summary ? `Welcome, ${summary.fullName}` : "Client dashboard"}
+    />
 
     {!summary || !evidence ? <InlineAlert variant="error">Your linked profile is unavailable. Please contact Zevantaa support.</InlineAlert> :
       <div className="dashboard-client-modules">

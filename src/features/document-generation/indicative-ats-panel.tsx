@@ -1,9 +1,15 @@
+import type { CSSProperties } from "react";
+
 import { ATS_ALGORITHM_VERSION, type IndicativeAtsScore } from "./indicative-ats-score";
 import type { AtsAssessmentComparison } from "./ats-assessment-comparison";
 
 export function IndicativeAtsPanel({ result, comparison = null }: {
   result: IndicativeAtsScore; comparison?: AtsAssessmentComparison | null;
 }) {
+  const scoreStyle = result.status === "ready"
+    ? { "--ats-progress": `${result.score * 3.6}deg` } as CSSProperties
+    : undefined;
+
   return <section aria-labelledby="indicative-ats-heading" className="dashboard-ats-band dashboard-ats-panel">
     <div className="dashboard-ats-copy">
       <span className="type-label">Global ATS resume · internal indicator</span>
@@ -17,6 +23,7 @@ export function IndicativeAtsPanel({ result, comparison = null }: {
           <dl className="dashboard-ats-breakdown">
             {result.breakdown.map((item) => <div key={item.dimension}>
               <dt>{item.label}</dt><dd>{item.score}/{item.maximum}</dd>
+              <dd className="dashboard-ats-meter"><meter aria-label={`${item.label} score`} max={item.maximum} min={0} value={item.score}>{item.score} of {item.maximum}</meter></dd>
               <dd className="type-supporting">{item.reason}</dd>
             </div>)}
           </dl>
@@ -37,8 +44,17 @@ export function IndicativeAtsPanel({ result, comparison = null }: {
         <ul className="type-supporting">{result.reasons.map((reason, index) => <li key={`${index}-${reason}`}>{reason}</li>)}</ul>
       </>}
     </div>
-    <div aria-label={result.status === "ready" ? `Indicative ATS score ${result.score} out of 100` : "Indicative ATS score not ready"} className="dashboard-ats-score">
-      {result.status === "ready" ? result.score : "—"}<span>{result.status === "ready" ? "/100" : "Not ready"}</span>
+    <div
+      aria-label={result.status === "ready" ? `Indicative ATS score ${result.score} out of 100` : "Indicative ATS score not ready"}
+      aria-valuemax={result.status === "ready" ? 100 : undefined}
+      aria-valuemin={result.status === "ready" ? 0 : undefined}
+      aria-valuenow={result.status === "ready" ? result.score : undefined}
+      className="dashboard-ats-score"
+      data-state={result.status}
+      role={result.status === "ready" ? "progressbar" : "status"}
+      style={scoreStyle}
+    >
+      <strong>{result.status === "ready" ? result.score : "—"}</strong><span>{result.status === "ready" ? "/100" : "Not ready"}</span>
     </div>
   </section>;
 }

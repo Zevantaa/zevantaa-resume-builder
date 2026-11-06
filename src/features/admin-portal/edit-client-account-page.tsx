@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { SectionCard, StatusBadge } from "@/components/ui";
+import { PageHeader, SectionCard, StatusBadge } from "@/components/ui";
 import { packageAllowsOutput } from "@/features/document-generation/package-routing";
 
 import { getProvisionedClient } from "./client-account-service";
@@ -17,22 +17,16 @@ export async function EditClientAccountPage({ userId }: { userId: string }) {
   return (
     <div className="dashboard-page">
       <div className="layout-container-readable layout-stack">
-        <header className="layout-stack client-account-header">
-          <div className="admin-edit-heading">
-            <div>
-              <p className="type-label text-text-muted">Admin portal</p>
-              <h1 className="type-heading-1 text-text">Edit client account</h1>
-            </div>
-            <StatusBadge
+        <PageHeader
+          actions={<StatusBadge
               variant={client.accountStatus === "active" ? "success" : "neutral"}
             >
               {client.accountStatus === "active" ? "Active" : "Disabled"}
-            </StatusBadge>
-          </div>
-          <p className="type-body text-text-muted">
-            {client.fullName} · Current package: {client.packageName}
-          </p>
-        </header>
+            </StatusBadge>}
+          description={`${client.fullName} · Current package: ${client.packageName}`}
+          eyebrow="Admin portal"
+          title="Edit client account"
+        />
 
         <SectionCard
           description="Account changes preserve the existing Auth user and candidate-profile link."
