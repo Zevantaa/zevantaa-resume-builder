@@ -1,12 +1,14 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { BRAND_ACCENTS, BRAND_DEFAULTS, BRAND_FONTS,
   type BrandFont, type BrandSettings } from "./brand-settings-config";
 export type { BrandSettings } from "./brand-settings-config";
 
 /** Public-safe appearance data only. Defaults keep login usable during configuration errors. */
-export async function getBrandSettings(): Promise<BrandSettings> {
+async function loadBrandSettings(): Promise<BrandSettings> {
   try {
     const { data, error } = await createSupabaseAdminClient().from("app_brand_settings")
       .select("logo_object_key,mark_object_key,ui_font,heading_font,accent_color")
@@ -20,6 +22,9 @@ export async function getBrandSettings(): Promise<BrandSettings> {
       accentColor: BRAND_ACCENTS.includes(data.accent_color) ? data.accent_color : BRAND_DEFAULTS.accentColor };
   } catch { return BRAND_DEFAULTS; }
 }
+
+/** Request-scoped only: metadata and nested layouts can share one safe read. */
+export const getBrandSettings = cache(loadBrandSettings);
 
 export function brandLogoPath(settings: BrandSettings): string {
   return settings.logoObjectKey ? "/branding/current/logo" : "/branding/zevantaa-logo-reversed.svg";

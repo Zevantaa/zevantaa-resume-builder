@@ -31,6 +31,9 @@ export function DashboardShell({ children, navigation, portal, logoSrc = "/brand
 
   return (
     <div className="dashboard-shell">
+      <a className="skip-link type-button" href="#main-content">
+        Skip to main content
+      </a>
       <header className="dashboard-masthead">
         <Link className="dashboard-brand" href={`/${portal}`} onClick={() => setMenuOpen(false)}>
           <Image
@@ -91,7 +94,9 @@ export function DashboardShell({ children, navigation, portal, logoSrc = "/brand
           <span className="type-supporting dashboard-topbar-context">Private {portalLabel.toLowerCase()} access</span>
         </header>
         <main className="dashboard-content" id="main-content">
-          {children}
+          <div className="dashboard-route-frame" key={pathname}>
+            {children}
+          </div>
         </main>
       </div>
     </div>
