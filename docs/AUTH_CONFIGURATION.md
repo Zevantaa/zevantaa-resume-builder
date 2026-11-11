@@ -166,8 +166,13 @@ server-only service creates or updates the candidate profile, records a private
 `client_onboarding_invitations` delivery attempt, and calls Supabase Auth's
 administrator invitation API. The returned Auth user is linked to the existing
 `client` role only once. No password, invitation token, or email body is stored
-by the application. Failed delivery remains visible and can be retried only
-from the durable `failed` state; pending or sent attempts cannot be duplicated.
+by the application. Failed delivery remains visible and can be retried from
+durable state. An unaccepted `sent` invitation can also receive a fresh setup
+email from the admin workflow when its original link expires. The server
+atomically claims the row before contacting Auth, so concurrent clicks cannot
+duplicate delivery. An unconfirmed Auth user receives a new invite; an email-
+confirmed user who did not finish password setup receives the existing recovery
+flow. Neither path deletes, relinks, or exposes the Auth user.
 
 Apply `20261111085249_client_onboarding_invitation_state.sql` before deploying
 this code. Set `NEXT_PUBLIC_APP_URL` to the exact public HTTPS origin. Add this
@@ -193,11 +198,12 @@ out the setup session. An `active` client can then enter `/client`; a `disabled`
 account remains rejected by server-side authorization.
 
 The UI states are deliberately precise: `pending` means a send call is in
-progress, `sent` means Supabase Auth accepted the invitation for delivery (not
-proof of inbox placement), `failed` is safely retryable when no Auth user was
-linked, and `not-sent` is a durable pre-send state. Production use requires
-custom transactional SMTP. Supabase's default sender is appropriate only for
-limited testing and must not be treated as reliable client delivery.
+progress, `sent` means Supabase Auth accepted the invitation or recovery setup
+email for delivery (not proof of inbox placement), `failed` is safely retryable,
+and `not-sent` is a durable pre-send state. A linked failed row is retried without
+creating or deleting an Auth user. Production use requires custom transactional
+SMTP. Supabase's default sender is appropriate only for limited testing and must
+not be treated as reliable client delivery.
 
 ## Session persistence and logout
 

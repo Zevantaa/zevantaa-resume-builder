@@ -17,4 +17,4 @@
 | `user_roles` SQL read | D | own row only | own row only | server |
 | Other protected SQL tables/storage | D | D | D | server |
 
-Browser-visible brand assets are routed through an application endpoint, not a public candidate bucket. The temporary extraction/PDF QA routes remain protected but should be removed or feature-gated before production release. Each new service-role route must document its exact caller and ownership check.
+Browser-visible brand assets are routed through an application endpoint, not a public candidate bucket. The temporary extraction/PDF QA page, route-handler and server-action entry points share a server-only gate: they require explicit local/preview opt-in and are hard-disabled in production, in addition to their existing role/ownership checks. Each new service-role route must document its exact caller and ownership check.

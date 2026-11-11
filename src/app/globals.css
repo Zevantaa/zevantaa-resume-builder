@@ -1692,6 +1692,20 @@ body {
   background: color-mix(in srgb, var(--text) 88%, var(--accent));
 }
 
+.ui-icon { display: block; width: 1.25rem; height: 1.25rem; flex: 0 0 auto; }
+.ui-icon--inline { display: inline-block; width: 1em; height: 1em; margin-inline: 0.25em; vertical-align: -0.125em; }
+
+.route-error-page { display: grid; min-height: 60vh; place-items: center; padding: var(--layout-page-padding-block) var(--layout-page-padding-inline); }
+.route-error-card { display: grid; width: min(100%, 42rem); gap: var(--space-4); padding: var(--layout-inset-padding); border: 1px solid var(--border); border-radius: var(--card-radius); background: var(--surface); box-shadow: var(--shadow-card); }
+.route-error-card > * { margin: 0; }
+.route-error-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+.route-error-actions .auth-submit, .route-error-actions .auth-secondary-button { width: auto; }
+.invitation-retry-form { display: grid; gap: var(--space-2); min-width: min(100%, 14rem); }
+.invitation-retry-form .auth-secondary-button { width: fit-content; }
+.invitation-retry-message { max-width: 22rem; }
+.invitation-retry-message--error { color: var(--status-error-text); }
+.invitation-retry-message--success { color: var(--status-success-text); }
+
 .dashboard-content {
   min-height: calc(100vh - 8.25rem);
 }

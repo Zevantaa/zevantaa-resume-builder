@@ -1,5 +1,7 @@
 import type { CSSProperties } from "react";
 
+import { ArrowRightIcon } from "@/components/ui/icons";
+
 import { ATS_ALGORITHM_VERSION, type IndicativeAtsScore } from "./indicative-ats-score";
 import type { AtsAssessmentComparison } from "./ats-assessment-comparison";
 
@@ -12,11 +14,11 @@ export function IndicativeAtsPanel({ result, comparison = null }: {
 
   return <section aria-labelledby="indicative-ats-heading" className="dashboard-ats-band dashboard-ats-panel">
     <div className="dashboard-ats-copy">
-      <span className="type-label">Global ATS resume · internal indicator</span>
+      <span className="type-label">Global ATS resume: internal indicator</span>
       <h2 className="type-heading-3" id="indicative-ats-heading">Indicative ATS Score</h2>
       <p className="type-supporting">Internal optimization indicator; not a third-party ATS guarantee.</p>
       {result.status === "ready" ? <>
-        <p className="type-supporting"><strong>Target: {result.benchmark}</strong> · {result.band === "meets-benchmark" ? "Meets benchmark" : result.band === "near-benchmark" ? "Near benchmark" : "Below benchmark"}</p>
+        <p className="type-supporting"><strong>Target: {result.benchmark}</strong>: {result.band === "meets-benchmark" ? "Meets benchmark" : result.band === "near-benchmark" ? "Near benchmark" : "Below benchmark"}</p>
         <p className="type-supporting">Calculation provenance: {ATS_ALGORITHM_VERSION}.</p>
         <details className="dashboard-ats-details">
           <summary className="type-button">View score breakdown and suggestions</summary>
@@ -33,14 +35,14 @@ export function IndicativeAtsPanel({ result, comparison = null }: {
         </details>
         {comparison && <details className="dashboard-ats-details">
           <summary className="type-button">View recorded before-and-after assessment</summary>
-          <p className="type-supporting"><strong>{comparison.before.score}/100 â†’ {comparison.after.score}/100</strong> across saved career revisions {comparison.before.revision} and {comparison.after.revision}.</p>
+          <p className="type-supporting"><strong>{comparison.before.score}/100 <ArrowRightIcon className="ui-icon--inline" /> {comparison.after.score}/100</strong> across saved career revisions {comparison.before.revision} and {comparison.after.revision}.</p>
           <p className="type-supporting">Algorithm: {comparison.algorithmVersion}. Scores are genuine calculations from the saved canonical profile at each revision.</p>
           {comparison.improvements.length ? <ul className="type-supporting">{comparison.improvements.map((item) =>
-            <li key={item.dimension}><strong>{item.label}: {item.before} â†’ {item.after} (+{item.delta}).</strong> {item.explanation}</li>)}</ul>
+            <li key={item.dimension}><strong>{item.label}: {item.before} <ArrowRightIcon className="ui-icon--inline" /> {item.after} (+{item.delta}).</strong> {item.explanation}</li>)}</ul>
             : <p className="type-supporting">No measured criterion increased between these two recorded revisions.</p>}
         </details>}
       </> : <>
-        <p className="type-supporting"><strong>Not ready</strong> · Target: {result.benchmark}</p>
+        <p className="type-supporting"><strong>Not ready</strong>: Target {result.benchmark}</p>
         <ul className="type-supporting">{result.reasons.map((reason, index) => <li key={`${index}-${reason}`}>{reason}</li>)}</ul>
       </>}
     </div>
@@ -54,7 +56,7 @@ export function IndicativeAtsPanel({ result, comparison = null }: {
       role={result.status === "ready" ? "progressbar" : "status"}
       style={scoreStyle}
     >
-      <strong>{result.status === "ready" ? result.score : "—"}</strong><span>{result.status === "ready" ? "/100" : "Not ready"}</span>
+      <strong>{result.status === "ready" ? result.score : <>&mdash;</>}</strong><span>{result.status === "ready" ? "/100" : "Not ready"}</span>
     </div>
   </section>;
 }

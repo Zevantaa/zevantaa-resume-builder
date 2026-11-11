@@ -21,6 +21,7 @@ function setup(denied = false) {
     client_onboarding_invitations: [
       { id: "i1", candidate_profile_id: "p1", delivery_status: "sent", accepted_at: "2026-11-11T08:30:00Z", last_error_code: null, attempt_count: 1, updated_at: "2026-11-11T08:00:00Z" },
       { id: "i2", candidate_profile_id: "p2", delivery_status: "failed", last_error_code: "delivery-failed", attempt_count: 2, updated_at: "2026-11-11T09:00:00Z" },
+      { id: "i3", candidate_profile_id: "p3", account_status: "active", delivery_status: "sent", accepted_at: null, last_error_code: null, attempt_count: 1, updated_at: "2026-11-11T09:30:00Z" },
     ],
     resume_processing_jobs: [
       { id: "r1", candidate_profile_id: "p1", status: "needs-input", last_error_code: null, attempts: 1, updated_at: "2026-11-11T07:00:00Z" },
@@ -52,7 +53,8 @@ function setup(denied = false) {
 test("admin workflow reports genuine durable states and controlled actionable errors", async () => {
   setup();
   const result = await getAdminWorkflowOverview();
-  assert.deepEqual(result.onboarding, { notSent: 0, pending: 0, sent: 1, failed: 1, activated: 1, awaitingActivation: 0 });
+  assert.deepEqual(result.onboarding, { notSent: 0, pending: 0, sent: 2, failed: 1, activated: 1, awaitingActivation: 1 });
+  assert.deepEqual(result.awaitingInvitations, [{ invitationId: "i3", profileId: "p3", attempts: 1, updatedAt: "2026-11-11T09:30:00Z" }]);
   assert.equal(result.extraction.needsInput, 1);
   assert.equal(result.generation.pending, 1);
   assert.equal(result.availableDocuments, 1);

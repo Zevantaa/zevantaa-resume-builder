@@ -3,8 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
+import { ArrowUpIcon } from "@/components/ui/icons";
 import { LogoutButton } from "@/features/authentication";
 import type { AuthPortalIntent } from "@/features/authentication/types";
 
@@ -24,8 +25,11 @@ type DashboardShellProps = {
 export function DashboardShell({ children, navigation, portal, logoSrc = "/branding/zevantaa-logo-reversed.svg" }: DashboardShellProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [compactNavigation, setCompactNavigation] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<{ from: string; href: string } | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
   const pendingHref = pendingNavigation?.from === pathname ? pendingNavigation.href : null;
   const portalLabel = portal === "admin" ? "Administrator" : "Client";
   const activeItem = navigation
@@ -34,9 +38,6 @@ export function DashboardShell({ children, navigation, portal, logoSrc = "/brand
 
   useEffect(() => {
     let scrollFrame = 0;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
-    }
     function onScroll() {
       if (scrollFrame) return;
       scrollFrame = window.requestAnimationFrame(() => {
@@ -44,15 +45,68 @@ export function DashboardShell({ children, navigation, portal, logoSrc = "/brand
         scrollFrame = 0;
       });
     }
-    window.addEventListener("keydown", onKeyDown);
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
     return () => {
       window.cancelAnimationFrame(scrollFrame);
-      window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("scroll", onScroll);
     };
   }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 39.99rem)");
+    const update = () => {
+      setCompactNavigation(media.matches);
+      if (!media.matches) setMenuOpen(false);
+    };
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!compactNavigation || !menuOpen) return;
+    const sidebar = sidebarRef.current;
+    const opener = menuToggleRef.current;
+    if (!sidebar || !opener) return;
+    const safeOpener = opener;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusable = () => Array.from(sidebar.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )).filter((element) => !element.hasAttribute("disabled"));
+    const focusFrame = window.requestAnimationFrame(() => focusable()[0]?.focus());
+    function onMenuKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setMenuOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const elements = focusable();
+      if (!elements.length) {
+        event.preventDefault();
+        safeOpener.focus();
+        return;
+      }
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", onMenuKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onMenuKeyDown);
+      if (window.matchMedia("(max-width: 39.99rem)").matches) safeOpener.focus();
+    };
+  }, [compactNavigation, menuOpen]);
 
   useEffect(() => {
     if (!pendingNavigation) return;
@@ -103,6 +157,7 @@ export function DashboardShell({ children, navigation, portal, logoSrc = "/brand
             aria-label={menuOpen ? "Close navigation" : "Open navigation"}
             className="dashboard-menu-toggle type-button"
             onClick={() => setMenuOpen((open) => !open)}
+            ref={menuToggleRef}
             type="button"
           >
             {menuOpen ? "Close" : "Menu"}
@@ -110,7 +165,9 @@ export function DashboardShell({ children, navigation, portal, logoSrc = "/brand
           <div className="dashboard-account-actions"><LogoutButton portal={portal} /></div>
         </div>
       </header>
-      <aside className={`dashboard-sidebar${menuOpen ? " dashboard-sidebar--open" : ""}`} id="dashboard-sidebar">
+      <aside aria-hidden={compactNavigation && !menuOpen ? true : undefined}
+        className={`dashboard-sidebar${menuOpen ? " dashboard-sidebar--open" : ""}`}
+        id="dashboard-sidebar" inert={compactNavigation && !menuOpen ? true : undefined} ref={sidebarRef}>
         <div className="dashboard-sidebar-group">
           <nav aria-label={`${portalLabel} navigation`} className="dashboard-navigation">
             {navigation.map((item) => {
@@ -162,7 +219,7 @@ export function DashboardShell({ children, navigation, portal, logoSrc = "/brand
         tabIndex={showScrollTop ? 0 : -1}
         type="button"
       >
-        <span aria-hidden="true">↑</span>
+        <ArrowUpIcon className="ui-icon" />
       </button>
     </div>
   );

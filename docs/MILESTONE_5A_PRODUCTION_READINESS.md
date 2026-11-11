@@ -452,8 +452,8 @@ queues, delete failed jobs, or remove document history during shutdown.
 - **HIGH:** the mobile menu closes on Escape but does not trap focus, restore focus
   to the opener, or lock background scroll. Test and remediate before claiming a
   modal-style accessible mobile navigation.
-- **DEFECT:** the scroll-to-top arrow in `dashboard-shell.tsx` is mojibaked
-  (`â†‘`) and will render incorrectly. Correct it in a separate focused code change.
+- **DEFECT:** the scroll-to-top arrow in `dashboard-shell.tsx` is mojibaked and
+  will render incorrectly. Correct it in a separate focused code change.
 - **HIGH:** there are no App Router `error.tsx` boundaries. Confirm that failed
   protected queries/actions give a useful recoverable experience instead of only a
   framework error page.

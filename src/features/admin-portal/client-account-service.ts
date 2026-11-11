@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { requireApplicationRole } from "@/features/authentication/authorization";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getPackageRouting } from "@/features/document-generation/package-routing";
-import { getClientInvitationRedirectUrl } from "./welcome-message";
+import { getClientInvitationRedirectUrl, getClientRecoveryRedirectUrl } from "./welcome-message";
 
 import type {
   CandidateAccountOption,
@@ -405,7 +405,11 @@ export async function provisionClientAccount({
   };
 }
 
-/** Retry only a previously failed invitation. A sent or pending row is never duplicated. */
+/**
+ * Retry failed first delivery or issue a fresh setup email for an unaccepted
+ * linked account. The durable row is claimed before any provider call, so
+ * concurrent clicks cannot send duplicate messages.
+ */
 export async function retryClientInvitation(invitationId: string): Promise<RetryClientInvitationResult> {
   const adminContext = await requireApplicationRole("admin");
   if (process.env.NODE_ENV === "production") {
@@ -413,11 +417,78 @@ export async function retryClientInvitation(invitationId: string): Promise<Retry
   }
   const supabase = createSupabaseAdminClient();
   const { data: invitation, error } = await supabase.from("client_onboarding_invitations")
-    .select("id, candidate_profile_id, email, account_status, delivery_status, attempt_count, auth_user_id")
+    .select("id, candidate_profile_id, email, account_status, delivery_status, attempt_count, auth_user_id, accepted_at")
     .eq("id", invitationId).maybeSingle();
-  if (error || !invitation || invitation.delivery_status !== "failed" || invitation.auth_user_id || invitation.attempt_count >= 20) {
+  if (error || !invitation || invitation.accepted_at || invitation.attempt_count >= 20 ||
+      !["failed", "sent"].includes(invitation.delivery_status)) {
     return { code: "invitation-state", ok: false };
   }
+
+  if (invitation.auth_user_id) {
+    if (invitation.account_status !== "active") return { code: "invitation-state", ok: false };
+    const [roleResult, profileResult, authResult] = await Promise.all([
+      supabase.from("user_roles").select("user_id, account_status, role_code")
+        .eq("candidate_profile_id", invitation.candidate_profile_id)
+        .eq("user_id", invitation.auth_user_id).eq("role_code", "client").maybeSingle(),
+      supabase.from("candidate_profiles").select("id").eq("id", invitation.candidate_profile_id)
+        .is("archived_at", null).maybeSingle(),
+      supabase.auth.admin.getUserById(invitation.auth_user_id),
+    ]);
+    const authUser = authResult.data.user;
+    if (roleResult.error || profileResult.error || authResult.error || !roleResult.data ||
+        roleResult.data.account_status !== "active" || !profileResult.data || !authUser?.email ||
+        authUser.email.trim().toLowerCase() !== invitation.email) {
+      return { code: "invitation-state", invitationId, email: invitation.email, ok: false };
+    }
+    const invitationRedirect = getClientInvitationRedirectUrl();
+    const recoveryRedirect = getClientRecoveryRedirectUrl();
+    if (!invitationRedirect || !recoveryRedirect) {
+      return { code: "auth-creation", invitationId, email: invitation.email, ok: false };
+    }
+    const { data: claimed, error: claimError } = await supabase.from("client_onboarding_invitations")
+      .update({
+        attempt_count: invitation.attempt_count + 1,
+        delivery_status: "pending",
+        last_attempt_at: new Date().toISOString(),
+        last_error_code: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", invitationId).eq("delivery_status", invitation.delivery_status)
+      .eq("attempt_count", invitation.attempt_count).eq("auth_user_id", invitation.auth_user_id)
+      .is("accepted_at", null).select("id").maybeSingle();
+    if (claimError || !claimed) return { code: "invitation-state", ok: false };
+
+    const confirmed = Boolean(authUser.email_confirmed_at);
+    let deliveryError: unknown = null;
+    let invitedUserId: string | null = null;
+    if (confirmed) {
+      const delivery = await supabase.auth.resetPasswordForEmail(invitation.email, { redirectTo: recoveryRedirect });
+      deliveryError = delivery.error;
+    } else {
+      const delivery = await supabase.auth.admin.inviteUserByEmail(invitation.email, { redirectTo: invitationRedirect });
+      deliveryError = delivery.error;
+      invitedUserId = delivery.data.user?.id ?? null;
+    }
+    if (deliveryError || (!confirmed && invitedUserId !== invitation.auth_user_id)) {
+      await supabase.from("client_onboarding_invitations").update({
+        delivery_status: "failed",
+        last_error_code: "delivery-failed",
+        updated_at: new Date().toISOString(),
+      }).eq("id", invitationId).eq("delivery_status", "pending")
+        .eq("auth_user_id", invitation.auth_user_id);
+      return { code: "invitation-delivery", invitationId, email: invitation.email, ok: false };
+    }
+    const { data: sent, error: sentError } = await supabase.from("client_onboarding_invitations")
+      .update({ delivery_status: "sent", last_error_code: null, sent_at: new Date().toISOString(),
+        updated_at: new Date().toISOString() })
+      .eq("id", invitationId).eq("delivery_status", "pending")
+      .eq("auth_user_id", invitation.auth_user_id).select("id").maybeSingle();
+    if (sentError || !sent) {
+      return { code: "invitation-state", invitationId, email: invitation.email, ok: false };
+    }
+    return { ok: true, invitationId, email: invitation.email };
+  }
+
+  if (invitation.delivery_status !== "failed") return { code: "invitation-state", ok: false };
   const [{ data: role, error: roleLookupError }, { data: profile, error: profileLookupError }] = await Promise.all([
     supabase.from("user_roles").select("user_id")
       .eq("candidate_profile_id", invitation.candidate_profile_id).maybeSingle(),

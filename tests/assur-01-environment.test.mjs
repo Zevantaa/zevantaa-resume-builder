@@ -53,6 +53,8 @@ test("production rejects localhost, insecure origins and secret keys in public v
   assert.ok(validateEnvironment("production", { ...valid, SECURITY_RATE_LIMIT_KEY: "too-short" }).length > 0);
   assert.ok(validateEnvironment("production", { ...valid, AUTOMATION_WORKER_SECRET: "too-short" }).length > 0);
   assert.ok(validateEnvironment("production", { ...valid, SUPABASE_SECRET_KEY: "sb_publishable_fixture" }).some((item) => item.includes("server")));
+  assert.ok(validateEnvironment("production", { ...valid, ENABLE_QA_UTILITIES: "true" }).some((item) => item.includes("QA utilities")));
+  assert.deepEqual(validateEnvironment("preview", { ...valid, ENABLE_QA_UTILITIES: "true" }), []);
 });
 
 test("release workflow requires core checks without embedding privileged configuration", () => {

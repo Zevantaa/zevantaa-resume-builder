@@ -15,6 +15,14 @@ export type WorkflowError = {
   code: string;
   attempts: number;
   updatedAt: string;
+  invitationId?: string;
+};
+
+export type AwaitingInvitation = {
+  invitationId: string;
+  profileId: string;
+  attempts: number;
+  updatedAt: string;
 };
 
 /** Read-only operational evidence. Every value comes from durable database state. */
@@ -29,7 +37,7 @@ export async function getAdminWorkflowOverview() {
   const [inviteNotSent, invitePending, inviteSent, inviteFailed, inviteActivated, inviteAwaitingActivation,
     extractionPending, extractionProcessing, extractionNeedsInput, extractionCompleted, extractionFailed,
     generationPending, generationProcessing, generationCompleted, generationFailed,
-    availableDocuments, invitationErrors, extractionErrors, generationErrors] = await Promise.all([
+    availableDocuments, awaitingInvitations, invitationErrors, extractionErrors, generationErrors] = await Promise.all([
     count("client_onboarding_invitations", "not-sent"),
     count("client_onboarding_invitations", "pending"),
     count("client_onboarding_invitations", "sent"),
@@ -46,7 +54,11 @@ export async function getAdminWorkflowOverview() {
     db.from("document_records").select("id", { count: "exact", head: true })
       .eq("origin", "generated").eq("status", "available").is("archived_at", null),
     db.from("client_onboarding_invitations")
-      .select("candidate_profile_id, last_error_code, attempt_count, updated_at")
+      .select("id, candidate_profile_id, account_status, attempt_count, updated_at")
+      .eq("delivery_status", "sent").is("accepted_at", null)
+      .order("updated_at", { ascending: false }).limit(20),
+    db.from("client_onboarding_invitations")
+      .select("id, candidate_profile_id, last_error_code, attempt_count, updated_at")
       .eq("delivery_status", "failed").order("updated_at", { ascending: false }).limit(10),
     db.from("resume_processing_jobs")
       .select("candidate_profile_id, last_error_code, attempts, updated_at")
@@ -59,14 +71,14 @@ export async function getAdminWorkflowOverview() {
   const countResults = [inviteNotSent, invitePending, inviteSent, inviteFailed, inviteActivated, inviteAwaitingActivation,
     extractionPending, extractionProcessing, extractionNeedsInput, extractionCompleted, extractionFailed,
     generationPending, generationProcessing, generationCompleted, generationFailed, availableDocuments];
-  if (countResults.some((result) => result.error) || invitationErrors.error || extractionErrors.error || generationErrors.error) {
+  if (countResults.some((result) => result.error) || awaitingInvitations.error || invitationErrors.error || extractionErrors.error || generationErrors.error) {
     throw new Error("Operational workflow status could not be loaded.");
   }
 
   const errors: WorkflowError[] = [
     ...(invitationErrors.data ?? []).map((row) => ({ area: "Invitation" as const,
       profileId: row.candidate_profile_id, code: row.last_error_code ?? "delivery-failed",
-      attempts: row.attempt_count, updatedAt: row.updated_at })),
+      attempts: row.attempt_count, updatedAt: row.updated_at, invitationId: row.id })),
     ...(extractionErrors.data ?? []).map((row) => ({ area: "Resume extraction" as const,
       profileId: row.candidate_profile_id, code: row.last_error_code ?? "processing-failed",
       attempts: row.attempts, updatedAt: row.updated_at })),
@@ -86,6 +98,12 @@ export async function getAdminWorkflowOverview() {
     generation: { pending: countOf(generationPending, "Generation status"), processing: countOf(generationProcessing, "Generation status"),
       completed: countOf(generationCompleted, "Generation status"), failed: countOf(generationFailed, "Generation status") },
     availableDocuments: countOf(availableDocuments, "Available document count"),
+    awaitingInvitations: (awaitingInvitations.data ?? [])
+      .filter((row) => row.account_status === "active" && row.attempt_count < 20)
+      .map((row) => ({
+      invitationId: row.id, profileId: row.candidate_profile_id,
+      attempts: row.attempt_count, updatedAt: row.updated_at,
+    })) satisfies AwaitingInvitation[],
     errors,
   };
 }

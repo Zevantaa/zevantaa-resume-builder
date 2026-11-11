@@ -165,6 +165,8 @@ function setup() {
     roles: [],
     invitations: [],
     authCreateCalls: 0,
+    recoveryCalls: 0,
+    recoveryRedirect: null,
     failInviteOnce: false,
     failRoleInsert: false,
     failRoleUpdate: false,
@@ -196,7 +198,10 @@ function setup() {
           return { select() { return this; }, maybeSingle() { return Promise.resolve({ data: null, error: { code: "linkage_failed" } }); }, then(resolve) { return Promise.resolve({ data: null, error: { code: "linkage_failed" } }).then(resolve); } };
         }
         insertValues = { ...(Array.isArray(values) ? values[0] : values) };
-        if (table === "client_onboarding_invitations") insertValues.id ??= "abababab-abab-4bab-8bab-abababababab";
+        if (table === "client_onboarding_invitations") {
+          insertValues.id ??= "abababab-abab-4bab-8bab-abababababab";
+          insertValues.accepted_at ??= null;
+        }
         return this;
       },
       delete() {
@@ -219,10 +224,10 @@ function setup() {
       if (insertValues && !insertApplied) {
         records.push(insertValues);
         insertApplied = true;
-        return { data: single ? insertValues : null, error: null };
+        return { data: single ? structuredClone(insertValues) : null, error: null };
       }
       if (updateValues) found.forEach((row) => Object.assign(row, updateValues));
-      return { data: single ? found[0] ?? null : found, error: null };
+      return { data: structuredClone(single ? found[0] ?? null : found), error: null };
     }
     return builder;
   }
@@ -237,8 +242,13 @@ function setup() {
             state.failInviteOnce = false;
             return { data: { user: null }, error: { code: "smtp_failed" } };
           }
-          if (state.authUsers.some((user) => user.email === email)) {
-            return { data: { user: null }, error: { code: "email_exists" } };
+          const existing = state.authUsers.find((user) => user.email === email);
+          if (existing) {
+            if (existing.email_confirmed_at) {
+              return { data: { user: null }, error: { code: "email_exists" } };
+            }
+            existing.invitation_redirect_to = options.redirectTo;
+            return { data: { user: existing }, error: null };
           }
           const user = {
             id: userId,
@@ -266,6 +276,13 @@ function setup() {
           state.authUsers = state.authUsers.filter((user) => user.id !== id);
           return { error: null };
         },
+      },
+      async resetPasswordForEmail(email, options) {
+        const user = state.authUsers.find((record) => record.email === email);
+        if (!user?.email_confirmed_at) return { data: {}, error: { code: "not_confirmed" } };
+        state.recoveryCalls += 1;
+        state.recoveryRedirect = options.redirectTo;
+        return { data: {}, error: null };
       },
     },
   };
@@ -334,9 +351,53 @@ test("failed invitation delivery has a durable state and retries exactly once", 
   assert.equal(state.authCreateCalls, 2);
 
   assert.deepEqual(await retryClientInvitation(failed.invitation.invitationId), {
+    ok: true, invitationId: failed.invitation.invitationId, email: "fictional@example.invalid",
+  });
+  assert.equal(state.authCreateCalls, 3);
+  assert.equal(state.invitations[0].attempt_count, 3);
+  state.invitations[0].accepted_at = "2026-11-11T12:00:00Z";
+  assert.deepEqual(await retryClientInvitation(failed.invitation.invitationId), {
     code: "invitation-state", ok: false,
   });
+  assert.equal(state.authCreateCalls, 3);
+});
+
+test("confirmed but unfinished clients receive a recovery setup email without relinking or deletion", async () => {
+  const state = setup();
+  const created = await provisionClientAccount({
+    accountStatus: "active", candidateProfileId: candidateId, profile,
+  });
+  assert.equal(created.ok, true);
+  state.authUsers[0].email_confirmed_at = "2026-11-11T10:00:00Z";
+  const roleBefore = structuredClone(state.roles[0]);
+  const resent = await retryClientInvitation(created.invitationId);
+  assert.deepEqual(resent, {
+    ok: true, invitationId: created.invitationId, email: "fictional@example.invalid",
+  });
+  assert.equal(state.recoveryCalls, 1);
+  assert.match(state.recoveryRedirect, /portal=client/u);
+  assert.doesNotMatch(state.recoveryRedirect, /intent=invite/u);
+  assert.equal(state.authCreateCalls, 1);
+  assert.equal(state.authUsers.length, 1);
+  assert.deepEqual(state.roles[0], roleBefore);
+  assert.equal(state.invitations[0].attempt_count, 2);
+  assert.equal(state.invitations[0].delivery_status, "sent");
+});
+
+test("concurrent setup-email requests claim one durable attempt", async () => {
+  const state = setup();
+  const created = await provisionClientAccount({
+    accountStatus: "active", candidateProfileId: candidateId, profile,
+  });
+  const results = await Promise.all([
+    retryClientInvitation(created.invitationId),
+    retryClientInvitation(created.invitationId),
+  ]);
+  assert.equal(results.filter((result) => result.ok).length, 1);
+  assert.equal(results.filter((result) => !result.ok && result.code === "invitation-state").length, 1);
   assert.equal(state.authCreateCalls, 2);
+  assert.equal(state.invitations[0].attempt_count, 2);
+  assert.equal(state.invitations[0].delivery_status, "sent");
 });
 
 test("admin provisioning persists all authoritative fields on the existing profile", async () => {
@@ -462,7 +523,7 @@ test("failed role linkage preserves authoritative edits for safe invitation retr
 
 test("duplicate email and candidate linkage are rejected", async () => {
   const state = setup();
-  state.authUsers.push({ id: "other", email: "fictional@example.invalid" });
+  state.authUsers.push({ id: "other", email: "fictional@example.invalid", email_confirmed_at: "2026-11-11T08:00:00Z" });
   const input = {
     accountStatus: "active",
     candidateProfileId: candidateId,
