@@ -32,6 +32,14 @@ const hasText = (value: string | undefined): value is string => Boolean(value?.t
 const ADORNMENT_HEIGHT = 16;
 const ADORNMENT_GAP = 10;
 
+function adaptiveHeadingSize(value: string, preferred: number, minimum: number): number {
+  const length = Array.from(value.trim()).length;
+  if (length > 86) return Math.max(minimum, preferred * 0.68);
+  if (length > 62) return Math.max(minimum, preferred * 0.76);
+  if (length > 42) return Math.max(minimum, preferred * 0.86);
+  return preferred;
+}
+
 /** Add layout-only breaks to unusually long unspaced contact tokens. Removing whitespace restores the source text. */
 function wrapContact(value: string, limit: number): string {
   return value.split(/(\s+)/u).map((token) => {
@@ -130,50 +138,61 @@ function entryBody(block: Extract<PdfBlock, { kind: "entry" }>, theme: PdfTheme,
 
 function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
   const type = theme.typography;
-  if (block.kind === "european-identity") return jsx(View, { wrap: false, style: {
+  if (block.kind === "european-identity") {
+    const nameSize = adaptiveHeadingSize(block.name, Math.max(type.heading1Size * 0.82, 16), 14.5);
+    return jsx(View, { wrap: false, style: {
     borderBottomWidth: 2, borderBottomColor: theme.accentColor,
     paddingBottom: 12, marginBottom: type.paragraphGap * 2,
   }, children: [
     jsx(View, { style: { flexDirection: "row", justifyContent: "space-between", alignItems: "center",
       marginBottom: 12 }, children: [
-      text("Europass Curriculum Vitae", { fontSize: type.heading1Size, fontWeight: 700,
+      text("Europass Curriculum Vitae", { fontSize: Math.max(type.heading2Size + 2, 13), fontWeight: 700,
         lineHeight: type.lineHeight, color: theme.accentColor }, theme, `${key}-title`),
       text("europass", { fontSize: type.heading2Size, fontWeight: 700, color: "#FFFFFF",
         backgroundColor: theme.accentColor, paddingHorizontal: 12, paddingVertical: 7 }, theme, `${key}-brand`),
     ] }, `${key}-heading`),
     jsx(View, { style: { flexDirection: "row", gap: 18 }, children: [
-      jsx(View, { style: { width: 120, paddingTop: 2 }, children: text("PERSONAL INFORMATION",
+      jsx(View, { style: { width: 112, paddingTop: 3 }, children: text("PERSONAL INFORMATION",
         { fontSize: type.smallSize, fontWeight: 700, lineHeight: type.lineHeight, color: theme.accentColor },
         theme, `${key}-label`) }, `${key}-rail`),
       jsx(View, { style: { flex: 1 }, children: [
-        text(block.name, { fontSize: type.heading2Size, fontWeight: 700, lineHeight: type.lineHeight,
-          color: theme.textColor, marginBottom: 4 }, theme, `${key}-name`),
-        ...block.contact.filter(hasText).map((value, index) => text(value,
+        text(block.name, { fontSize: nameSize, fontWeight: 700, lineHeight: 1.2,
+          color: theme.textColor, marginBottom: 7 }, theme, `${key}-name`),
+        ...block.contact.filter(hasText).map((value, index) => text(wrapContact(value, 58),
           { fontSize: type.smallSize, lineHeight: type.lineHeight, color: theme.textColor, marginBottom: 2 },
           theme, `${key}-contact-${index}`)),
         ...block.context.filter(hasText).map((value, index) => text(value,
-          { fontSize: type.smallSize, lineHeight: type.lineHeight, color: theme.mutedColor, marginBottom: 2 },
+          { fontSize: type.smallSize, lineHeight: type.lineHeight, color: theme.accentColor,
+            fontWeight: 700, marginTop: 3, marginBottom: 2 },
           theme, `${key}-context-${index}`)),
       ] }, `${key}-content`),
     ] }, `${key}-profile`),
   ] }, key);
-  if (block.kind === "gcc-identity") return jsx(View, { wrap: false, style: {
-    backgroundColor: "#0F172A", borderBottomWidth: 3, borderBottomColor: theme.secondaryAccentColor,
-    paddingHorizontal: 18, paddingVertical: 16,
-    marginBottom: type.paragraphGap * 2, flexDirection: "row", alignItems: "center", gap: 18,
-  }, children: [
+  }
+  if (block.kind === "gcc-identity") {
+    const nameSize = adaptiveHeadingSize(block.name, type.heading1Size, 15.5);
+    return jsx(View, { wrap: false, style: {
+      marginBottom: type.paragraphGap * 2, borderBottomWidth: 3, borderBottomColor: theme.secondaryAccentColor,
+    }, children: [
+    jsx(View, { style: { backgroundColor: "#0F172A", paddingHorizontal: 18, paddingVertical: 15,
+      flexDirection: "row", alignItems: "center", gap: 18 }, children: [
     jsx(View, { style: { flex: 1 }, children: [
-      text(block.name, { fontSize: type.heading1Size, fontWeight: 700, lineHeight: type.lineHeight,
+      text(block.name, { fontSize: nameSize, fontWeight: 700, lineHeight: 1.2,
         color: "#FFFFFF", marginBottom: 6 }, theme, `${key}-name`),
       hasText(block.headline) ? text(block.headline, { fontSize: type.heading2Size, fontWeight: 700,
-        lineHeight: type.lineHeight, color: theme.secondaryAccentColor, marginBottom: 6 }, theme, `${key}-headline`) : null,
-      ...block.details.filter(hasText).map((detail, index) => text(detail,
-        { fontSize: type.smallSize, lineHeight: type.lineHeight, color: "#FFFFFF", marginBottom: 3 },
-        theme, `${key}-detail-${index}`)),
+        lineHeight: 1.25, color: theme.secondaryAccentColor }, theme, `${key}-headline`) : null,
     ] }, `${key}-details`),
     block.photoDataUri ? jsx(Image, { src: block.photoDataUri, cache: false,
       style: { width: 72, height: 88, borderWidth: 2, borderColor: theme.secondaryAccentColor } }, `${key}-photo`) : null,
+    ] }, `${key}-lead`),
+    block.details.some(hasText) ? jsx(View, { style: { flexDirection: "row", flexWrap: "wrap",
+      backgroundColor: theme.surfaceColor, paddingHorizontal: 14, paddingVertical: 9, gap: 5 }, children:
+      block.details.filter(hasText).map((detail, index) => text(wrapContact(detail, 52),
+        { width: index === 0 ? "100%" : "48%", fontSize: type.smallSize, lineHeight: type.lineHeight,
+          color: theme.textColor, fontWeight: index === 0 ? 700 : 400 }, theme, `${key}-detail-${index}`))
+    }, `${key}-facts`) : null,
   ] }, key);
+  }
   if (block.kind === "premium-identity") {
     const contacts = block.contact.filter(hasText);
     const dark = block.style === "boardroom" || block.style === "executive-sidebar";
@@ -182,7 +201,10 @@ function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
     const accent = gold ? theme.secondaryAccentColor : block.style === "global-ats" || block.style === "cover-letter"
       ? theme.secondaryAccentColor : theme.accentColor;
     const headingFamily = editorial || block.style === "cover-letter" ? type.headingFontFamily : type.fontFamily;
-    const stacked = block.style === "global-ats" || block.style === "cover-letter";
+    const longIdentity = Array.from(block.name).length > 48 || (block.headline?.length ?? 0) > 68;
+    const stacked = block.style === "global-ats" || block.style === "cover-letter" || longIdentity;
+    const nameSize = adaptiveHeadingSize(block.name, type.heading1Size,
+      block.style === "cover-letter" ? 15.5 : 16);
     return jsx(View, { wrap: false, style: {
       backgroundColor: dark ? theme.accentColor : "#FFFFFF",
       borderTopWidth: editorial ? 3 : 0, borderTopColor: theme.accentColor,
@@ -194,8 +216,8 @@ function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
       alignItems: stacked ? "flex-start" : "flex-end", gap: stacked ? 6 : 16,
     }, children: [
       jsx(View, { style: stacked ? { width: "100%", marginBottom: 4 } : { flex: 1 }, children: [
-        text(block.name, { fontFamily: headingFamily, fontSize: type.heading1Size, fontWeight: 700,
-          lineHeight: type.lineHeight, color: dark ? "#FFFFFF" : theme.textColor, marginBottom: 4,
+        text(block.name, { fontFamily: headingFamily, fontSize: nameSize, fontWeight: 700,
+          lineHeight: 1.2, color: dark ? "#FFFFFF" : theme.textColor, marginBottom: 4,
           letterSpacing: editorial ? 0.8 : 0.3 }, theme, `${key}-name`),
         hasText(block.headline) ? text(block.headline, { fontSize: type.heading2Size, fontWeight: 700,
           lineHeight: type.lineHeight, color: accent, letterSpacing: 0.7 }, theme, `${key}-headline`) : null,
@@ -203,7 +225,7 @@ function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
       contacts.length ? jsx(View, { style: { ...(stacked
         ? { width: "100%", maxWidth: "100%", marginTop: 4 }
         : { maxWidth: "43%", marginTop: 0 }), alignItems: stacked ? "flex-start" : "flex-end" }, children:
-        contacts.map((value, index) => text(wrapContact(value, stacked ? 68 : 34),
+        contacts.map((value, index) => text(wrapContact(value, stacked ? 64 : 38),
           { fontSize: type.smallSize, lineHeight: type.lineHeight,
           color: dark ? "#E2E8F0" : theme.mutedColor, textAlign: stacked ? "left" : "right", marginBottom: 2 },
         theme, `${key}-contact-${index}`)) }, `${key}-contacts`) : null,
@@ -237,7 +259,11 @@ function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
       color: "#FFFFFF", marginTop: 4 }, theme, `${key}-subtitle`) : null,
   ] }, key) : null;
   if (block.kind === "heading") return hasText(block.text) ? text(block.text,
-    { fontFamily: type.headingFontFamily, fontSize: block.level === 1 ? type.heading1Size : type.heading2Size, fontWeight: 700,
+    { fontFamily: type.headingFontFamily,
+      fontSize: block.level === 1
+        ? adaptiveHeadingSize(block.text, type.heading1Size, Math.max(type.bodySize + 4, 14))
+        : type.heading2Size,
+      fontWeight: 700,
       lineHeight: type.lineHeight, color: theme.textColor, marginBottom: type.paragraphGap },
     theme, key, block.keepWithNext === false ? 0 : type.bodySize * type.lineHeight * 2) : null;
   if (block.kind === "paragraph") return hasText(block.text) ? text(block.text,
@@ -256,7 +282,8 @@ function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
     const left = block.left.map((item, index) => renderBlock(item, leftTheme, `${key}-l-${index}`)).filter(Boolean);
     const right = block.right.map((item, index) => renderBlock(item, theme, `${key}-r-${index}`)).filter(Boolean);
     const styled = block.variant === "sidebar" || block.variant === "split-grid";
-    return left.length || right.length ? jsx(View, { style: { flexDirection: "row", justifyContent: "space-between",
+    return left.length || right.length ? jsx(View, { wrap: false,
+      style: { flexDirection: "row", justifyContent: "space-between",
       ...(styled ? { gap: 0 } : {}) }, children: [
       jsx(View, { style: { width: styled ? "32%" : "48%", padding: styled ? 12 : 0,
         backgroundColor: block.variant === "split-grid" ? "#0F172A" : block.variant === "sidebar" ? theme.surfaceColor : "#FFFFFF",
@@ -267,18 +294,18 @@ function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
     ] }, key) : null;
   }
   if (!hasText(block.title)) return null;
-  if (block.keepOpeningTogether) return jsx(View, { wrap: true,
+  if (block.keepOpeningTogether || !shortEntry(block, theme)) return jsx(View, { wrap: true,
     style: { marginBottom: type.paragraphGap * 1.5 }, children: [
       jsx(View, { wrap: false, children: entryOpening(block, theme, key) }, `${key}-opening`),
       ...entryBody(block, theme, key),
     ] }, key);
-  return jsx(View, { wrap: !shortEntry(block, theme), style: { marginBottom: type.paragraphGap * 1.5 }, children: [
+  return jsx(View, { wrap: false, style: { marginBottom: type.paragraphGap * 1.5 }, children: [
     ...entryOpening(block, theme, key),
     ...entryBody(block, theme, key),
   ] }, key);
 }
 
-function renderSection(section: PdfSection, theme: PdfTheme, key: string): ReactNode[] {
+function renderSection(section: PdfSection, theme: PdfTheme, key: string, includeTrailingGap: boolean): ReactNode[] {
   const blocks: ReactNode[] = [];
   const headingStyle = section.headingStyle ?? "plain";
   const title = hasText(section.title) ? text(section.title,
@@ -318,7 +345,9 @@ function renderSection(section: PdfSection, theme: PdfTheme, key: string): React
   return [
     ...(!firstEntry && title ? [section.breakBefore ? cloneElement(title as ReactElement<{ break?: boolean }>, { break: true }) : title] : []),
     ...blocks,
-    jsx(View, { style: { height: theme.typography.sectionGap } }, `${key}-gap`),
+    ...(includeTrailingGap
+      ? [jsx(View, { style: { height: theme.typography.sectionGap } }, `${key}-gap`)]
+      : []),
   ];
 }
 
@@ -351,7 +380,13 @@ function pageAdornment(adornment: PdfPageAdornment | undefined, position: "heade
 /** Server-only, in-memory PDF render. Caller must supply already-authorized data. */
 export async function renderPdfDocument(model: PdfDocumentModel, overrides: PdfThemeOverrides = {}): Promise<Buffer> {
   const theme = resolvePdfTheme(overrides);
-  const sections = model.sections.flatMap((section, index) => renderSection(section, theme, `section-${index}`));
+  const nonEmptySections = model.sections.filter((section) => section.blocks.length > 0);
+  const sections = nonEmptySections.flatMap((section, index) => renderSection(
+    section,
+    theme,
+    `section-${index}`,
+    index < nonEmptySections.length - 1,
+  ));
   const header = pageAdornment(model.header, "header", theme);
   const footer = pageAdornment(model.footer, "footer", theme);
   const page = jsx(Page, { size: "A4", wrap: true,

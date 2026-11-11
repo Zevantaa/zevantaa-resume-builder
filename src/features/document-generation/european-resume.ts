@@ -106,7 +106,8 @@ export function buildEuropeanResumeModel(mapping: DocumentDataMappingResult): Eu
     ]),
   ));
   return { model: { sourceProfileId: data.sourceProfileId,
-    title: `${data.identity.fullName} - European Resume`, sections: [
+    title: `${data.identity.fullName} - European Resume`,
+    footer: { text: "European Resume", pageNumbers: "current-of-total", alignment: "right" }, sections: [
       identity,
       ...section("summary", "Professional Profile", paragraph(data.professionalSummary?.text)),
       ...section("experience", "Work Experience", (data.employment ?? []).map(employment)),
@@ -120,8 +121,8 @@ export function buildEuropeanResumeModel(mapping: DocumentDataMappingResult): Eu
       ...additional,
     ] }, theme: {
       margins: { top: 44, right: 44, bottom: 44, left: 44 },
-      typography: { bodySize: 9.5, smallSize: 8.4, heading1Size: 20, heading2Size: 11,
-        lineHeight: 1.34, paragraphGap: 5.5, sectionGap: 12, bulletIndent: 12 },
+      typography: { bodySize: 10, smallSize: 8.6, heading1Size: 20, heading2Size: 11,
+        lineHeight: 1.36, paragraphGap: 5.5, sectionGap: 12, bulletIndent: 12 },
       accentColor: "#0E4375", secondaryAccentColor: "#FFCC00", surfaceColor: "#EDF2F7",
       textColor: "#2D3748", mutedColor: "#4A5568",
     } };

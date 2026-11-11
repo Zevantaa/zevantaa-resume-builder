@@ -63,6 +63,9 @@ export function resolvePdfTheme(overrides: PdfThemeOverrides = {}): PdfTheme {
     if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || value > 60) throw new RangeError(`Invalid PDF typography token: ${key}.`);
   }
   if (typography.lineHeight < 1 || typography.lineHeight > 2) throw new RangeError("PDF line height must be between 1 and 2.");
+  if (typography.bodySize < 9.5) throw new RangeError("PDF body text must be at least 9.5 pt.");
+  if (typography.smallSize < 8.2) throw new RangeError("PDF supporting text must be at least 8.2 pt.");
+  if (typography.heading2Size < 10.5) throw new RangeError("PDF section headings must be at least 10.5 pt.");
   return { margins, typography, textColor: overrides.textColor ?? DEFAULT_PDF_THEME.textColor,
     mutedColor: overrides.mutedColor ?? DEFAULT_PDF_THEME.mutedColor,
     accentColor: overrides.accentColor ?? DEFAULT_PDF_THEME.accentColor,

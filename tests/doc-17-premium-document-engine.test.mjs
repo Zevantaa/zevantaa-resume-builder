@@ -77,8 +77,10 @@ test("approved letters use premium headers while missing Technology reference ke
   const technology = buildCoverLetterModel(mapping, "technology-startup");
   for (const output of [corporate, relocation]) {
     assert.equal(output.model.sections[0].blocks[0].kind, "premium-identity");
-    assert.ok(output.model.sections[0].blocks.some((block) => block.kind === "competency-grid"));
+    assert.ok(!output.model.sections[0].blocks.some((block) => block.kind === "competency-grid"));
   }
   assert.equal(technology.model.sections[0].blocks[0].kind, "heading");
   assert.ok(!technology.model.sections[0].blocks.some((block) => block.kind === "premium-identity"));
+  assert.ok(technology.model.sections[0].blocks.some((block) => block.kind === "heading" &&
+    block.text === "Re: Technology & Startup Opportunity"));
 });

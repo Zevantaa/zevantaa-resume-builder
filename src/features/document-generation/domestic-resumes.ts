@@ -45,16 +45,23 @@ function urlLines(value?: string, limit = 68): PdfBlock[] {
     remaining = remaining.slice(length);
   }
   if (remaining) lines.push(remaining);
-  return lines.map((text) => ({ kind: "paragraph", text, small: true }));
+  return lines.length ? [{ kind: "paragraph", text: lines.join("\n"), small: true }] : [];
 }
 
 function contact(data: DocumentData, compact = false, urlLimit = 68): PdfBlock[] {
   const identity = data.identity;
+  if (compact) return [
+    ...urlLines(identity.primaryEmail, urlLimit),
+    ...p(joined([identity.mobileNumber,
+      identity.whatsappNumber ? `WhatsApp: ${identity.whatsappNumber}` : undefined]), true),
+    ...urlLines(identity.linkedinUrl, urlLimit),
+    ...p(identity.currentLocation, true),
+  ];
   return [
     ...p(joined([identity.primaryEmail, identity.mobileNumber,
-      identity.whatsappNumber ? `WhatsApp: ${identity.whatsappNumber}` : undefined]), compact),
+      identity.whatsappNumber ? `WhatsApp: ${identity.whatsappNumber}` : undefined])),
     ...urlLines(identity.linkedinUrl, urlLimit),
-    ...p(identity.currentLocation, compact),
+    ...p(identity.currentLocation),
   ];
 }
 
@@ -82,8 +89,8 @@ function structuredEducation(item: EducationEntry): PdfBlock {
     location: joined([item.fieldOfStudy, item.location, item.gradeResult ? `Result: ${item.gradeResult}` : undefined]),
     bullets: item.highlights };
 }
-function certification(data: DocumentData): PdfBlock[] {
-  return (data.certifications ?? []).flatMap((item): PdfBlock[] => [
+function certification(data: DocumentData, start = 0, end?: number): PdfBlock[] {
+  return (data.certifications ?? []).slice(start, end).flatMap((item): PdfBlock[] => [
     { kind: "heading", level: 2, text: joined([item.name, item.issuingOrganization]) },
     ...p(joined([
       item.issuedOn ? `Issued: ${date(item.issuedOn)}` : item.issueYear !== undefined ? `Issued: ${item.issueYear}` : undefined,
@@ -93,15 +100,22 @@ function certification(data: DocumentData): PdfBlock[] {
   ]);
 }
 function projects(data: DocumentData): PdfBlock[] {
-  return (data.projects ?? []).flatMap((item): PdfBlock[] => [
-    { kind: "heading", level: 2, text: item.name },
-    ...p(joined([item.role, range(item.startDate, item.endDate), item.url])),
-    ...p(item.description), ...p(item.technologies.length ? `Technologies: ${item.technologies.join(", ")}` : undefined),
-    ...bullets(item.highlights),
-  ]);
+  return (data.projects ?? []).map((item): PdfBlock => ({
+    kind: "entry",
+    title: item.name,
+    subtitle: item.role,
+    date: range(item.startDate, item.endDate),
+    location: item.url,
+    description: joined([
+      item.description,
+      item.technologies.length ? `Technologies: ${item.technologies.join(", ")}` : undefined,
+    ], "\n"),
+    bullets: item.highlights,
+    keepOpeningTogether: true,
+  }));
 }
-function languages(data: DocumentData): PdfBlock[] {
-  return bullets((data.languages ?? []).map((item) =>
+function languages(data: DocumentData, start = 0, end?: number): PdfBlock[] {
+  return bullets((data.languages ?? []).slice(start, end).map((item) =>
     item.proficiency ? `${item.name} (${item.proficiency.replaceAll("-", " ")})` : item.name));
 }
 function additional(data: DocumentData, style: PdfSection["headingStyle"]): PdfSection[] {
@@ -124,6 +138,10 @@ function premiumSections(data: DocumentData, style: PdfSection["headingStyle"], 
     ...section("languages", "Languages", languages(data), style),
     ...additional(data, style),
   ];
+}
+
+function skillItems(data: DocumentData): string[] {
+  return (data.skills ?? []).map((item) => joined([item.name, item.category ? `(${item.category})` : undefined]));
 }
 
 export class DomesticResumeNotReadyError extends Error {
@@ -151,23 +169,20 @@ export function buildDomesticResume1(data: DocumentData): DomesticResumeOutput {
     { id: "identity", blocks: [{ kind: "premium-identity", style: "boardroom", name: data.identity.fullName,
       headline: headline(data), contact: identityContactLines(data) }] },
     ...premiumSections(data, "gold-rule", "gold", 3),
-  ]), theme: { typography: { heading1Size: 22, heading2Size: 10.8, paragraphGap: 5.5, sectionGap: 12 },
+  ]), theme: { typography: { bodySize: 10, smallSize: 8.6, heading1Size: 22, heading2Size: 11,
+    lineHeight: 1.38, paragraphGap: 5.5, sectionGap: 12 },
     accentColor: "#0F172A", secondaryAccentColor: "#D4AF37", surfaceColor: "#F8FAFC" } };
 }
 
 /** Approved Contemporary Executive Sidebar reference, with a bounded first-page rail. */
 export function buildDomesticResume2(data: DocumentData): DomesticResumeOutput {
+  const skills = skillItems(data);
   const sidebar: PdfBlock[] = [
     { kind: "heading", level: 2, text: "Contact" }, ...contact(data, true, 20),
-    ...(data.skills?.length ? [{ kind: "heading", level: 2, text: "Core Skills" } as const,
-      { kind: "competency-grid", items: data.skills.map((item) => item.name), columns: 2, tone: "plain" } as const] : []),
-    ...(data.languages?.length ? [{ kind: "heading", level: 2, text: "Languages" } as const, ...languages(data)] : []),
   ];
   const profile: PdfBlock[] = [
-    ...(data.professionalSummary ? [{ kind: "heading", level: 2, text: "Professional Summary" } as const,
-      ...p(data.professionalSummary.text)] : []),
-    ...(data.certifications?.length ? [{ kind: "heading", level: 2, text: "Certifications" } as const,
-      ...certification(data)] : []),
+    ...(skills.length ? [{ kind: "heading", level: 2, text: "Core Skills" } as const,
+      { kind: "competency-grid", items: skills.slice(0, 6), columns: 2, tone: "plain" } as const] : []),
   ];
   const experience = section("experience", "Professional Experience", (data.employment ?? []).map(structuredExperience), "accent")
     .map((item): PdfSection => item.blocks[0]?.kind === "entry" ? { ...item, keepWithFirstEntry: true } : item);
@@ -176,12 +191,17 @@ export function buildDomesticResume2(data: DocumentData): DomesticResumeOutput {
       headline: headline(data), contact: identityContactLines(data) }] },
     ...(sidebar.length || profile.length ? [{ id: "profile-zones", blocks: [{ kind: "columns", left: sidebar,
       right: profile, variant: "sidebar" }] } as PdfSection] : []),
+    ...section("summary", "Professional Summary", p(data.professionalSummary?.text), "accent"),
+    ...section("additional-skills", "Additional Skills", skills.length > 6 ? [{ kind: "competency-grid",
+      items: skills.slice(6), columns: 2, tone: "plain" }] : [], "accent"),
     ...experience,
+    ...section("certifications", "Certifications", certification(data), "accent"),
     ...section("education", "Education", (data.education ?? []).map(structuredEducation), "accent"),
     ...section("projects", "Projects", projects(data), "accent"),
+    ...section("languages", "Languages", languages(data), "accent"),
     ...additional(data, "accent"),
   ]), theme: { margins: { left: 38, right: 38 }, typography: { heading1Size: 21, heading2Size: 10.5,
-    bodySize: 9.5, smallSize: 8, paragraphGap: 5, sectionGap: 11, bulletIndent: 10 },
+    bodySize: 10, smallSize: 8.5, lineHeight: 1.36, paragraphGap: 5.5, sectionGap: 11, bulletIndent: 11 },
     accentColor: "#0F172A", secondaryAccentColor: "#0284C7", surfaceColor: "#F8FAFC" } };
 }
 
@@ -192,36 +212,51 @@ export function buildDomesticResume3(data: DocumentData): DomesticResumeOutput {
       headline: headline(data), contact: identityContactLines(data) }] },
     ...premiumSections(data, "editorial", "plain", 3),
   ]), theme: { margins: { top: 34, right: 40, bottom: 34, left: 40 },
-    typography: { headingFontFamily: "Times-Bold", bodySize: 9.4, smallSize: 8.2, heading1Size: 23, heading2Size: 10.5,
-      lineHeight: 1.32, paragraphGap: 5, sectionGap: 10, bulletIndent: 11 },
+    typography: { bodySize: 10.1, smallSize: 8.7, heading1Size: 22, heading2Size: 11,
+      lineHeight: 1.38, paragraphGap: 5.5, sectionGap: 11, bulletIndent: 12 },
     accentColor: "#0F172A", secondaryAccentColor: "#C5A059", surfaceColor: "#F8FAFC" } };
 }
 
 /** Approved Split-Grid Executive reference; long career entries continue at readable full width. */
 export function buildDomesticResume4(data: DocumentData): DomesticResumeOutput {
+  const skills = skillItems(data);
+  const experience = section("experience", "Professional Experience",
+    (data.employment ?? []).map(structuredExperience), "editorial")
+    .map((item): PdfSection => item.blocks[0]?.kind === "entry" ? { ...item, keepWithFirstEntry: true } : item);
   const sidebar: PdfBlock[] = [
     { kind: "heading", level: 1, text: data.identity.fullName },
     ...p(headline(data), true),
-    { kind: "heading", level: 2, text: "Contact" }, ...contact(data, true, 18),
-    ...(data.skills?.length ? [{ kind: "heading", level: 2, text: "Skills" } as const,
-      ...bullets(data.skills.map((item) => joined([item.name, item.category ? `(${item.category})` : undefined])))] : []),
-    ...(data.languages?.length ? [{ kind: "heading", level: 2, text: "Languages" } as const, ...languages(data)] : []),
+    { kind: "heading", level: 2, text: "Contact" }, ...contact(data, true, 24),
   ];
   const main: PdfBlock[] = [
-    ...(data.professionalSummary ? [{ kind: "heading", level: 2, text: "Professional Summary" } as const,
-      ...p(data.professionalSummary.text)] : []),
-    ...(data.certifications?.length ? [{ kind: "heading", level: 2, text: "Certifications" } as const,
-      ...certification(data)] : []),
+    ...(skills.length ? [{ kind: "heading", level: 2, text: "Core Skills" } as const,
+      { kind: "competency-grid", items: skills.slice(0, 6), columns: 2, tone: "plain" } as const] : []),
+    ...(hasText(data.professionalSummary?.text) ? [
+      { kind: "heading", level: 2, text: "Professional Summary" } as const,
+      ...p(data.professionalSummary?.text),
+    ] : []),
+    ...((data.certifications ?? []).length ? [
+      { kind: "heading", level: 2, text: "Certifications" } as const,
+      ...certification(data, 0, 2),
+    ] : []),
+    ...((data.languages ?? []).length ? [
+      { kind: "heading", level: 2, text: "Languages" } as const,
+      ...languages(data, 0, 3),
+    ] : []),
   ];
   return { model: model(data, "4", [
     { id: "profile-zones", blocks: [{ kind: "columns", left: sidebar, right: main, variant: "split-grid" }] },
-    ...section("experience", "Professional Experience", (data.employment ?? []).map(structuredExperience), "editorial"),
+    ...section("additional-skills", "Additional Skills", skills.length > 6 ? [{ kind: "competency-grid",
+      items: skills.slice(6), columns: 2, tone: "plain" }] : [], "accent"),
+    ...experience,
+    ...section("certifications", "Additional Certifications", certification(data, 2), "accent"),
     ...section("education", "Education", (data.education ?? []).map(structuredEducation), "accent"),
     ...section("projects", "Projects", projects(data), "accent"),
+    ...section("languages", "Additional Languages", languages(data, 3), "accent"),
     ...additional(data, "accent"),
-  ]), theme: { margins: { top: 34, left: 36, right: 36, bottom: 36 },
-    typography: { bodySize: 9.5, smallSize: 8, heading1Size: 19, heading2Size: 10.5,
-      paragraphGap: 5, sectionGap: 12, bulletIndent: 10 }, accentColor: "#0F172A",
+  ]), theme: { margins: { top: 28, left: 36, right: 36, bottom: 30 },
+    typography: { bodySize: 10, smallSize: 8.5, heading1Size: 19, heading2Size: 10.8,
+      lineHeight: 1.3, paragraphGap: 4, sectionGap: 8, bulletIndent: 11 }, accentColor: "#0F172A",
     secondaryAccentColor: "#0284C7", surfaceColor: "#F8FAFC" } };
 }
 
@@ -232,8 +267,8 @@ export function buildDomesticResume5(data: DocumentData): DomesticResumeOutput {
       headline: headline(data), contact: identityContactLines(data) }] },
     ...premiumSections(data, "gold-rule", "gold", 2),
   ]), theme: { margins: { top: 44, right: 48, bottom: 44, left: 48 },
-    typography: { bodySize: 9.6, smallSize: 8.3, heading1Size: 22, heading2Size: 10.5,
-      lineHeight: 1.4, paragraphGap: 6, sectionGap: 14, bulletIndent: 12 }, accentColor: "#1A1A1A",
+    typography: { bodySize: 10.1, smallSize: 8.6, heading1Size: 22, heading2Size: 11,
+      lineHeight: 1.4, paragraphGap: 6, sectionGap: 13, bulletIndent: 12 }, accentColor: "#1A1A1A",
     secondaryAccentColor: "#C5A059", surfaceColor: "#FAF9F6" } };
 }
 

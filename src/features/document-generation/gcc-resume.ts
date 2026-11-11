@@ -109,6 +109,7 @@ export function buildGccResumeModel(mapping: DocumentDataMappingResult, photoDat
   return { model: {
     sourceProfileId: data.sourceProfileId,
     title: `${data.identity.fullName} - GCC Resume`,
+    footer: { text: "GCC Regional Resume", pageNumbers: "current-of-total", alignment: "right" },
     sections: [
       identity,
       ...section("summary", "Professional Summary", paragraph(data.professionalSummary?.text)),
@@ -125,8 +126,8 @@ export function buildGccResumeModel(mapping: DocumentDataMappingResult, photoDat
     ],
   }, theme: {
     margins: { top: 40, right: 42, bottom: 40, left: 42 },
-    typography: { bodySize: 9.5, smallSize: 8.5, heading1Size: 21, heading2Size: 11,
-      lineHeight: 1.32, paragraphGap: 5.5, sectionGap: 12, bulletIndent: 12 },
+    typography: { bodySize: 10, smallSize: 8.6, heading1Size: 21, heading2Size: 11,
+      lineHeight: 1.36, paragraphGap: 5.5, sectionGap: 12, bulletIndent: 12 },
     accentColor: "#0F172A", secondaryAccentColor: "#0284C7", surfaceColor: "#F8FAFC",
     textColor: "#0B132B", mutedColor: "#4B5563",
   } };

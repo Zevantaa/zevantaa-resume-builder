@@ -44,7 +44,7 @@ function bullets(values: readonly string[] | undefined): PdfBlock[] {
 }
 
 function section(id: string, title: string, blocks: PdfBlock[]): PdfSection[] {
-  return blocks.length ? [{ id, title, blocks,
+  return blocks.length ? [{ id, title, blocks, headingStyle: "ruled",
     ...(blocks[0]?.kind === "entry" ? { keepWithFirstEntry: true } : {}) }] : [];
 }
 
