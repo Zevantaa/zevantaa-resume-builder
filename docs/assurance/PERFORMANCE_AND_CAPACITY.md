@@ -7,6 +7,8 @@ This is a code-level inventory, **not** a load test or SLA. Verify limits in pro
 | PDF generation | Server-authorized; production per-user rate limit 40; no-store response | React-PDF memory and long-profile rendering time unmeasured; hosting timeout may interrupt |
 | Source upload/extraction | Resume 10 MB, photo 5 MB; MIME/extension/signature checks; DOCX uncompressed cap 40 MB/1000 ZIP entries; PDF max 100 pages; extracted text max 2 million chars | Malicious parser inputs/CPU timeout and AV remain unresolved; isolate/test in production-like runtime |
 | Brand image decoding | Sharp input pixel limit 16 million | Decode CPU/memory and malformed-image behavior need live QA |
+| Admin/client navigation | Request-scoped Auth/role and branding reads are cached; shell now starts them concurrently | Measure Vercel cold/warm p50/p95 and browser hydration with fictional sessions |
+| Provisioned-client list | Authoritative profile email is returned by the relationship query; no per-client Auth Admin lookup | Reconcile Auth/profile email through the existing atomic edit workflow; monitor drift diagnostics |
 | Admin directory | 2000-role scan cap, 200 batch, 25 display rows, 1000 document row cap | Full scan may be slow at scale; no cursor-based DB search; test before larger client base |
 | Skill library | Server query capped at 500 names | Search currently loads capped list; monitor size and move to server search if needed |
 | Career save | Max 50 entries per section plus field validation; production rate limit 40 | Payload/transaction cost needs runtime measurement |

@@ -12,13 +12,13 @@ export async function CreateClientAccountPage() {
     <div className="dashboard-page">
       <div className="layout-container-readable layout-stack">
         <PageHeader
-          description="Create a new candidate or select an existing unlinked profile, review core details, assign a package, and provision email/password access."
+          description="Create a new candidate or select an existing unlinked profile, review core details, assign a package, and send secure password-setup access."
           eyebrow="Admin portal"
           title="Create client account"
         />
 
         <SectionCard
-          description="Credentials are created in Supabase Auth through a trusted server action."
+          description="A one-time invitation is sent through Supabase Auth by a trusted server action; no password is shown to the administrator."
           title="Account details"
         >
           {candidates.length === 0 ? <InlineAlert variant="information">No existing candidate profiles are available. Create a new profile below.</InlineAlert> : null}

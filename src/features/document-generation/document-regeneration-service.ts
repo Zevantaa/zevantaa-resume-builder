@@ -43,11 +43,14 @@ async function processJobs(profileId: string | null, expectedActorUserId: string
       await generateAndPersistDocument(claimedProfileId, job.output_kind,
         { actorUserId, job: { jobId: job.job_id, token: job.lease_token, revision: job.source_career_revision } });
       completed++;
-    } catch {
+    } catch (error) {
+      const errorCode = error instanceof Error &&
+        (error.message === "invalid-claim" || error.message === "stale-or-unentitled")
+        ? error.message : "generation-failed";
       const result = await db.rpc("fail_document_regeneration_job", {
-        p_job_id: job.job_id, p_lease_token: job.lease_token, p_error_code: "generation-failed",
+        p_job_id: job.job_id, p_lease_token: job.lease_token, p_error_code: errorCode,
       });
-      if (result.error) throw new Error("Regeneration failure could not be recorded.");
+      if (result.error || result.data !== true) throw new Error("Regeneration failure could not be recorded.");
       failed++;
     }
   }

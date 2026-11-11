@@ -20,8 +20,9 @@ export default async function ClientLayout({
 }: {
   children: ReactNode;
 }) {
-  await requireApplicationRole("client");
-
-  const branding = await getBrandSettings();
+  const [, branding] = await Promise.all([
+    requireApplicationRole("client"),
+    getBrandSettings(),
+  ]);
   return <DashboardShell navigation={navigation} portal="client" logoSrc={brandLogoPath(branding)}>{children}</DashboardShell>;
 }

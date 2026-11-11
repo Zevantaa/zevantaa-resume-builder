@@ -91,7 +91,7 @@ export async function processResumeProcessingJobs(limit = 1): Promise<ResumeProc
         p_lease_token: job.lease_token,
         p_error_code: code,
       });
-      if (failed.error) throw new Error("Source-processing failure could not be recorded.");
+      if (failed.error || failed.data !== true) throw new Error("Source-processing failure could not be recorded.");
       result.failed++;
     }
   }
