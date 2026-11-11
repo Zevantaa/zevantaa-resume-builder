@@ -1,6 +1,7 @@
 export interface PdfMargins { top: number; right: number; bottom: number; left: number }
 export interface PdfTypography {
   fontFamily: string;
+  headingFontFamily: string;
   bodySize: number;
   smallSize: number;
   heading1Size: number;
@@ -16,6 +17,8 @@ export interface PdfTheme {
   textColor: string;
   mutedColor: string;
   accentColor: string;
+  secondaryAccentColor: string;
+  surfaceColor: string;
 }
 export type PdfThemeOverrides = {
   margins?: Partial<PdfMargins>;
@@ -23,12 +26,15 @@ export type PdfThemeOverrides = {
   textColor?: string;
   mutedColor?: string;
   accentColor?: string;
+  secondaryAccentColor?: string;
+  surfaceColor?: string;
 };
 
 export const DEFAULT_PDF_THEME: Readonly<PdfTheme> = {
   margins: { top: 42, right: 44, bottom: 42, left: 44 },
   typography: {
     fontFamily: "Zevantaa PDF Latin",
+    headingFontFamily: "Zevantaa PDF Latin",
     bodySize: 10,
     smallSize: 8.5,
     heading1Size: 17,
@@ -41,6 +47,8 @@ export const DEFAULT_PDF_THEME: Readonly<PdfTheme> = {
   textColor: "#0B132B",
   mutedColor: "#4B5563",
   accentColor: "#0B132B",
+  secondaryAccentColor: "#0284C7",
+  surfaceColor: "#F8FAFC",
 };
 
 /** A4 in points. Bound settings so a caller cannot create a clipped page. */
@@ -51,11 +59,13 @@ export function resolvePdfTheme(overrides: PdfThemeOverrides = {}): PdfTheme {
     if (!Number.isFinite(value) || value < 20 || value > 100) throw new RangeError("PDF margins must be between 20 and 100 pt.");
   }
   for (const [key, value] of Object.entries(typography)) {
-    if (key === "fontFamily") continue;
+    if (key === "fontFamily" || key === "headingFontFamily") continue;
     if (typeof value !== "number" || !Number.isFinite(value) || value <= 0 || value > 60) throw new RangeError(`Invalid PDF typography token: ${key}.`);
   }
   if (typography.lineHeight < 1 || typography.lineHeight > 2) throw new RangeError("PDF line height must be between 1 and 2.");
   return { margins, typography, textColor: overrides.textColor ?? DEFAULT_PDF_THEME.textColor,
     mutedColor: overrides.mutedColor ?? DEFAULT_PDF_THEME.mutedColor,
-    accentColor: overrides.accentColor ?? DEFAULT_PDF_THEME.accentColor };
+    accentColor: overrides.accentColor ?? DEFAULT_PDF_THEME.accentColor,
+    secondaryAccentColor: overrides.secondaryAccentColor ?? DEFAULT_PDF_THEME.secondaryAccentColor,
+    surfaceColor: overrides.surfaceColor ?? DEFAULT_PDF_THEME.surfaceColor };
 }

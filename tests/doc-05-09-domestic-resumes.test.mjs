@@ -73,16 +73,20 @@ function normal() {
 
 test("five design IDs have intentionally distinct composition and print themes", () => {
   assert.deepEqual(DOMESTIC_DESIGNS.map((item) => item.id), ["1", "2", "3", "4", "5"]);
+  assert.deepEqual(DOMESTIC_DESIGNS.map((item) => item.name), ["Royal Navy & Gold Boardroom",
+    "Contemporary Executive Sidebar", "Editorial Prestige Masthead", "Split-Grid Executive",
+    "Executive Gold Accent"]);
   const mapping = mapCandidateProfileToDocumentData(normal(), "resume");
   const outputs = DOMESTIC_DESIGNS.map((item) => buildDomesticResumeModel(mapping, item.id));
   assert.equal(new Set(outputs.map((output) => JSON.stringify(output.theme))).size, 5);
   assert.equal(new Set(outputs.map((output) => JSON.stringify(output.model.sections))).size, 5);
-  assert.equal(outputs[0].model.sections[1].headingStyle, "ruled");
-  assert.equal(outputs[1].model.sections[0].blocks[0].kind, "banner");
-  assert.equal(outputs[2].model.sections[1].headingStyle, "uppercase");
-  assert.ok(outputs[3].model.sections.some((section) => section.blocks.some((block) => block.kind === "columns")));
-  assert.ok(outputs.filter((output) => output.model.sections.some((section) => section.blocks.some((block) => block.kind === "columns"))).length === 1);
-  assert.ok(outputs[4].theme.typography.heading1Size > outputs[0].theme.typography.heading1Size);
+  assert.equal(outputs[0].model.sections[1].headingStyle, "gold-rule");
+  assert.equal(outputs[1].model.sections[0].blocks[0].kind, "premium-identity");
+  assert.equal(outputs[2].model.sections[1].headingStyle, "editorial");
+  const columnVariants = outputs.flatMap((output) => output.model.sections.flatMap((section) =>
+    section.blocks.filter((block) => block.kind === "columns").map((block) => block.variant)));
+  assert.deepEqual(columnVariants, ["sidebar", "split-grid"]);
+  assert.notEqual(outputs[4].theme.secondaryAccentColor, outputs[1].theme.secondaryAccentColor);
 });
 
 for (const design of DOMESTIC_DESIGNS) {
@@ -100,7 +104,8 @@ for (const design of DOMESTIC_DESIGNS) {
     const output = buildDomesticResumeModel(mapCandidateProfileToDocumentData(normal(), "resume"), design.id);
     const pages = await inspect(await renderPdfDocument(output.model, output.theme));
     t.diagnostic(`Domestic ${design.id} normal: ${pages.length} A4 pages`);
-    assert.equal(pages.length, 2, `Domestic ${design.id} normal profile should span two pages`);
+    assert.ok(pages.length >= 2 && pages.length <= 3,
+      `Domestic ${design.id} normal profile should remain within three readable pages`);
     const text = pages.map((page) => page.text).join(" ");
     for (const phrase of ["rohan.kapoor.qa@example.invalid", "Professional Summary", "Professional Experience",
       "Fictional International Distribution", "Education", "CGPA 8.1/10", "2017", "Skills",
@@ -227,11 +232,12 @@ test("Domestic 2 keeps Professional Experience with the first role at page bound
     const experience = output.model.sections.find((section) => section.id === "experience");
     assert.equal(experience.keepWithFirstEntry, true);
     const pages = await inspect(await renderPdfDocument(output.model, output.theme));
-    const headingPage = pages.findIndex((page) => page.text.includes("Professional Experience"));
-    const rolePage = pages.findIndex((page) => page.text.includes("Regional Planning Division 1"));
-    assert.ok(headingPage >= 0);
-    assert.equal(rolePage, headingPage, "Section heading must not be stranded without the first role.");
-    assert.ok(pages[headingPage].text.includes("Fictional International Distribution and Business Process Cooperative"),
+    const rolePage = pages.findIndex((page) => page.text.includes("Regional Planning Division 1") &&
+      page.text.includes("Fictional International Distribution and Business Process Cooperative"));
+    assert.ok(rolePage >= 0);
+    assert.ok(pages[rolePage].text.includes("Professional Experience"),
+      "Section heading must stay on the page containing the first role.");
+    assert.ok(pages[rolePage].text.includes("Fictional International Distribution and Business Process Cooperative"),
       "The first employer metadata must stay with the heading and role title.");
   }
   const mapping = mapCandidateProfileToDocumentData(normal(), "resume");

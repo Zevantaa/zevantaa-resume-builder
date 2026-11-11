@@ -4,10 +4,12 @@ import { test } from "node:test";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("reference inventory records the unavailable approved root and all eleven generator boundaries", () => {
+test("reference inventory reconciles the approved root and all eleven generator boundaries", () => {
   const inventory = read("docs/DESIGN_REFERENCE_INVENTORY.md");
   assert.match(inventory, /C:\\Development\\zevantaa-design-references/);
-  assert.match(inventory, /directory does not exist/i);
+  assert.match(inventory, /exactly 20 files/i);
+  assert.match(inventory, /no byte-identical duplicates/i);
+  assert.match(inventory, /technology & startup has no category-matched reference/i);
   for (const output of [
     "global-ats-resume", "domestic-resume-1", "domestic-resume-2", "domestic-resume-3",
     "domestic-resume-4", "domestic-resume-5", "gcc-resume", "europass-eu-resume",

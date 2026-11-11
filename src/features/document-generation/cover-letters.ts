@@ -180,24 +180,51 @@ export function buildCoverLetterContent(mapping: DocumentDataMappingResult, type
     salutation: "Dear Hiring Manager,", paragraphs, signOff: "Sincerely," };
 }
 
-/** All three variants share one restrained, selectable-text business-letter layout. */
+/** Corporate and relocation use their approved references; Technology & Startup stays on the existing
+ * restrained layout until a category-matched reference is approved. */
 export function buildCoverLetterModel(mapping: DocumentDataMappingResult, type: CoverLetterType): CoverLetterOutput {
   const content = buildCoverLetterContent(mapping, type);
+  const role = recentRole(mapping.data);
+  if (type === "technology-startup") {
+    const blocks: PdfBlock[] = [
+      { kind: "heading", level: 1, text: content.candidateName, keepWithNext: true },
+      ...content.contactLines.map((text): PdfBlock => ({ kind: "paragraph", text, small: true })),
+      { kind: "rule" },
+      { kind: "paragraph", text: content.salutation, keepWithNext: true },
+      ...content.paragraphs.map((item): PdfBlock => ({ kind: "paragraph", text: item.text })),
+      { kind: "paragraph", text: content.signOff, keepWithNext: true },
+      { kind: "paragraph", text: content.candidateName },
+    ];
+    return { content, model: { sourceProfileId: mapping.data.sourceProfileId,
+      title: `${content.candidateName} - ${COVER_LETTER_LABELS[type]} Cover Letter`,
+      sections: [{ id: "letter", blocks }] }, theme: {
+        margins: { top: 55, right: 55, bottom: 55, left: 55 },
+        typography: { bodySize: 10.2, smallSize: 8.7, heading1Size: 18, heading2Size: 11,
+          lineHeight: 1.43, paragraphGap: 11, sectionGap: 1, bulletIndent: 12 },
+        accentColor: "#274965", textColor: "#17263C", mutedColor: "#46566A",
+      } };
+  }
+  const skills = (mapping.data.skills ?? []).slice(0, 6).map((item) => item.name);
   const blocks: PdfBlock[] = [
-    { kind: "heading", level: 1, text: content.candidateName, keepWithNext: true },
-    ...content.contactLines.map((text): PdfBlock => ({ kind: "paragraph", text, small: true })),
-    { kind: "rule" },
+    { kind: "premium-identity", style: "cover-letter", name: content.candidateName,
+      headline: role?.jobTitle, contact: content.contactLines },
+    { kind: "heading", level: 2,
+      text: type === "general-corporate" ? "Re: Professional Opportunity" : "Re: International Opportunity",
+      keepWithNext: true },
     { kind: "paragraph", text: content.salutation, keepWithNext: true },
     ...content.paragraphs.map((item): PdfBlock => ({ kind: "paragraph", text: item.text })),
+    ...(skills.length ? [{ kind: "competency-grid", items: skills, columns: 2, tone: "plain" } as const] : []),
     { kind: "paragraph", text: content.signOff, keepWithNext: true },
     { kind: "paragraph", text: content.candidateName },
   ];
   return { content, model: { sourceProfileId: mapping.data.sourceProfileId,
     title: `${content.candidateName} - ${COVER_LETTER_LABELS[type]} Cover Letter`,
-    sections: [{ id: "letter", blocks }] }, theme: {
+    sections: [{ id: "letter", blocks }], footer: { text: "Zevantaa Careers", pageNumbers: "current", alignment: "right" } }, theme: {
       margins: { top: 55, right: 55, bottom: 55, left: 55 },
-      typography: { bodySize: 10.2, smallSize: 8.7, heading1Size: 18, heading2Size: 11,
-        lineHeight: 1.43, paragraphGap: 11, sectionGap: 1, bulletIndent: 12 },
-      accentColor: "#274965", textColor: "#17263C", mutedColor: "#46566A",
+      typography: { ...(type === "general-corporate" ? { headingFontFamily: "Times-Bold" } : {}),
+        bodySize: 9.7, smallSize: 8.5, heading1Size: 20, heading2Size: 10.5,
+        lineHeight: 1.48, paragraphGap: 9, sectionGap: 1, bulletIndent: 12 },
+      accentColor: "#0F172A", secondaryAccentColor: "#0284C7", surfaceColor: "#F8FAFC",
+      textColor: "#1E293B", mutedColor: "#475569",
     } };
 }

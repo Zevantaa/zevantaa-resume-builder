@@ -122,6 +122,7 @@ export function buildEuropeanResumeModel(mapping: DocumentDataMappingResult): Eu
       margins: { top: 44, right: 44, bottom: 44, left: 44 },
       typography: { bodySize: 9.5, smallSize: 8.4, heading1Size: 20, heading2Size: 11,
         lineHeight: 1.34, paragraphGap: 5.5, sectionGap: 12, bulletIndent: 12 },
-      accentColor: "#274965", textColor: "#17263C", mutedColor: "#46566A",
+      accentColor: "#0E4375", secondaryAccentColor: "#FFCC00", surfaceColor: "#EDF2F7",
+      textColor: "#2D3748", mutedColor: "#4A5568",
     } };
 }

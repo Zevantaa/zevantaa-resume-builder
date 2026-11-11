@@ -25,7 +25,7 @@ const paragraph = (value?: string, small = false): PdfBlock[] =>
 const bullets = (items: readonly string[] = []): PdfBlock[] =>
   items.some(hasText) ? [{ kind: "bullets", items: items.filter(hasText) }] : [];
 const section = (id: string, title: string, blocks: PdfBlock[]): PdfSection[] =>
-  blocks.length ? [{ id, title, blocks, headingStyle: "accent",
+  blocks.length ? [{ id, title, blocks, headingStyle: "editorial",
     ...(id === "experience" && blocks[0]?.kind === "entry" ? { keepWithFirstEntry: true } : {}) }] : [];
 
 /** Presentation-only line breaks; rejoining the lines preserves the supplied URL. */
@@ -74,12 +74,13 @@ export function buildGccResumeModel(mapping: DocumentDataMappingResult, photoDat
   }[data.identity.relocationPreference];
   const identity: PdfSection = { id: "identity", blocks: [
     { kind: "gcc-identity", name: data.identity.fullName,
+      headline: (data.employment ?? []).find((item) => item.currentRole)?.jobTitle ?? data.employment?.[0]?.jobTitle,
       details: [
+        joined([data.identity.primaryEmail, data.identity.mobileNumber,
+          data.identity.whatsappNumber ? `WhatsApp: ${data.identity.whatsappNumber}` : undefined]),
         ...(data.identity.currentLocation ? [`Current location: ${data.identity.currentLocation}`] : []),
         ...(relocation ? [relocation] : []),
       ], ...(photoDataUri ? { photoDataUri } : {}) },
-    ...paragraph(joined([data.identity.primaryEmail, data.identity.mobileNumber,
-      data.identity.whatsappNumber ? `WhatsApp: ${data.identity.whatsappNumber}` : undefined]), true),
     ...urlLines(data.identity.linkedinUrl),
   ] };
   const certifications = (data.certifications ?? []).flatMap((item): PdfBlock[] => [
@@ -113,8 +114,9 @@ export function buildGccResumeModel(mapping: DocumentDataMappingResult, photoDat
       ...section("summary", "Professional Summary", paragraph(data.professionalSummary?.text)),
       ...section("experience", "Professional Experience", (data.employment ?? []).map(experience)),
       ...section("education", "Education", (data.education ?? []).map(education)),
-      ...section("skills", "Skills", bullets((data.skills ?? []).map((item) =>
-        joined([item.name, item.category ? `(${item.category})` : undefined])))),
+      ...section("skills", "Technical Skills", data.skills?.length ? [{ kind: "competency-grid",
+        items: data.skills.map((item) => joined([item.name, item.category ? `(${item.category})` : undefined])),
+        columns: 2, tone: "plain" }] : []),
       ...section("certifications", "Certifications", certifications),
       ...section("projects", "Projects", projects),
       ...section("languages", "Languages", bullets((data.languages ?? []).map((item) =>
@@ -125,6 +127,7 @@ export function buildGccResumeModel(mapping: DocumentDataMappingResult, photoDat
     margins: { top: 40, right: 42, bottom: 40, left: 42 },
     typography: { bodySize: 9.5, smallSize: 8.5, heading1Size: 21, heading2Size: 11,
       lineHeight: 1.32, paragraphGap: 5.5, sectionGap: 12, bulletIndent: 12 },
-    accentColor: "#123B50", textColor: "#0B132B", mutedColor: "#4B5563",
+    accentColor: "#0F172A", secondaryAccentColor: "#0284C7", surfaceColor: "#F8FAFC",
+    textColor: "#0B132B", mutedColor: "#4B5563",
   } };
 }
