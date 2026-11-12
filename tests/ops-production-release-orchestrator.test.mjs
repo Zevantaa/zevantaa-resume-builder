@@ -77,7 +77,10 @@ test("migration comparison, repair, and push are fail-closed and ordered", () =>
   assert.match(release, /Where-Object \{ \$_\.Name -notlike "\$InvitationMigration\*" \}/);
   assert.match(release, /"db", "diff"/);
   assert.match(release, /"--strict-coverage"/);
-  assert.match(release, /if \(\$meaningfulDiff\) \{ throw/);
+  assert.match(release, /"--from", \$SupabaseProjectRef, "--to", "migrations"/);
+  assert.match(release, /Bidirectional public-schema comparison found a material difference/);
+  assert.match(release, /differences outside bidirectionally identical function canonicalization/);
+  assert.match(release, /function-canonicalization\.json/);
   assert.match(release, /"migration", "repair", "--status", "applied"/);
   assert.match(release, /"db", "push", "--dry-run", "--skip-vault"/);
   assert.match(release, /Invitation-state migration dry-run/);

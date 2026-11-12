@@ -98,8 +98,12 @@ The command executes these gates in order and stops at the first critical failur
    isolated database container, aggregate database-count
    comparison, restore of all private object bytes, and checksum read-back. The
    production database is never a restore target.
-6. Shadow-vs-live schema diff using migrations only through
-   `20261103223240_ats_assessment_provenance.sql`. Any nonempty diff blocks release.
+6. Strict bidirectional shadow-vs-live schema diff using migrations only through
+   `20261103223240_ats_assessment_provenance.sql`. A material difference blocks
+   release. The only accepted nonempty result is the same function-only
+   canonicalization SQL in both directions, with no table, enum, constraint,
+   index, policy, trigger, grant, or RLS difference; its count and SHA-256 are
+   recorded as evidence.
 7. If history is missing and separately authorized, official
    `supabase migration repair --status applied ... --remote=<project>` for only the
    missing, already-proved-equivalent automation versions.

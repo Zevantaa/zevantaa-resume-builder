@@ -328,11 +328,37 @@ function Test-AutomationMigrationEquivalence {
   Get-ChildItem -LiteralPath (Join-Path $RepositoryRoot "supabase\migrations") -Filter "*.sql" |
     Where-Object { $_.Name -notlike "$InvitationMigration*" } |
     ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $targetMigrations }
-  $diffPath = Join-Path $baselineRoot "live-vs-automation-baseline.sql"
+  $diffPath = Join-Path $baselineRoot "automation-to-live.sql"
+  $reversePath = Join-Path $baselineRoot "live-to-automation.sql"
   Invoke-Supabase @("db", "diff", "--from", "migrations", "--to", $SupabaseProjectRef,
     "--schema", "public", "--strict-coverage", "--output", $diffPath, "--workdir", $baselineRoot) | Out-Null
-  $meaningfulDiff = (Get-Content -Raw -LiteralPath $diffPath) -replace '(?m)^\s*--.*$', '' -replace '\s', ''
-  if ($meaningfulDiff) { throw "Live public schema differs from the expected state after the six automation migrations." }
+  $forward = (Get-Content -Raw -LiteralPath $diffPath).Replace("`r`n", "`n").Trim()
+  if ($forward) {
+    Invoke-Supabase @("db", "diff", "--from", $SupabaseProjectRef, "--to", "migrations",
+      "--schema", "public", "--strict-coverage", "--output", $reversePath, "--workdir", $baselineRoot) | Out-Null
+    $reverse = (Get-Content -Raw -LiteralPath $reversePath).Replace("`r`n", "`n").Trim()
+    if ($forward -ne $reverse) {
+      throw "Bidirectional public-schema comparison found a material difference."
+    }
+    $functionPattern = '(?is)CREATE OR REPLACE FUNCTION\b.*?\bAS\s+\$function\$.*?\$function\$\s*;'
+    $functionMatches = [regex]::Matches($forward, $functionPattern)
+    $remainder = [regex]::Replace($forward, $functionPattern, '')
+    $remainder = $remainder -replace '(?im)^\s*SET\s+local\s+check_function_bodies\s*=\s*off\s*;\s*$', ''
+    $remainder = $remainder -replace '(?m)^\s*--.*$', '' -replace '\s', ''
+    if ($functionMatches.Count -lt 1 -or $remainder) {
+      throw "Schema comparison contains differences outside bidirectionally identical function canonicalization."
+    }
+    $canonicalEvidence = [pscustomobject]@{
+      format = "zevantaa-bidirectional-function-equivalence-v1"
+      functionCount = $functionMatches.Count
+      sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $diffPath).Hash.ToLowerInvariant()
+    }
+    [System.IO.File]::WriteAllText(
+      (Join-Path $baselineRoot "function-canonicalization.json"),
+      ($canonicalEvidence | ConvertTo-Json),
+      [System.Text.UTF8Encoding]::new($false)
+    )
+  }
   $preflight = Join-Path $RepositoryRoot "docs\sql\ZEVANTAA_PREDEPLOYMENT_PREFLIGHT_READ_ONLY.sql"
   Invoke-ReadOnlySql $preflight (Join-Path $baselineRoot "preflight.json") | Out-Null
   return $baselineRoot
