@@ -8,9 +8,14 @@ the release report.
 
 - [ ] Named Zevantaa release operator and independent reviewer are recorded.
 - [ ] Windows PowerShell 5.1 or PowerShell 7, Node 22, npm, Git, and Docker
-  Desktop are installed. The isolated Supabase container supplies `psql`.
-- [ ] The workstation has sufficient encrypted disk space for database dumps and
-  all private Storage objects.
+  Desktop are installed. Official signed `age` 1.3.2 and `age-keygen` are on
+  `PATH`; the isolated Supabase Postgres image supplies `psql`.
+- [ ] A DPAPI-protected local post-quantum age identity exists outside Git and
+  outside `EvidenceRoot`, with an ACL limited to the release operator and SYSTEM.
+- [ ] A distinct offline post-quantum age identity is held under Zevantaa recovery
+  controls; only its public recipient is supplied to the orchestrator.
+- [ ] The workstation has sufficient disk space for age ciphertext and sufficient
+  Docker memory for the database and object `tmpfs` restore drill.
 - [ ] `EvidenceRoot` is an absolute, access-restricted path outside this Git
   checkout and outside every synchronized/public folder.
 - [ ] Provider accounts use MFA and belong to Zevantaa, not Sofiology.
@@ -32,8 +37,9 @@ the release report.
   `api_gateway_keys_secret_read`. The official API-key command injects the
   default project secret into only the private Storage backup child process;
   the key is not echoed, written to disk, or included in reports.
-- [ ] Docker can run the Supabase local stack; the restore uses only the `psql`
-  binary inside its isolated database container.
+- [ ] Docker has pinned image `public.ecr.aws/supabase/postgres:17.11.0.018`.
+  Recovery runs with networking disabled and both database and object restore
+  paths mounted as `tmpfs`; no decrypted production payload is persisted.
 - [ ] Backup capacity covers roles, schema, data, migration history, managed-schema
   customizations, and all bytes in the three approved private buckets.
 

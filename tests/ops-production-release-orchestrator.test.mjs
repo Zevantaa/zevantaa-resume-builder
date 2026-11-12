@@ -7,7 +7,9 @@ import test from "node:test";
 const root = process.cwd();
 const release = readFileSync(join(root, "scripts", "Invoke-ZevantaaProductionRelease.ps1"), "utf8");
 const backup = readFileSync(join(root, "scripts", "backup-private-storage.mjs"), "utf8");
-const restore = readFileSync(join(root, "scripts", "restore-private-storage.mjs"), "utf8");
+const restore = readFileSync(join(root, "scripts", "verify-encrypted-backup-restore.mjs"), "utf8");
+const databaseStream = readFileSync(join(root, "scripts", "stream-encrypted-database-dump.mjs"), "utf8");
+const snapshot = readFileSync(join(root, "docs", "sql", "ZEVANTAA_RELEASE_SNAPSHOT_READ_ONLY.sql"), "utf8");
 const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 
 test("production release entry point is dry-run by default and pinned to Zevantaa targets", () => {
@@ -50,10 +52,10 @@ test("local and provider gates cover the complete requested release validation",
   assert.doesNotMatch(release, /env", "list"[^\n]*"--json"/);
 });
 
-test("backup uses official dumps and preserves private Storage bytes outside Git", () => {
+test("backup streams official dump plans and private Storage bytes into age outside Git", () => {
   for (const fragment of [
-    '"--role-only"', '"--data-only"', '"--use-copy"', '"supabase_migrations"',
-    '"checksums.sha256"', "Test-IsolatedRestore",
+    '"--role-only"', '"--data-only"', '"--use-copy"', '"supabase_migrations"', '"--dry-run"',
+    '"checksums.sha256"', "Test-IsolatedRestore", "Get-AgeKeyMaterial", "CryptProtectData", "CryptUnprotectData",
   ]) assert.equal(release.includes(fragment), true, fragment);
   for (const bucket of [
     "candidate-intake-private", "candidate-documents-private", "zevantaa-brand-assets",
@@ -61,20 +63,26 @@ test("backup uses official dumps and preserves private Storage bytes outside Git
     assert.equal(backup.includes(bucket), true);
     assert.equal(restore.includes(bucket), true);
   }
-  assert.match(backup, /GetFileHash|createHash\("sha256"\)/);
-  assert.match(release, /"docker" @\("cp"/);
-  assert.match(release, /"docker" \$psqlArgs/);
+  assert.match(backup, /createHash\("sha256"\)/);
+  assert.match(backup, /\.age/);
+  assert.match(backup, /bytes\.fill\(0\)/);
+  assert.doesNotMatch(backup, /writeFile\([^)]*bytes/);
+  assert.match(databaseStream, /docker[\s\S]*bash[\s\S]*age/);
+  assert.match(databaseStream, /"--read-only"/);
+  assert.match(databaseStream, /\/tmp:rw,noexec,nosuid,size=64m/);
+  assert.doesNotMatch(release, /"--file", \(Join-Path \$backupRoot/);
   assert.doesNotMatch(release, /Get-Command psql/);
-  assert.match(release, /"init", "--force"/);
-  assert.match(release, /Get-FreeTcpPorts 3/);
-  assert.match(release, /Select-Object -Unique/);
-  assert.match(release, /gotrue,realtime,imgproxy,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor/);
+  assert.match(release, /--tmpfs/);
+  assert.match(release, /\/var\/lib\/postgresql\/data:rw,nosuid,size=4g/);
+  assert.match(release, /\/restore:rw,noexec,nosuid,size=2g/);
+  assert.match(release, /"--network", "none"/);
   assert.match(backup, /projectRefFromUrl\(url\) !== PRODUCTION_REF/);
-  assert.match(restore, /targetRef === PRODUCTION_REF \|\| url\.includes\(PRODUCTION_REF\)/);
-  assert.match(restore, /local-isolated-restore/);
-  assert.match(restore, /127\.0\.0\.1/);
-  assert.match(restore, /upsert: true/);
-  assert.match(restore, /--confirm-isolated-target/);
+  assert.match(restore, /--confirm-memory-only-target/);
+  assert.match(restore, /plaintextPersistentWrites: 0/);
+  assert.match(restore, /restored private Storage object failed byte-for-byte verification/i);
+  assert.match(snapshot, /private_storage_objects/);
+  assert.doesNotMatch(release, /source-counts\.json["']/);
+  assert.match(release, /source-counts\.json\.age/);
 });
 
 test("migration comparison, repair, and push are fail-closed and ordered", () => {
@@ -111,12 +119,12 @@ test("Cron is never activated and reports remain credential-free", () => {
   assert.doesNotMatch(release, /Write-Host\s+\$projects|Write-Host\s+\$status|Write-Host\s+\$names/);
 });
 
-test("Storage restore helper refuses execution without isolated confirmation", () => {
-  const result = spawnSync(process.execPath, [join(root, "scripts", "restore-private-storage.mjs")], {
+test("encrypted restore helper refuses execution without memory-only confirmation", () => {
+  const result = spawnSync(process.execPath, [join(root, "scripts", "verify-encrypted-backup-restore.mjs")], {
     cwd: root,
-    env: { ...process.env, ISOLATED_SUPABASE_URL: "", ISOLATED_SUPABASE_SECRET_KEY: "" },
+    env: { ...process.env },
     encoding: "utf8",
   });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /Explicit isolated-target confirmation is required/);
+  assert.match(result.stderr, /Explicit memory-only restore confirmation is required/);
 });

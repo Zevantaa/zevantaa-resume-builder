@@ -7,6 +7,9 @@ param(
   [string]$AuthorizationRecord = "",
   [string]$AuthConfigurationAttestation = "",
   [string]$VercelProjectId = "",
+  [string]$AgeRecoveryKeyPath = "",
+  [string]$AgeOfflineRecoveryRecipient = "",
+  [switch]$InitializeAgeRecoveryKey,
   [switch]$AuthorizeMigrationRepair,
   [switch]$AuthorizeSchemaMigration,
   [switch]$AuthorizeDeployment,
@@ -24,6 +27,8 @@ $SupabaseProjectRef = "fzltowzpfrnuxxxrzuih"
 $VercelTeamSlug = "zevantaa-careers-pvt-ltd"
 $SupabaseCli = "supabase@3.1.0"
 $VercelCli = "vercel@65.14.0"
+$AgeVersion = "1.3.2"
+$RestorePostgresImage = "public.ecr.aws/supabase/postgres:17.11.0.018"
 $AutomationVersions = @(
   "20261103215458", "20261103220738", "20261103221521",
   "20261103222143", "20261103222518", "20261103223240"
@@ -37,6 +42,8 @@ $RequiredVercelEnvironmentNames = @(
 $Results = New-Object System.Collections.Generic.List[object]
 $Blockers = New-Object System.Collections.Generic.List[string]
 $ReleaseStopped = $false
+$SourceSnapshot = $null
+$AgeKeyMaterial = $null
 
 function Test-PathWithin([string]$Parent, [string]$Candidate) {
   $parentPath = [System.IO.Path]::GetFullPath($Parent).TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
@@ -91,6 +98,193 @@ function Invoke-External([string]$FilePath, [string[]]$Arguments) {
     throw "Command failed without completing its release check."
   }
   return $output
+}
+
+function ConvertTo-ProcessArgument([string]$Value) {
+  if ($null -eq $Value) { return '""' }
+  return '"' + $Value.Replace('"', '\"') + '"'
+}
+
+function Invoke-ProcessWithStandardInput([string]$FilePath, [string[]]$Arguments, [string]$InputText) {
+  $command = Get-Command $FilePath -ErrorAction Stop
+  $process = [System.Diagnostics.Process]::new()
+  $process.StartInfo = [System.Diagnostics.ProcessStartInfo]::new()
+  $process.StartInfo.FileName = $command.Source
+  $process.StartInfo.Arguments = (($Arguments | ForEach-Object { ConvertTo-ProcessArgument $_ }) -join ' ')
+  $process.StartInfo.UseShellExecute = $false
+  $process.StartInfo.CreateNoWindow = $true
+  $process.StartInfo.RedirectStandardInput = $true
+  $process.StartInfo.RedirectStandardOutput = $true
+  $process.StartInfo.RedirectStandardError = $true
+  try {
+    [void]$process.Start()
+    $process.StandardInput.Write($InputText)
+    $process.StandardInput.Close()
+    $output = $process.StandardOutput.ReadToEnd()
+    $errorOutput = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+    if ($process.ExitCode -ne 0) { throw "A protected streaming subprocess failed." }
+    return $output
+  } finally {
+    $InputText = $null
+    $errorOutput = $null
+    $process.Dispose()
+  }
+}
+
+function Set-RestrictedFileAcl([string]$Path) {
+  $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+  $acl = [System.Security.AccessControl.FileSecurity]::new()
+  $acl.SetAccessRuleProtection($true, $false)
+  $allow = [System.Security.AccessControl.AccessControlType]::Allow
+  $acl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new($identity, "FullControl", $allow))
+  $acl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new("NT AUTHORITY\SYSTEM", "FullControl", $allow))
+  Set-Acl -LiteralPath $Path -AclObject $acl
+}
+
+function Initialize-ZevantaaDpapi {
+  if ("ZevantaaRelease.Dpapi" -as [type]) { return }
+  Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+
+namespace ZevantaaRelease {
+  public static class Dpapi {
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DataBlob { public int Length; public IntPtr Data; }
+
+    [DllImport("Crypt32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool CryptProtectData(ref DataBlob input, string description,
+      ref DataBlob entropy, IntPtr reserved, IntPtr prompt, int flags, out DataBlob output);
+
+    [DllImport("Crypt32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool CryptUnprotectData(ref DataBlob input, out IntPtr description,
+      ref DataBlob entropy, IntPtr reserved, IntPtr prompt, int flags, out DataBlob output);
+
+    [DllImport("Kernel32.dll")]
+    private static extern IntPtr LocalFree(IntPtr memory);
+
+    private static DataBlob Allocate(byte[] value) {
+      var blob = new DataBlob { Length = value.Length, Data = Marshal.AllocHGlobal(value.Length) };
+      Marshal.Copy(value, 0, blob.Data, value.Length);
+      return blob;
+    }
+
+    private static void FreeAllocated(DataBlob blob) {
+      if (blob.Data != IntPtr.Zero) Marshal.FreeHGlobal(blob.Data);
+    }
+
+    private static byte[] CopyAndFree(DataBlob blob) {
+      try {
+        var value = new byte[blob.Length];
+        Marshal.Copy(blob.Data, value, 0, blob.Length);
+        return value;
+      } finally {
+        if (blob.Data != IntPtr.Zero) LocalFree(blob.Data);
+      }
+    }
+
+    public static byte[] Protect(byte[] value, byte[] entropy) {
+      var input = Allocate(value);
+      var extra = Allocate(entropy);
+      try {
+        DataBlob output;
+        if (!CryptProtectData(ref input, "Zevantaa production backup identity", ref extra,
+          IntPtr.Zero, IntPtr.Zero, 1, out output)) throw new Win32Exception(Marshal.GetLastWin32Error());
+        return CopyAndFree(output);
+      } finally { FreeAllocated(input); FreeAllocated(extra); }
+    }
+
+    public static byte[] Unprotect(byte[] value, byte[] entropy) {
+      var input = Allocate(value);
+      var extra = Allocate(entropy);
+      IntPtr description = IntPtr.Zero;
+      try {
+        DataBlob output;
+        if (!CryptUnprotectData(ref input, out description, ref extra,
+          IntPtr.Zero, IntPtr.Zero, 1, out output)) throw new Win32Exception(Marshal.GetLastWin32Error());
+        return CopyAndFree(output);
+      } finally {
+        if (description != IntPtr.Zero) LocalFree(description);
+        FreeAllocated(input);
+        FreeAllocated(extra);
+      }
+    }
+  }
+}
+'@
+}
+
+function Get-AgeEntropy {
+  $bytes = [System.Text.Encoding]::UTF8.GetBytes("zevantaa-production-backup|$SupabaseProjectRef|v1")
+  try { return [System.Security.Cryptography.SHA256]::Create().ComputeHash($bytes) }
+  finally { [Array]::Clear($bytes, 0, $bytes.Length) }
+}
+
+function Initialize-AgeRecoveryKey([string]$Path) {
+  if (Test-Path -LiteralPath $Path) { throw "The protected age recovery key already exists and will not be overwritten." }
+  $directory = Split-Path -Parent $Path
+  New-Item -ItemType Directory -Path $directory -Force | Out-Null
+  $identity = Invoke-ProcessWithStandardInput "age-keygen" @("-pq") ""
+  if ($identity -notmatch '(?m)^# public key:\s*(age1pq1[a-z0-9]+)\s*$' -or
+      $identity -notmatch '(?m)^AGE-SECRET-KEY-PQ-1[A-Z0-9]+\s*$') {
+    throw "age-keygen did not return a valid post-quantum identity."
+  }
+  $identityBytes = [System.Text.Encoding]::UTF8.GetBytes($identity)
+  $entropy = Get-AgeEntropy
+  try {
+    Initialize-ZevantaaDpapi
+    $protected = [ZevantaaRelease.Dpapi]::Protect($identityBytes, $entropy)
+    [System.IO.File]::WriteAllBytes($Path, $protected)
+    Set-RestrictedFileAcl $Path
+  } finally {
+    [Array]::Clear($identityBytes, 0, $identityBytes.Length)
+    [Array]::Clear($entropy, 0, $entropy.Length)
+    if ($null -ne $protected) { [Array]::Clear($protected, 0, $protected.Length) }
+    $identity = $null
+  }
+}
+
+function Get-AgeKeyMaterial {
+  if (-not $AgeRecoveryKeyPath) { throw "An absolute DPAPI-protected age recovery-key path is required." }
+  if (-not [System.IO.Path]::IsPathRooted($AgeRecoveryKeyPath)) {
+    throw "The age recovery-key path must be absolute."
+  }
+  $path = [System.IO.Path]::GetFullPath($AgeRecoveryKeyPath)
+  if ((Test-PathWithin $RepositoryRoot $path) -or
+      (Test-PathWithin $EvidenceRoot $path)) {
+    throw "The age recovery key must be outside both the repository and release evidence directory."
+  }
+  if ($InitializeAgeRecoveryKey -and -not (Test-Path -LiteralPath $path)) { Initialize-AgeRecoveryKey $path }
+  if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "The separately protected age recovery key is missing." }
+  $protected = [System.IO.File]::ReadAllBytes($path)
+  $entropy = Get-AgeEntropy
+  try {
+    Initialize-ZevantaaDpapi
+    $identityBytes = [ZevantaaRelease.Dpapi]::Unprotect($protected, $entropy)
+    $identity = [System.Text.Encoding]::UTF8.GetString($identityBytes)
+    $recipientMatch = [regex]::Match($identity, '(?m)^# public key:\s*(age1pq1[a-z0-9]+)\s*$')
+    $identityMatch = [regex]::Match($identity, '(?m)^AGE-SECRET-KEY-PQ-1[A-Z0-9]+\s*$')
+    if (-not $recipientMatch.Success -or -not $identityMatch.Success) {
+      throw "The protected age recovery identity is invalid."
+    }
+    $localRecipient = $recipientMatch.Groups[1].Value
+    if ($AgeOfflineRecoveryRecipient -notmatch '^age1pq1[a-z0-9]+$' -or
+        $AgeOfflineRecoveryRecipient -eq $localRecipient) {
+      throw "A distinct offline post-quantum age recovery recipient is required."
+    }
+    return [pscustomobject]@{
+      Path = $path
+      Identity = $identity
+      Recipient = $localRecipient
+      Recipients = @($localRecipient, $AgeOfflineRecoveryRecipient)
+    }
+  } finally {
+    [Array]::Clear($protected, 0, $protected.Length)
+    [Array]::Clear($entropy, 0, $entropy.Length)
+    if ($null -ne $identityBytes) { [Array]::Clear($identityBytes, 0, $identityBytes.Length) }
+  }
 }
 
 function Invoke-Check([string]$Name, [scriptblock]$Action, [string]$Recovery) {
@@ -181,38 +375,57 @@ function Write-Checksums([string]$Directory) {
   return $checksumFile
 }
 
-function Get-FreeTcpPorts([int]$Count) {
-  $listeners = @()
-  try {
-    foreach ($index in 1..$Count) {
-      $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
-      $listener.Start()
-      $listeners += $listener
-    }
-    return @($listeners | ForEach-Object { ([System.Net.IPEndPoint]$_.LocalEndpoint).Port })
-  } finally {
-    foreach ($listener in $listeners) { $listener.Stop() }
-  }
-}
-
 function New-ProductionBackup {
+  if ($null -eq $AgeKeyMaterial) { throw "The protected age recovery key has not been loaded." }
   $backupRoot = Join-Path $EvidenceRoot "production-backup"
   New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
-  Invoke-Supabase @("db", "dump", "--remote=$SupabaseProjectRef", "--role-only", "--file", (Join-Path $backupRoot "roles.sql")) | Out-Null
-  Invoke-Supabase @("db", "dump", "--remote=$SupabaseProjectRef", "--file", (Join-Path $backupRoot "schema.sql")) | Out-Null
-  Invoke-Supabase @("db", "dump", "--remote=$SupabaseProjectRef", "--data-only", "--use-copy",
-    "--exclude", "storage.buckets_vectors", "--exclude", "storage.vector_indexes",
-    "--file", (Join-Path $backupRoot "data.sql")) | Out-Null
-  Invoke-Supabase @("db", "dump", "--remote=$SupabaseProjectRef", "--schema", "supabase_migrations",
-    "--file", (Join-Path $backupRoot "history-schema.sql")) | Out-Null
-  Invoke-Supabase @("db", "dump", "--remote=$SupabaseProjectRef", "--schema", "supabase_migrations",
-    "--data-only", "--use-copy", "--file", (Join-Path $backupRoot "history-data.sql")) | Out-Null
+  $ageBinary = (Get-Command age -ErrorAction Stop).Source
+  $dockerBinary = (Get-Command docker -ErrorAction Stop).Source
+  $dumpHelper = Join-Path $RepositoryRoot "scripts\stream-encrypted-database-dump.mjs"
+  $dumpSpecifications = @(
+    @{ File = "roles.sql.age"; Arguments = @("--role-only") },
+    @{ File = "managed-schema.sql.age"; Arguments = @("--schema", "auth,storage") },
+    @{ File = "schema.sql.age"; Arguments = @() },
+    @{ File = "data.sql.age"; Arguments = @("--data-only", "--use-copy", "--exclude", "storage.buckets_vectors", "--exclude", "storage.vector_indexes") },
+    @{ File = "history-schema.sql.age"; Arguments = @("--schema", "supabase_migrations") },
+    @{ File = "history-data.sql.age"; Arguments = @("--schema", "supabase_migrations", "--data-only", "--use-copy") }
+  )
+  foreach ($specification in $dumpSpecifications) {
+    $plan = Invoke-Supabase (@("db", "dump", "--dry-run", "--remote=$SupabaseProjectRef") + $specification.Arguments)
+    try {
+      $streamArguments = @(
+        $dumpHelper,
+        "--output", (Join-Path $backupRoot $specification.File),
+        "--age-binary", $ageBinary,
+        "--docker-binary", $dockerBinary,
+        "--postgres-image", $RestorePostgresImage
+      )
+      foreach ($recipient in $AgeKeyMaterial.Recipients) { $streamArguments += @("--recipient", $recipient) }
+      $streamResult = Invoke-ProcessWithStandardInput "node" $streamArguments $plan | ConvertFrom-Json
+      if ($streamResult.encryptedBytes -lt 200 -or -not $streamResult.ciphertextSha256) {
+        throw "An encrypted database artifact did not verify."
+      }
+    } finally { $plan = $null }
+  }
   $snapshotSql = Join-Path $RepositoryRoot "docs\sql\ZEVANTAA_RELEASE_SNAPSHOT_READ_ONLY.sql"
-  $snapshotOutput = Invoke-ReadOnlySql $snapshotSql (Join-Path $backupRoot "source-counts.json")
+  $snapshotOutput = Invoke-Supabase @(
+    "--output-format", "json", "db", "query", "--remote=$SupabaseProjectRef",
+    "--read-only", "--file", $snapshotSql
+  )
   $snapshotJson = $snapshotOutput | ConvertFrom-Json
-  if ($null -eq (Get-JsonPropertyRecursive $snapshotJson "release_snapshot")) {
+  $script:SourceSnapshot = Get-JsonPropertyRecursive $snapshotJson "release_snapshot"
+  if ($null -eq $SourceSnapshot) {
     throw "The production count snapshot was not returned in the expected safe format."
   }
+  $snapshotArguments = @(
+    (Join-Path $RepositoryRoot "scripts\stream-age-encrypt.mjs"),
+    "--output", (Join-Path $backupRoot "source-counts.json.age"),
+    "--age-binary", $ageBinary
+  )
+  foreach ($recipient in $AgeKeyMaterial.Recipients) { $snapshotArguments += @("--recipient", $recipient) }
+  $snapshotEncryption = Invoke-ProcessWithStandardInput "node" $snapshotArguments $snapshotOutput | ConvertFrom-Json
+  if ($snapshotEncryption.encryptedBytes -lt 200) { throw "The encrypted source snapshot did not verify." }
+  $snapshotOutput = $null
 
   $storageRoot = Join-Path $backupRoot "private-storage"
   $apiKeyOutput = Invoke-Supabase @(
@@ -227,9 +440,13 @@ function New-ProductionBackup {
   try {
     $env:NEXT_PUBLIC_SUPABASE_URL = "https://$SupabaseProjectRef.supabase.co"
     $env:SUPABASE_SECRET_KEY = [string]$secretKeys[0].api_key
-    $storageOutput = Invoke-External "node" @(
-      (Join-Path $RepositoryRoot "scripts\backup-private-storage.mjs"), "--output", $storageRoot
+    $storageArguments = @(
+      (Join-Path $RepositoryRoot "scripts\backup-private-storage.mjs"),
+      "--output", $storageRoot,
+      "--age-binary", $ageBinary
     )
+    foreach ($recipient in $AgeKeyMaterial.Recipients) { $storageArguments += @("--recipient", $recipient) }
+    $storageOutput = Invoke-External "node" $storageArguments
   } finally {
     $env:NEXT_PUBLIC_SUPABASE_URL = $previousUrl
     $env:SUPABASE_SECRET_KEY = $previousKey
@@ -237,10 +454,15 @@ function New-ProductionBackup {
     $apiKeyOutput = $null
   }
   $storageSummary = $storageOutput.Trim() | ConvertFrom-Json
-  if ($storageSummary.bucketCount -ne 3 -or $storageSummary.objectCount -lt 0) {
+  if ($storageSummary.bucketCount -ne 3 -or $storageSummary.objectCount -lt 0 -or
+      $storageSummary.plaintextObjectBytes -lt 0) {
     throw "Private Storage backup evidence was incomplete."
   }
   Write-Checksums $backupRoot | Out-Null
+  $plaintextArtifacts = @(Get-ChildItem -LiteralPath $backupRoot -File -Recurse | Where-Object {
+    $_.Name -ne "checksums.sha256" -and $_.Extension -ne ".age"
+  })
+  if ($plaintextArtifacts.Count -ne 0) { throw "A plaintext production backup artifact was written unexpectedly." }
   return $backupRoot
 }
 
@@ -248,106 +470,53 @@ function Test-IsolatedRestore([string]$BackupRoot) {
   if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     throw "Docker Desktop is required for isolated restore validation."
   }
-  $restoreRoot = Join-Path $EvidenceRoot "isolated-restore"
-  New-Item -ItemType Directory -Path $restoreRoot -Force | Out-Null
-  Invoke-Supabase @("init", "--force", "--workdir", $restoreRoot) | Out-Null
-  $configPath = Join-Path $restoreRoot "supabase\config.toml"
-  $configText = Get-Content -Raw -LiteralPath $configPath
-  $allocatedPorts = @(Get-FreeTcpPorts 3)
-  if ($allocatedPorts.Count -ne 3 -or (@($allocatedPorts | Select-Object -Unique).Count -ne 3)) {
-    throw "Three distinct localhost ports are required for isolated restore validation."
+  if ($null -eq $AgeKeyMaterial -or -not $AgeKeyMaterial.Identity) {
+    throw "The protected age recovery identity is unavailable for restore validation."
   }
-  $apiPort, $databasePort, $shadowPort = $allocatedPorts
-  $configText = [regex]::Replace($configText, '(?ms)(\[api\].*?^port\s*=\s*)\d+', {
-    param($match) $match.Groups[1].Value + $apiPort
-  }, 1)
-  $configText = [regex]::Replace($configText, '(?ms)(\[db\].*?^port\s*=\s*)\d+', {
-    param($match) $match.Groups[1].Value + $databasePort
-  }, 1)
-  $configText = [regex]::Replace($configText, '(?m)^(shadow_port\s*=\s*)\d+', {
-    param($match) $match.Groups[1].Value + $shadowPort
-  }, 1)
-  [System.IO.File]::WriteAllText($configPath, $configText, [System.Text.UTF8Encoding]::new($false))
+  $dockerBinary = (Get-Command docker -ErrorAction Stop).Source
+  Invoke-External $dockerBinary @("image", "inspect", $RestorePostgresImage) | Out-Null
+  $container = "zevantaa-encrypted-restore-" + [guid]::NewGuid().ToString("N")
   $started = $false
   try {
-    $excludedServices = "gotrue,realtime,imgproxy,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor"
-    Invoke-Supabase @("start", "--exclude", $excludedServices, "--workdir", $restoreRoot) | Out-Null
+    Invoke-External $dockerBinary @(
+      "run", "--detach", "--rm", "--name", $container, "--network", "none",
+      "--tmpfs", "/var/lib/postgresql/data:rw,nosuid,size=4g",
+      "--tmpfs", "/restore:rw,noexec,nosuid,size=2g",
+      "--env", "POSTGRES_PASSWORD=local-memory-restore-only",
+      $RestorePostgresImage
+    ) | Out-Null
     $started = $true
-    $configText = Get-Content -Raw -LiteralPath $configPath
-    if ($configText -notmatch '(?m)^project_id\s*=\s*"([^"]+)"\s*$') {
-      throw "The isolated Supabase project ID could not be read."
+    $ready = $false
+    foreach ($attempt in 1..45) {
+      try {
+        Invoke-External $dockerBinary @("exec", $container, "pg_isready", "--username", "postgres") | Out-Null
+        $ready = $true
+        break
+      } catch { Start-Sleep -Seconds 1 }
     }
-    $databaseContainer = "supabase_db_" + $matches[1]
-    $runningContainer = (Invoke-External "docker" @("ps", "--filter", "name=^/$databaseContainer$", "--format", "{{.Names}}" )).Trim()
-    if ($runningContainer -ne $databaseContainer) {
-      throw "The isolated Supabase database container could not be identified exactly."
+    if (-not $ready) { throw "The memory-backed PostgreSQL restore target did not become ready." }
+    $restoreOutput = Invoke-ProcessWithStandardInput "node" @(
+      (Join-Path $RepositoryRoot "scripts\verify-encrypted-backup-restore.mjs"),
+      "--backup-root", $BackupRoot,
+      "--container", $container,
+      "--age-binary", (Get-Command age -ErrorAction Stop).Source,
+      "--docker-binary", $dockerBinary,
+      "--snapshot-sql", (Join-Path $RepositoryRoot "docs\sql\ZEVANTAA_RELEASE_SNAPSHOT_READ_ONLY.sql"),
+      "--confirm-memory-only-target"
+    ) $AgeKeyMaterial.Identity
+    $restored = $restoreOutput.Trim() | ConvertFrom-Json
+    if ($restored.databaseSnapshotMatched -ne $true -or $restored.bucketCount -ne 3 -or
+        $restored.restoredObjectCount -lt 0 -or $restored.plaintextPersistentWrites -ne 0) {
+      throw "Encrypted backup recovery evidence was incomplete."
     }
-    $status = Invoke-Supabase @("--output", "env", "status", "--workdir", $restoreRoot)
-    $statusValues = @{}
-    foreach ($line in ($status -split "`r?`n")) {
-      if ($line -match '^([A-Z0-9_]+)="?(.*?)"?$') { $statusValues[$matches[1]] = $matches[2].TrimEnd('"') }
-    }
-    foreach ($required in @("API_URL", "SERVICE_ROLE_KEY")) {
-      if (-not $statusValues.ContainsKey($required)) { throw "The isolated Supabase stack did not expose $required." }
-    }
-    $containerRestoreRoot = "/tmp/zevantaa-release"
-    Invoke-External "docker" @("exec", $databaseContainer, "mkdir", "-p", $containerRestoreRoot) | Out-Null
-    $restoreFiles = @("roles.sql", "schema.sql", "history-schema.sql", "data.sql", "history-data.sql")
-    foreach ($file in $restoreFiles) {
-      Invoke-External "docker" @("cp", (Join-Path $BackupRoot $file), "${databaseContainer}:${containerRestoreRoot}/$file") | Out-Null
-    }
-    $psqlArgs = @(
-      "exec", $databaseContainer, "psql", "--username", "postgres", "--dbname", "postgres",
-      "--single-transaction", "--variable", "ON_ERROR_STOP=1"
-    )
-    foreach ($file in @("roles.sql", "schema.sql", "history-schema.sql")) {
-      $psqlArgs += @("--file", "$containerRestoreRoot/$file")
-    }
-    $psqlArgs += @("--command", "SET session_replication_role = replica")
-    foreach ($file in @("data.sql", "history-data.sql")) {
-      $psqlArgs += @("--file", "$containerRestoreRoot/$file")
-    }
-    Invoke-External "docker" $psqlArgs | Out-Null
-
-    $snapshotSql = Join-Path $RepositoryRoot "docs\sql\ZEVANTAA_RELEASE_SNAPSHOT_READ_ONLY.sql"
-    Invoke-External "docker" @("cp", $snapshotSql, "${databaseContainer}:${containerRestoreRoot}/snapshot.sql") | Out-Null
-    $localSnapshotText = Invoke-External "docker" @(
-      "exec", $databaseContainer, "psql", "--username", "postgres", "--dbname", "postgres",
-      "--tuples-only", "--no-align", "--file", "$containerRestoreRoot/snapshot.sql"
-    )
-    $localSnapshot = ($localSnapshotText.Trim() | ConvertFrom-Json) | ConvertTo-Json -Compress -Depth 20
-    $sourceRaw = Get-Content -Raw -LiteralPath (Join-Path $BackupRoot "source-counts.json") | ConvertFrom-Json
-    $sourceSnapshot = (Get-JsonPropertyRecursive $sourceRaw "release_snapshot") | ConvertTo-Json -Compress -Depth 20
-    if ($localSnapshot -ne $sourceSnapshot) { throw "Isolated database row counts did not match production backup evidence." }
-
-    $previousUrl = $env:ISOLATED_SUPABASE_URL
-    $previousKey = $env:ISOLATED_SUPABASE_SECRET_KEY
-    $previousRef = $env:ISOLATED_SUPABASE_PROJECT_REF
-    try {
-      $env:ISOLATED_SUPABASE_URL = $statusValues["API_URL"]
-      $env:ISOLATED_SUPABASE_SECRET_KEY = $statusValues["SERVICE_ROLE_KEY"]
-      $env:ISOLATED_SUPABASE_PROJECT_REF = "local-isolated-restore"
-      $manifest = Join-Path $BackupRoot "private-storage\storage-manifest.json"
-      $restoreOutput = Invoke-External "node" @(
-        (Join-Path $RepositoryRoot "scripts\restore-private-storage.mjs"),
-        "--manifest", $manifest, "--confirm-isolated-target"
-      )
-      $restored = $restoreOutput.Trim() | ConvertFrom-Json
-      $manifestValue = Get-Content -Raw -LiteralPath $manifest | ConvertFrom-Json
-      $expectedObjects = ($manifestValue.buckets | Measure-Object -Property objectCount -Sum).Sum
-      if ($restored.restoredObjectCount -ne $expectedObjects) { throw "Isolated Storage restore counts did not match the backup manifest." }
-    } finally {
-      $env:ISOLATED_SUPABASE_URL = $previousUrl
-      $env:ISOLATED_SUPABASE_SECRET_KEY = $previousKey
-      $env:ISOLATED_SUPABASE_PROJECT_REF = $previousRef
-    }
-    [System.IO.File]::WriteAllText((Join-Path $restoreRoot "RESTORE-PASSED.txt"),
-      ("Isolated database and private Storage restore verified at {0}." -f (Get-Date).ToUniversalTime().ToString("o")),
+    [System.IO.File]::WriteAllText((Join-Path $EvidenceRoot "RESTORE-PASSED.txt"),
+      ("Age-authenticated database and private Storage recovery verified in Docker tmpfs at {0}." -f (Get-Date).ToUniversalTime().ToString("o")),
       [System.Text.UTF8Encoding]::new($false))
   } finally {
-    if ($started) { try { Invoke-Supabase @("stop", "--workdir", $restoreRoot) | Out-Null } catch { } }
+    if ($started) { try { Invoke-External $dockerBinary @("rm", "--force", $container) | Out-Null } catch { } }
+    if ($null -ne $AgeKeyMaterial) { $AgeKeyMaterial.Identity = $null }
   }
-  return $restoreRoot
+  return (Join-Path $EvidenceRoot "RESTORE-PASSED.txt")
 }
 
 function Test-AutomationMigrationEquivalence {
@@ -444,9 +613,9 @@ function Apply-InvitationMigrationIfApproved([string[]]$RemoteVersions, [string]
   Invoke-ReadOnlySql $postflight (Join-Path $EvidenceRoot "post-migration-checks.json") | Out-Null
   $snapshotSql = Join-Path $RepositoryRoot "docs\sql\ZEVANTAA_RELEASE_SNAPSHOT_READ_ONLY.sql"
   $afterRaw = Invoke-ReadOnlySql $snapshotSql (Join-Path $EvidenceRoot "post-migration-counts.json") | ConvertFrom-Json
-  $beforeRaw = Get-Content -Raw -LiteralPath (Join-Path $BackupRoot "source-counts.json") | ConvertFrom-Json
   $after = (Get-JsonPropertyRecursive $afterRaw "release_snapshot") | ConvertTo-Json -Compress -Depth 20
-  $before = (Get-JsonPropertyRecursive $beforeRaw "release_snapshot") | ConvertTo-Json -Compress -Depth 20
+  if ($null -eq $SourceSnapshot) { throw "The in-memory pre-migration preservation snapshot is unavailable." }
+  $before = $SourceSnapshot | ConvertTo-Json -Compress -Depth 20
   if ($before -ne $after) {
     throw "Auth, administrator, client, file, document, or queue counts changed during the invitation migration window."
   }
@@ -543,17 +712,20 @@ try {
 
   Invoke-Check "Release toolchain" {
     if ($PSVersionTable.PSVersion.Major -lt 5) { throw "Windows PowerShell 5.1 or PowerShell 7 is required." }
-    $missingTools = @(@("node", "npm.cmd", "npx.cmd", "git", "docker") |
+    $missingTools = @(@("node", "npm.cmd", "npx.cmd", "git", "docker", "age", "age-keygen") |
       Where-Object { -not (Get-Command $_ -ErrorAction SilentlyContinue) })
     if ($missingTools.Count -gt 0) { throw ("Required release tools are unavailable: " + ($missingTools -join ", ") + ".") }
     Invoke-External "docker" @("version", "--format", "{{.Server.Version}}") | Out-Null
+    $ageVersionOutput = (Invoke-External "age" @("--version")).Trim()
+    if ($ageVersionOutput -notmatch [regex]::Escape($AgeVersion)) { throw "The approved age version $AgeVersion is required." }
+    Invoke-External "docker" @("image", "inspect", $RestorePostgresImage) | Out-Null
     $supabaseVersion = (Invoke-Supabase @("--version")).Trim()
     $vercelVersion = (Invoke-Vercel @("--version")).Trim()
     if ($supabaseVersion -notmatch "3\.1\.0" -or $vercelVersion -notmatch "65\.14\.0") {
       throw "Pinned provider CLI versions did not execute as expected."
     }
-    "PowerShell, Node, npm, Git, Docker, and pinned provider CLIs are available."
-  } "Install/start Docker Desktop before any backup or restore run." | Out-Null
+    "PowerShell, Node, npm, Git, Docker, age, the memory-only restore image, and pinned provider CLIs are available."
+  } "Install the approved age release, start Docker Desktop, and pre-pull the pinned Supabase Postgres image." | Out-Null
 
   Invoke-Check "Full regression suite" { Invoke-External "npm.cmd" @("test") | Out-Null; "All regression tests passed." } "Fix failing tests; do not continue the release." | Out-Null
   Invoke-Check "ESLint" { Invoke-External "npm.cmd" @("run", "lint") | Out-Null; "Lint passed." } "Fix lint errors." | Out-Null
@@ -654,15 +826,27 @@ try {
     } "Configure and independently verify the matching Vercel/Vault worker secrets, while keeping Cron inactive." | Out-Null
     Assert-ReleaseCanContinue "configuration validation"
 
+    Invoke-Check "Encrypted backup recovery key" {
+      $script:AgeKeyMaterial = Get-AgeKeyMaterial
+      $fingerprintBytes = [System.Text.Encoding]::UTF8.GetBytes($AgeKeyMaterial.Recipient)
+      try {
+        $fingerprint = ([System.BitConverter]::ToString(
+          [System.Security.Cryptography.SHA256]::Create().ComputeHash($fingerprintBytes)
+        )).Replace("-", "").ToLowerInvariant().Substring(0, 16)
+      } finally { [Array]::Clear($fingerprintBytes, 0, $fingerprintBytes.Length) }
+      "DPAPI-protected post-quantum age recovery identity verified outside repository and evidence paths (recipient fingerprint $fingerprint)."
+    } "Provide or initialize a separately protected age recovery key outside the backup directory." | Out-Null
+    Assert-ReleaseCanContinue "encrypted backup key"
+
     $backupRoot = $null
     Invoke-Check "Production backup" {
       $securitySql = Join-Path $RepositoryRoot "docs\sql\ZEVANTAA_RELEASE_SECURITY_READ_ONLY.sql"
       Invoke-ReadOnlySql $securitySql (Join-Path $EvidenceRoot "pre-release-security-state.json") | Out-Null
       $script:backupRoot = New-ProductionBackup
-      "Official database dumps and all three private bucket object backups verified with SHA-256 evidence."
+      "Official Supabase dump plans and all three private buckets streamed directly into authenticated age encryption with SHA-256 evidence."
     } "Correct backup access or integrity; do not change schema." | Out-Null
     Assert-ReleaseCanContinue "production backup"
-    Invoke-Check "Isolated restore validation" { Test-IsolatedRestore $backupRoot | Out-Null; "Isolated database and private Storage restore matched production counts and object checksums." } "Fix the isolated restore and rerun from a fresh target; do not change production." | Out-Null
+    Invoke-Check "Isolated restore validation" { Test-IsolatedRestore $backupRoot | Out-Null; "Docker tmpfs database and private Storage recovery matched production counts and object bytes without persistent plaintext." } "Fix the memory-only isolated restore and rerun from a fresh target; do not change production." | Out-Null
     Assert-ReleaseCanContinue "isolated restore"
 
     Invoke-Check "Automation migration equivalence" { Test-AutomationMigrationEquivalence | Out-Null; "Live public schema exactly matches a shadow built through the six automation migrations." } "Prepare a reviewed forward reconciliation migration; never replay the six files." | Out-Null

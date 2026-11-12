@@ -8,6 +8,14 @@ fail-closed, defaults to `DryRun`, pins Supabase CLI `3.1.0` and Vercel CLI
 merge, push, force-push, reset a database, delete candidate data, expose secret
 values, or replay the six automation migrations.
 
+Production backup payloads use official `age` 1.3.2 authenticated encryption.
+The Supabase CLI still produces the authoritative dump plan, but that plan runs
+inside an ephemeral container and streams directly to `age`; the CLI is never
+allowed to create a plaintext dump file. Every backup is encrypted to two
+distinct post-quantum recipients: a local identity protected with Windows DPAPI
+and an operator-controlled offline recovery recipient. Private identities never
+enter Git, logs, command arguments, or the backup directory.
+
 Supabase CLI v3 targets local infrastructure by default. Every hosted operation in
 the orchestrator therefore names `fzltowzpfrnuxxxrzuih` explicitly. The script
 uses `db query --read-only` for production SQL evidence, `db diff` against a shadow
@@ -39,6 +47,13 @@ responses, candidate data, object keys, or credentials.
 
 ## Read-only production preparation
 
+Install the signed official `age` 1.3.2 Windows release and confirm `age` and
+`age-keygen` are on `PATH`. The official Windows AMD64 archive SHA-256 is
+`f48d8f8f9ebe903ab5027ed067652f2cc1db94bc206976430133b905dcd8e8c7`.
+Create and protect an independent offline post-quantum identity, then provide
+only its public `age1pq1...` recipient to this process. Keep that private
+identity offline under Zevantaa recovery controls.
+
 After dry-run authorization passes, use `Prepare` with a new, access-restricted
 evidence directory. This downloads and checksum-verifies the production backup,
 restores it into a fresh local Supabase stack, compares production with the six
@@ -51,8 +66,17 @@ npm.cmd run release:production -- `
   -Mode Prepare `
   -ExpectedCommit "<full-reviewed-sha>" `
   -EvidenceRoot "D:\ZevantaaReleaseEvidence\prepare-001" `
+  -AgeRecoveryKeyPath "C:\ZevantaaReleaseKeys\production-backup-identity.dpapi" `
+  -AgeOfflineRecoveryRecipient "<offline-age1pq1-recipient>" `
+  -InitializeAgeRecoveryKey `
   -VercelProjectId "<existing-zevantaa-project-id>"
 ```
+
+Use `-InitializeAgeRecoveryKey` only once. It creates a new post-quantum age
+identity in memory, immediately protects it with Windows DPAPI CurrentUser, and
+writes only the protected blob to the separately supplied key path with a
+restricted ACL. Subsequent runs omit the switch and reuse that protected key.
+The key path must be outside both Git and the evidence directory.
 
 The prepare verdict remains `FAIL` while Auth/SMTP attestation and production
 mutation approval are deliberately absent. Review the individual evidence gates;
@@ -69,6 +93,8 @@ npm.cmd run release:production -- `
   -EvidenceRoot "D:\ZevantaaReleaseEvidence\release-001" `
   -AuthorizationRecord "D:\ZevantaaReleaseEvidence\authorization.json" `
   -AuthConfigurationAttestation "D:\ZevantaaReleaseEvidence\auth-smtp-attestation.json" `
+  -AgeRecoveryKeyPath "C:\ZevantaaReleaseKeys\production-backup-identity.dpapi" `
+  -AgeOfflineRecoveryRecipient "<offline-age1pq1-recipient>" `
   -VercelProjectId "<existing-zevantaa-project-id>" `
   -AuthorizeMigrationRepair `
   -AuthorizeSchemaMigration `
@@ -89,17 +115,20 @@ The command executes these gates in order and stops at the first critical failur
    read-only proof that the two required Vault secret names exist while Cron
    remains inactive. Sensitive Vercel values remain unreadable and are never
    printed.
-4. Official Supabase logical dumps for roles, application schema, data, and
-   migration history; read-only managed-schema/RLS evidence; download and SHA-256 verification of every object
+4. Official Supabase logical-dump plans for roles, application schema,
+   recovery-only Auth/Storage managed schema, data, and
+   migration history stream from an ephemeral container directly into age; no
+   plaintext SQL file exists. Read-only managed-schema/RLS evidence and every actual object byte
    in `candidate-intake-private`, `candidate-documents-private`, and
-   `zevantaa-brand-assets`. The scoped official Supabase API-key command passes a
-   project secret only in memory to the Storage backup child process.
-5. Fresh local Supabase/Docker restore with a unique project ID, dynamically
-   allocated localhost ports, and only the required Postgres/Storage/Kong
-   services. It uses the PostgreSQL client inside the isolated database
-   container for aggregate database-count
-   comparison, restore of all private object bytes, and checksum read-back. The
-   production database is never a restore target.
+   `zevantaa-brand-assets` are downloaded only into process memory and encrypted
+   before disk. The scoped official Supabase API-key command passes a project
+   secret only in memory to the Storage backup child process.
+5. Recovery runs in a network-isolated Docker container whose PostgreSQL data
+   directory and object restore area are both `tmpfs`. Age authentication is
+   checked while SQL streams into `psql`; each private object is restored into
+   memory, read back, size-checked and SHA-256 checked. Database aggregates and
+   Storage metadata/object counts must match production evidence. The container
+   is removed afterward, and the production database is never a restore target.
 6. Strict bidirectional shadow-vs-live schema diff using migrations only through
    `20261103223240_ats_assessment_provenance.sql`. A material difference blocks
    release. The only accepted nonempty result is the same function-only
@@ -120,9 +149,9 @@ The command executes these gates in order and stops at the first critical failur
 
 ## Evidence handling
 
-Keep the evidence directory encrypted and access-restricted. It includes candidate
-database rows and private file bytes even though the generated report contains
-only aggregate findings. Do not copy it into this repository, GitHub Actions,
+The evidence directory contains only age-encrypted database/object payloads,
+ciphertext checksums, and controlled release findings. Keep it access-restricted
+and keep both recovery identities elsewhere. Do not copy it into this repository, GitHub Actions,
 email, chat, or a public/synchronized folder. Record retention and secure deletion
 with the Zevantaa data owner.
 
@@ -152,5 +181,7 @@ authorization. Emergency shutdown remains
   <https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore>
 - Supabase database-backup scope, including the Storage-byte exclusion:
   <https://supabase.com/docs/guides/platform/backups>
+- age project and authenticated streaming format:
+  <https://github.com/FiloSottile/age>
 - Vercel CLI deployment workflow:
   <https://vercel.com/docs/projects/deploy-from-cli>

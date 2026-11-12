@@ -6,6 +6,9 @@ select jsonb_build_object(
   'administrator_roles', (select count(*) from public.user_roles where role_code = 'admin'),
   'candidate_profiles', (select count(*) from public.candidate_profiles),
   'file_records', (select count(*) from public.file_records),
+  'private_storage_objects', (select count(*) from storage.objects where bucket_id in (
+    'candidate-intake-private', 'candidate-documents-private', 'zevantaa-brand-assets'
+  )),
   'document_records', (select count(*) from public.document_records),
   'document_jobs', (select count(*) from public.document_regeneration_jobs),
   'source_jobs', case when to_regclass('public.resume_processing_jobs') is null then null
