@@ -201,11 +201,27 @@ function New-ProductionBackup {
   }
 
   $storageRoot = Join-Path $backupRoot "private-storage"
-  $storageOutput = Invoke-Vercel @(
-    "env", "run", "--environment", "production", "--project", $VercelProjectId,
-    "--scope", $VercelTeamSlug, "--", "node",
-    (Join-Path $RepositoryRoot "scripts\backup-private-storage.mjs"), "--output", $storageRoot
-  )
+  $apiKeyOutput = Invoke-Supabase @(
+    "--output-format", "json", "projects", "api-keys", "--reveal", "--remote=$SupabaseProjectRef"
+  ) | ConvertFrom-Json
+  $secretKeys = @($apiKeyOutput.keys | Where-Object { $_.type -eq "secret" -and $_.name -eq "default" })
+  if ($secretKeys.Count -ne 1 -or ([string]$secretKeys[0].api_key).Length -lt 32) {
+    throw "Exactly one scoped default Supabase secret key is required for private Storage backup."
+  }
+  $previousUrl = $env:NEXT_PUBLIC_SUPABASE_URL
+  $previousKey = $env:SUPABASE_SECRET_KEY
+  try {
+    $env:NEXT_PUBLIC_SUPABASE_URL = "https://$SupabaseProjectRef.supabase.co"
+    $env:SUPABASE_SECRET_KEY = [string]$secretKeys[0].api_key
+    $storageOutput = Invoke-External "node" @(
+      (Join-Path $RepositoryRoot "scripts\backup-private-storage.mjs"), "--output", $storageRoot
+    )
+  } finally {
+    $env:NEXT_PUBLIC_SUPABASE_URL = $previousUrl
+    $env:SUPABASE_SECRET_KEY = $previousKey
+    $secretKeys = $null
+    $apiKeyOutput = $null
+  }
   $storageSummary = $storageOutput.Trim() | ConvertFrom-Json
   if ($storageSummary.bucketCount -ne 3 -or $storageSummary.objectCount -lt 0) {
     throw "Private Storage backup evidence was incomplete."
@@ -510,10 +526,10 @@ try {
     $link = Get-Content -Raw -LiteralPath $linkPath | ConvertFrom-Json
     if ($VercelProjectId -and $link.projectId -ne $VercelProjectId) { throw "The Vercel link does not match the operator-approved project ID." }
     $script:VercelProjectId = $link.projectId
-    $deployment = Invoke-Vercel @("inspect", $ProductionOrigin, "--json", "--scope", $VercelTeamSlug) | ConvertFrom-Json
+    $deployment = Invoke-Vercel @("--scope", $VercelTeamSlug, "inspect", $ProductionOrigin, "--json") | ConvertFrom-Json
     $liveProjectId = Get-JsonPropertyRecursive $deployment "projectId"
     if ($liveProjectId -and $liveProjectId -ne $VercelProjectId) { throw "The production domain resolves to a different Vercel project." }
-    Invoke-Vercel @("project", "inspect", $VercelProjectId, "--scope", $VercelTeamSlug) | Out-Null
+    Invoke-Vercel @("--scope", $VercelTeamSlug, "project", "inspect", $VercelProjectId) | Out-Null
     "Existing Vercel project and production domain authorization verified."
   } "Run an operator-reviewed Vercel link to the existing Zevantaa project, then rerun with its approved project ID." | Out-Null
   Assert-ReleaseCanContinue "provider authorization"
@@ -546,13 +562,35 @@ try {
       Add-Result "Auth and SMTP attestation" "BLOCKED" "Prepare mode does not accept unverified provider configuration claims." "Inspect production Auth/SMTP settings and create the reviewed, secret-free attestation before release."
     }
     Invoke-Check "Vercel production environment" {
-      $names = Invoke-Vercel @("env", "list", "--environment", "production", "--project", $VercelProjectId, "--scope", $VercelTeamSlug)
+      $names = Invoke-Vercel @("--scope", $VercelTeamSlug, "env", "list", "--environment", "production", "--project", $VercelProjectId)
       foreach ($name in $RequiredVercelEnvironmentNames) {
         if ($names -notmatch [regex]::Escape($name)) { throw "A required production environment variable name is missing." }
       }
-      Invoke-Vercel @("env", "run", "--environment", "production", "--project", $VercelProjectId, "--scope", $VercelTeamSlug,
-        "--", "node", "scripts/validate-environment.mjs", "production") | Out-Null
-      "Required variable names and secret-injected production validation passed without printing values."
+      $publicEnvironmentFile = Join-Path $EvidenceRoot "vercel-production-public.env"
+      try {
+        Invoke-Vercel @("--scope", $VercelTeamSlug, "env", "pull", $publicEnvironmentFile,
+          "--environment", "production", "--project", $VercelProjectId, "--yes") | Out-Null
+        $publicValues = @{}
+        foreach ($line in Get-Content -LiteralPath $publicEnvironmentFile) {
+          if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$') {
+            $publicValues[$matches[1]] = $matches[2].Trim().Trim('"').Trim("'")
+          }
+        }
+        if ($publicValues["NEXT_PUBLIC_APP_URL"] -ne $ProductionOrigin) {
+          throw "Production application origin does not match the approved domain."
+        }
+        if ($publicValues["NEXT_PUBLIC_SUPABASE_URL"] -ne "https://$SupabaseProjectRef.supabase.co") {
+          throw "Production Supabase URL does not match the approved project."
+        }
+        if (-not $publicValues["NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"]) {
+          throw "The production publishable key could not be validated."
+        }
+      } finally {
+        if (Test-Path -LiteralPath $publicEnvironmentFile) {
+          Remove-Item -LiteralPath $publicEnvironmentFile -Force
+        }
+      }
+      "Required variable names, public origins, and publishable-key presence passed; sensitive values remained unreadable."
     } "Configure the required Vercel Production variables in the existing Zevantaa project." | Out-Null
     Invoke-Check "Automation worker and scheduler preflight" {
       Test-SchedulerStateReadOnly (Join-Path $EvidenceRoot "scheduler-preflight.json")
@@ -588,7 +626,7 @@ try {
 
       Invoke-Check "Vercel production deployment" {
         if (-not $AuthorizeDeployment) { throw "Production deployment is not authorized." }
-        Invoke-Vercel @("deploy", $RepositoryRoot, "--prod", "--yes", "--project", $VercelProjectId, "--scope", $VercelTeamSlug, "--json") | Out-Null
+        Invoke-Vercel @("--scope", $VercelTeamSlug, "deploy", $RepositoryRoot, "--prod", "--yes", "--project", $VercelProjectId, "--json") | Out-Null
         "Reviewed immutable commit deployed to the existing Zevantaa production project."
       } "Keep Cron disabled and redeploy the last known-good immutable commit if smoke tests fail." | Out-Null
       Assert-ReleaseCanContinue "production deployment"

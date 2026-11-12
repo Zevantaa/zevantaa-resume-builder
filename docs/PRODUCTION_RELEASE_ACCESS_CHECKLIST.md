@@ -28,9 +28,10 @@ the release report.
 - [ ] The pinned Supabase CLI can list project `fzltowzpfrnuxxxrzuih`.
 - [ ] The scoped access token grants only the necessary project/database read
   access for dry-run; separately approved release work may require database write.
-- [ ] `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SECRET_KEY` exist in the linked
-  Vercel Production environment. `vercel env run` injects them only into the
-  private Storage backup process; values are not echoed or written to reports.
+- [ ] The scoped Supabase CLI identity grants `api_gateway_keys_read` and
+  `api_gateway_keys_secret_read`. The official API-key command injects the
+  default project secret into only the private Storage backup child process;
+  the key is not echoed, written to disk, or included in reports.
 - [ ] Docker can run the Supabase local stack; the restore uses only the `psql`
   binary inside its isolated database container.
 - [ ] Backup capacity covers roles, schema, data, migration history, managed-schema

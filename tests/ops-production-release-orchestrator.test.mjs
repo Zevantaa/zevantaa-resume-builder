@@ -43,9 +43,10 @@ test("local and provider gates cover the complete requested release validation",
     "Vercel production environment", "Read-only production smoke tests",
     "Automation worker and scheduler preflight",
   ]) assert.match(release, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(release, /env", "run"/);
   assert.match(release, /backup-private-storage\.mjs/);
-  assert.match(release, /"--scope", \$VercelTeamSlug/);
+  assert.match(release, /"--scope", \$VercelTeamSlug, "env", "pull"/);
+  assert.match(release, /"projects", "api-keys", "--reveal"/);
+  assert.match(release, /\$env:SUPABASE_SECRET_KEY = \[string\]\$secretKeys\[0\]\.api_key/);
   assert.doesNotMatch(release, /env", "list"[^\n]*"--json"/);
 });
 

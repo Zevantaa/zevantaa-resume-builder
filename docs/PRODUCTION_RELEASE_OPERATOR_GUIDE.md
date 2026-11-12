@@ -85,13 +85,15 @@ The command executes these gates in order and stops at the first critical failur
 2. Read and dry-run-push authorization to GitHub; read-only database access to the
    named Supabase project; inspection of the existing linked Vercel project/domain.
 3. Secret-free Auth/SMTP/private-access/worker attestation, Vercel production
-   environment validation using `vercel env run`, and read-only proof that the two
-   required Vault secret names exist while Cron remains inactive. Secret values are
-   never downloaded or printed.
+   public-origin validation using a temporary Vercel environment pull, and
+   read-only proof that the two required Vault secret names exist while Cron
+   remains inactive. Sensitive Vercel values remain unreadable and are never
+   printed.
 4. Official Supabase logical dumps for roles, application schema, data, and
    migration history; read-only managed-schema/RLS evidence; download and SHA-256 verification of every object
    in `candidate-intake-private`, `candidate-documents-private`, and
-   `zevantaa-brand-assets`.
+   `zevantaa-brand-assets`. The scoped official Supabase API-key command passes a
+   project secret only in memory to the Storage backup child process.
 5. Fresh local Supabase/Docker restore using the PostgreSQL client inside the
    isolated database container, aggregate database-count
    comparison, restore of all private object bytes, and checksum read-back. The
