@@ -21,6 +21,7 @@ $ExpectedBranch = "feature/premium-uiux-document-upgrade"
 $ExpectedRemote = "https://github.com/Zevantaa/zevantaa-resume-builder.git"
 $ProductionOrigin = "https://ats.zevantaacareers.com"
 $SupabaseProjectRef = "fzltowzpfrnuxxxrzuih"
+$VercelTeamSlug = "zevantaa-careers-pvt-ltd"
 $SupabaseCli = "supabase@3.1.0"
 $VercelCli = "vercel@65.14.0"
 $AutomationVersions = @(
@@ -200,7 +201,11 @@ function New-ProductionBackup {
   }
 
   $storageRoot = Join-Path $backupRoot "private-storage"
-  $storageOutput = Invoke-External "node" @((Join-Path $RepositoryRoot "scripts\backup-private-storage.mjs"), "--output", $storageRoot)
+  $storageOutput = Invoke-Vercel @(
+    "env", "run", "--environment", "production", "--project", $VercelProjectId,
+    "--scope", $VercelTeamSlug, "--", "node",
+    (Join-Path $RepositoryRoot "scripts\backup-private-storage.mjs"), "--output", $storageRoot
+  )
   $storageSummary = $storageOutput.Trim() | ConvertFrom-Json
   if ($storageSummary.bucketCount -ne 3 -or $storageSummary.objectCount -lt 0) {
     throw "Private Storage backup evidence was incomplete."
@@ -210,8 +215,8 @@ function New-ProductionBackup {
 }
 
 function Test-IsolatedRestore([string]$BackupRoot) {
-  if (-not (Get-Command docker -ErrorAction SilentlyContinue) -or -not (Get-Command psql -ErrorAction SilentlyContinue)) {
-    throw "Docker Desktop and psql are required for isolated restore validation."
+  if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+    throw "Docker Desktop is required for isolated restore validation."
   }
   $restoreRoot = Join-Path $EvidenceRoot "isolated-restore"
   New-Item -ItemType Directory -Path $restoreRoot -Force | Out-Null
@@ -220,25 +225,49 @@ function Test-IsolatedRestore([string]$BackupRoot) {
   try {
     Invoke-Supabase @("start", "--workdir", $restoreRoot) | Out-Null
     $started = $true
+    $configPath = Join-Path $restoreRoot "supabase\config.toml"
+    $configText = Get-Content -Raw -LiteralPath $configPath
+    if ($configText -notmatch '(?m)^project_id\s*=\s*"([^"]+)"\s*$') {
+      throw "The isolated Supabase project ID could not be read."
+    }
+    $databaseContainer = "supabase_db_" + $matches[1]
+    $runningContainer = (Invoke-External "docker" @("ps", "--filter", "name=^/$databaseContainer$", "--format", "{{.Names}}" )).Trim()
+    if ($runningContainer -ne $databaseContainer) {
+      throw "The isolated Supabase database container could not be identified exactly."
+    }
     $status = Invoke-Supabase @("--output", "env", "status", "--workdir", $restoreRoot)
     $statusValues = @{}
     foreach ($line in ($status -split "`r?`n")) {
       if ($line -match '^([A-Z0-9_]+)="?(.*?)"?$') { $statusValues[$matches[1]] = $matches[2].TrimEnd('"') }
     }
-    foreach ($required in @("DB_URL", "API_URL", "SERVICE_ROLE_KEY")) {
+    foreach ($required in @("API_URL", "SERVICE_ROLE_KEY")) {
       if (-not $statusValues.ContainsKey($required)) { throw "The isolated Supabase stack did not expose $required." }
     }
-    $restoreFiles = @(
-      "roles.sql", "schema.sql", "history-schema.sql"
+    $containerRestoreRoot = "/tmp/zevantaa-release"
+    Invoke-External "docker" @("exec", $databaseContainer, "mkdir", "-p", $containerRestoreRoot) | Out-Null
+    $restoreFiles = @("roles.sql", "schema.sql", "history-schema.sql", "data.sql", "history-data.sql")
+    foreach ($file in $restoreFiles) {
+      Invoke-External "docker" @("cp", (Join-Path $BackupRoot $file), "${databaseContainer}:${containerRestoreRoot}/$file") | Out-Null
+    }
+    $psqlArgs = @(
+      "exec", $databaseContainer, "psql", "--username", "postgres", "--dbname", "postgres",
+      "--single-transaction", "--variable", "ON_ERROR_STOP=1"
     )
-    $psqlArgs = @($statusValues["DB_URL"], "--single-transaction", "--variable", "ON_ERROR_STOP=1")
-    foreach ($file in $restoreFiles) { $psqlArgs += @("--file", (Join-Path $BackupRoot $file)) }
+    foreach ($file in @("roles.sql", "schema.sql", "history-schema.sql")) {
+      $psqlArgs += @("--file", "$containerRestoreRoot/$file")
+    }
     $psqlArgs += @("--command", "SET session_replication_role = replica")
-    foreach ($file in @("data.sql", "history-data.sql")) { $psqlArgs += @("--file", (Join-Path $BackupRoot $file)) }
-    Invoke-External "psql" $psqlArgs | Out-Null
+    foreach ($file in @("data.sql", "history-data.sql")) {
+      $psqlArgs += @("--file", "$containerRestoreRoot/$file")
+    }
+    Invoke-External "docker" $psqlArgs | Out-Null
 
     $snapshotSql = Join-Path $RepositoryRoot "docs\sql\ZEVANTAA_RELEASE_SNAPSHOT_READ_ONLY.sql"
-    $localSnapshotText = Invoke-External "psql" @($statusValues["DB_URL"], "--tuples-only", "--no-align", "--file", $snapshotSql)
+    Invoke-External "docker" @("cp", $snapshotSql, "${databaseContainer}:${containerRestoreRoot}/snapshot.sql") | Out-Null
+    $localSnapshotText = Invoke-External "docker" @(
+      "exec", $databaseContainer, "psql", "--username", "postgres", "--dbname", "postgres",
+      "--tuples-only", "--no-align", "--file", "$containerRestoreRoot/snapshot.sql"
+    )
     $localSnapshot = ($localSnapshotText.Trim() | ConvertFrom-Json) | ConvertTo-Json -Compress -Depth 20
     $sourceRaw = Get-Content -Raw -LiteralPath (Join-Path $BackupRoot "source-counts.json") | ConvertFrom-Json
     $sourceSnapshot = (Get-JsonPropertyRecursive $sourceRaw "release_snapshot") | ConvertTo-Json -Compress -Depth 20
@@ -433,7 +462,7 @@ try {
 
   Invoke-Check "Release toolchain" {
     if ($PSVersionTable.PSVersion.Major -lt 5) { throw "Windows PowerShell 5.1 or PowerShell 7 is required." }
-    $missingTools = @(@("node", "npm.cmd", "npx.cmd", "git", "docker", "psql") |
+    $missingTools = @(@("node", "npm.cmd", "npx.cmd", "git", "docker") |
       Where-Object { -not (Get-Command $_ -ErrorAction SilentlyContinue) })
     if ($missingTools.Count -gt 0) { throw ("Required release tools are unavailable: " + ($missingTools -join ", ") + ".") }
     Invoke-External "docker" @("version", "--format", "{{.Server.Version}}") | Out-Null
@@ -442,8 +471,8 @@ try {
     if ($supabaseVersion -notmatch "3\.1\.0" -or $vercelVersion -notmatch "65\.14\.0") {
       throw "Pinned provider CLI versions did not execute as expected."
     }
-    "PowerShell, Node, npm, Git, Docker, psql, and pinned provider CLIs are available."
-  } "Install/start Docker Desktop and install PostgreSQL psql on PATH before any backup or restore run." | Out-Null
+    "PowerShell, Node, npm, Git, Docker, and pinned provider CLIs are available."
+  } "Install/start Docker Desktop before any backup or restore run." | Out-Null
 
   Invoke-Check "Full regression suite" { Invoke-External "npm.cmd" @("test") | Out-Null; "All regression tests passed." } "Fix failing tests; do not continue the release." | Out-Null
   Invoke-Check "ESLint" { Invoke-External "npm.cmd" @("run", "lint") | Out-Null; "Lint passed." } "Fix lint errors." | Out-Null
@@ -473,16 +502,16 @@ try {
     $link = Get-Content -Raw -LiteralPath $linkPath | ConvertFrom-Json
     if ($VercelProjectId -and $link.projectId -ne $VercelProjectId) { throw "The Vercel link does not match the operator-approved project ID." }
     $script:VercelProjectId = $link.projectId
-    $deployment = Invoke-Vercel @("inspect", $ProductionOrigin, "--json") | ConvertFrom-Json
+    $deployment = Invoke-Vercel @("inspect", $ProductionOrigin, "--json", "--scope", $VercelTeamSlug) | ConvertFrom-Json
     $liveProjectId = Get-JsonPropertyRecursive $deployment "projectId"
     if ($liveProjectId -and $liveProjectId -ne $VercelProjectId) { throw "The production domain resolves to a different Vercel project." }
-    Invoke-Vercel @("project", "inspect", $VercelProjectId) | Out-Null
+    Invoke-Vercel @("project", "inspect", $VercelProjectId, "--scope", $VercelTeamSlug) | Out-Null
     "Existing Vercel project and production domain authorization verified."
   } "Run an operator-reviewed Vercel link to the existing Zevantaa project, then rerun with its approved project ID." | Out-Null
   Assert-ReleaseCanContinue "provider authorization"
 
   if ($Mode -eq "DryRun") {
-    Add-Result "Production backup and isolated restore" "BLOCKED" "Not executed in dry-run mode." "Run Release mode only after access, authorization, off-repository evidence storage, Docker, and psql are ready."
+    Add-Result "Production backup and isolated restore" "BLOCKED" "Not executed in dry-run mode." "Run Release mode only after access, authorization, off-repository evidence storage, and Docker are ready."
     Add-Result "Migration equivalence and repair" "BLOCKED" "No live schema mutation or history repair was attempted." "Authorize only after an empty shadow-vs-live diff and signed equivalence evidence."
     Add-Result "Invitation migration" "BLOCKED" "No production migration was executed." "Complete backup/restore and separately authorize the single onboarding migration."
     Add-Result "Auth, SMTP, and production environment" "BLOCKED" "Provider configuration attestation was not consumed in dry-run mode." "Complete the secret-free Auth/SMTP checklist and Vercel production environment validation."
@@ -505,11 +534,11 @@ try {
       "Secret-free Auth callback, SMTP, and account-policy evidence verified."
     } "Complete and independently review the production Auth/SMTP attestation." | Out-Null
     Invoke-Check "Vercel production environment" {
-      $names = Invoke-Vercel @("env", "list", "--environment", "production", "--project", $VercelProjectId)
+      $names = Invoke-Vercel @("env", "list", "--environment", "production", "--project", $VercelProjectId, "--scope", $VercelTeamSlug)
       foreach ($name in $RequiredVercelEnvironmentNames) {
         if ($names -notmatch [regex]::Escape($name)) { throw "A required production environment variable name is missing." }
       }
-      Invoke-Vercel @("env", "run", "--environment", "production", "--project", $VercelProjectId,
+      Invoke-Vercel @("env", "run", "--environment", "production", "--project", $VercelProjectId, "--scope", $VercelTeamSlug,
         "--", "node", "scripts/validate-environment.mjs", "production") | Out-Null
       "Required variable names and secret-injected production validation passed without printing values."
     } "Configure the required Vercel Production variables in the existing Zevantaa project." | Out-Null
@@ -540,7 +569,7 @@ try {
 
     Invoke-Check "Vercel production deployment" {
       if (-not $AuthorizeDeployment) { throw "Production deployment is not authorized." }
-      Invoke-Vercel @("deploy", $RepositoryRoot, "--prod", "--yes", "--project", $VercelProjectId, "--json") | Out-Null
+      Invoke-Vercel @("deploy", $RepositoryRoot, "--prod", "--yes", "--project", $VercelProjectId, "--scope", $VercelTeamSlug, "--json") | Out-Null
       "Reviewed immutable commit deployed to the existing Zevantaa production project."
     } "Keep Cron disabled and redeploy the last known-good immutable commit if smoke tests fail." | Out-Null
     Assert-ReleaseCanContinue "production deployment"

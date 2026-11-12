@@ -71,7 +71,8 @@ The command executes these gates in order and stops at the first critical failur
    migration history; read-only managed-schema/RLS evidence; download and SHA-256 verification of every object
    in `candidate-intake-private`, `candidate-documents-private`, and
    `zevantaa-brand-assets`.
-5. Fresh local Supabase/Docker restore using `psql`, aggregate database-count
+5. Fresh local Supabase/Docker restore using the PostgreSQL client inside the
+   isolated database container, aggregate database-count
    comparison, restore of all private object bytes, and checksum read-back. The
    production database is never a restore target.
 6. Shadow-vs-live schema diff using migrations only through

@@ -16,6 +16,7 @@ test("production release entry point is dry-run by default and pinned to Zevanta
   assert.match(release, /https:\/\/github\.com\/Zevantaa\/zevantaa-resume-builder\.git/);
   assert.match(release, /https:\/\/ats\.zevantaacareers\.com/);
   assert.match(release, /fzltowzpfrnuxxxrzuih/);
+  assert.match(release, /zevantaa-careers-pvt-ltd/);
   assert.match(release, /supabase@3\.1\.0/);
   assert.match(release, /vercel@65\.14\.0/);
   assert.equal(packageJson.scripts["release:production"].includes("Invoke-ZevantaaProductionRelease.ps1"), true);
@@ -42,6 +43,8 @@ test("local and provider gates cover the complete requested release validation",
     "Automation worker and scheduler preflight",
   ]) assert.match(release, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(release, /env", "run"/);
+  assert.match(release, /backup-private-storage\.mjs/);
+  assert.match(release, /"--scope", \$VercelTeamSlug/);
   assert.doesNotMatch(release, /env", "list"[^\n]*"--json"/);
 });
 
@@ -57,6 +60,9 @@ test("backup uses official dumps and preserves private Storage bytes outside Git
     assert.equal(restore.includes(bucket), true);
   }
   assert.match(backup, /GetFileHash|createHash\("sha256"\)/);
+  assert.match(release, /"docker" @\("cp"/);
+  assert.match(release, /"docker" \$psqlArgs/);
+  assert.doesNotMatch(release, /Get-Command psql/);
   assert.match(backup, /projectRefFromUrl\(url\) !== PRODUCTION_REF/);
   assert.match(restore, /targetRef === PRODUCTION_REF \|\| url\.includes\(PRODUCTION_REF\)/);
   assert.match(restore, /local-isolated-restore/);

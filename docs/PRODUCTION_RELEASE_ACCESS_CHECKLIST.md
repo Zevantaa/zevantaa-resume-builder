@@ -7,8 +7,8 @@ the release report.
 ## Operator and workstation
 
 - [ ] Named Zevantaa release operator and independent reviewer are recorded.
-- [ ] Windows PowerShell 5.1 or PowerShell 7, Node 22, npm, Git, Docker Desktop,
-  and PostgreSQL `psql` are installed.
+- [ ] Windows PowerShell 5.1 or PowerShell 7, Node 22, npm, Git, and Docker
+  Desktop are installed. The isolated Supabase container supplies `psql`.
 - [ ] The workstation has sufficient encrypted disk space for database dumps and
   all private Storage objects.
 - [ ] `EvidenceRoot` is an absolute, access-restricted path outside this Git
@@ -28,9 +28,11 @@ the release report.
 - [ ] The pinned Supabase CLI can list project `fzltowzpfrnuxxxrzuih`.
 - [ ] The scoped access token grants only the necessary project/database read
   access for dry-run; separately approved release work may require database write.
-- [ ] `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SECRET_KEY` are available only to
-  the release process for the private Storage backup. They are not echoed.
-- [ ] Docker can run the Supabase local stack and `psql` can connect to it.
+- [ ] `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SECRET_KEY` exist in the linked
+  Vercel Production environment. `vercel env run` injects them only into the
+  private Storage backup process; values are not echoed or written to reports.
+- [ ] Docker can run the Supabase local stack; the restore uses only the `psql`
+  binary inside its isolated database container.
 - [ ] Backup capacity covers roles, schema, data, migration history, managed-schema
   customizations, and all bytes in the three approved private buckets.
 
