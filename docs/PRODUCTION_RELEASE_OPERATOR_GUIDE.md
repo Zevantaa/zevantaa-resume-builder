@@ -94,8 +94,10 @@ The command executes these gates in order and stops at the first critical failur
    in `candidate-intake-private`, `candidate-documents-private`, and
    `zevantaa-brand-assets`. The scoped official Supabase API-key command passes a
    project secret only in memory to the Storage backup child process.
-5. Fresh local Supabase/Docker restore using the PostgreSQL client inside the
-   isolated database container, aggregate database-count
+5. Fresh local Supabase/Docker restore with a unique project ID, dynamically
+   allocated localhost ports, and only the required Postgres/Storage/Kong
+   services. It uses the PostgreSQL client inside the isolated database
+   container for aggregate database-count
    comparison, restore of all private object bytes, and checksum read-back. The
    production database is never a restore target.
 6. Strict bidirectional shadow-vs-live schema diff using migrations only through

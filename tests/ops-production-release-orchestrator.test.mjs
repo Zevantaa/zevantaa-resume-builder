@@ -65,6 +65,10 @@ test("backup uses official dumps and preserves private Storage bytes outside Git
   assert.match(release, /"docker" @\("cp"/);
   assert.match(release, /"docker" \$psqlArgs/);
   assert.doesNotMatch(release, /Get-Command psql/);
+  assert.match(release, /"init", "--force"/);
+  assert.match(release, /Get-FreeTcpPorts 3/);
+  assert.match(release, /Select-Object -Unique/);
+  assert.match(release, /gotrue,realtime,imgproxy,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor/);
   assert.match(backup, /projectRefFromUrl\(url\) !== PRODUCTION_REF/);
   assert.match(restore, /targetRef === PRODUCTION_REF \|\| url\.includes\(PRODUCTION_REF\)/);
   assert.match(restore, /local-isolated-restore/);

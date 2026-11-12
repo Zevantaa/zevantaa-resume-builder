@@ -181,6 +181,20 @@ function Write-Checksums([string]$Directory) {
   return $checksumFile
 }
 
+function Get-FreeTcpPorts([int]$Count) {
+  $listeners = @()
+  try {
+    foreach ($index in 1..$Count) {
+      $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+      $listener.Start()
+      $listeners += $listener
+    }
+    return @($listeners | ForEach-Object { ([System.Net.IPEndPoint]$_.LocalEndpoint).Port })
+  } finally {
+    foreach ($listener in $listeners) { $listener.Stop() }
+  }
+}
+
 function New-ProductionBackup {
   $backupRoot = Join-Path $EvidenceRoot "production-backup"
   New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
@@ -236,12 +250,29 @@ function Test-IsolatedRestore([string]$BackupRoot) {
   }
   $restoreRoot = Join-Path $EvidenceRoot "isolated-restore"
   New-Item -ItemType Directory -Path $restoreRoot -Force | Out-Null
-  Invoke-Supabase @("init", "--workdir", $restoreRoot) | Out-Null
+  Invoke-Supabase @("init", "--force", "--workdir", $restoreRoot) | Out-Null
+  $configPath = Join-Path $restoreRoot "supabase\config.toml"
+  $configText = Get-Content -Raw -LiteralPath $configPath
+  $allocatedPorts = @(Get-FreeTcpPorts 3)
+  if ($allocatedPorts.Count -ne 3 -or (@($allocatedPorts | Select-Object -Unique).Count -ne 3)) {
+    throw "Three distinct localhost ports are required for isolated restore validation."
+  }
+  $apiPort, $databasePort, $shadowPort = $allocatedPorts
+  $configText = [regex]::Replace($configText, '(?ms)(\[api\].*?^port\s*=\s*)\d+', {
+    param($match) $match.Groups[1].Value + $apiPort
+  }, 1)
+  $configText = [regex]::Replace($configText, '(?ms)(\[db\].*?^port\s*=\s*)\d+', {
+    param($match) $match.Groups[1].Value + $databasePort
+  }, 1)
+  $configText = [regex]::Replace($configText, '(?m)^(shadow_port\s*=\s*)\d+', {
+    param($match) $match.Groups[1].Value + $shadowPort
+  }, 1)
+  [System.IO.File]::WriteAllText($configPath, $configText, [System.Text.UTF8Encoding]::new($false))
   $started = $false
   try {
-    Invoke-Supabase @("start", "--workdir", $restoreRoot) | Out-Null
+    $excludedServices = "gotrue,realtime,imgproxy,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor"
+    Invoke-Supabase @("start", "--exclude", $excludedServices, "--workdir", $restoreRoot) | Out-Null
     $started = $true
-    $configPath = Join-Path $restoreRoot "supabase\config.toml"
     $configText = Get-Content -Raw -LiteralPath $configPath
     if ($configText -notmatch '(?m)^project_id\s*=\s*"([^"]+)"\s*$') {
       throw "The isolated Supabase project ID could not be read."
