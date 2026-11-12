@@ -12,6 +12,7 @@ const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
 
 test("production release entry point is dry-run by default and pinned to Zevantaa targets", () => {
   assert.match(release, /\[string\]\$Mode = "DryRun"/);
+  assert.match(release, /ValidateSet\("DryRun", "Prepare", "Release"\)/);
   assert.match(release, /feature\/premium-uiux-document-upgrade/);
   assert.match(release, /https:\/\/github\.com\/Zevantaa\/zevantaa-resume-builder\.git/);
   assert.match(release, /https:\/\/ats\.zevantaacareers\.com/);
@@ -78,6 +79,8 @@ test("migration comparison, repair, and push are fail-closed and ordered", () =>
   assert.match(release, /if \(\$meaningfulDiff\) \{ throw/);
   assert.match(release, /"migration", "repair", "--status", "applied"/);
   assert.match(release, /"db", "push", "--dry-run", "--skip-vault"/);
+  assert.match(release, /Invitation-state migration dry-run/);
+  assert.match(release, /No migration history, schema, deployment, secret, or scheduler state was changed/);
   assert.match(release, /\$mentioned\.Count -ne 1/);
   assert.match(release, /20261111085249/);
   assert.match(release, /post-migration-counts\.json/);

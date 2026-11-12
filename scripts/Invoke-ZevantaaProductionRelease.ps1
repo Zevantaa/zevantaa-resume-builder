@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [ValidateSet("DryRun", "Release")]
+  [ValidateSet("DryRun", "Prepare", "Release")]
   [string]$Mode = "DryRun",
   [string]$ExpectedCommit = "",
   [string]$EvidenceRoot = "",
@@ -344,14 +344,22 @@ function Repair-MigrationHistoryIfApproved([string[]]$RemoteVersions) {
   return ("Official migration repair recorded {0} verified version(s)." -f $missing.Count)
 }
 
+function Test-InvitationMigrationDryRun([string[]]$RemoteVersions) {
+  if ($InvitationMigration -in $RemoteVersions) {
+    return "Invitation-state migration is already recorded; no replay is needed."
+  }
+  $dryRun = Invoke-Supabase @("db", "push", "--dry-run", "--skip-vault", "--remote=$SupabaseProjectRef")
+  $mentioned = @([regex]::Matches($dryRun, '\b\d{14}\b') | ForEach-Object { $_.Value } | Sort-Object -Unique)
+  if ($mentioned.Count -ne 1 -or $mentioned[0] -ne $InvitationMigration) {
+    throw "Database push dry-run did not contain exactly the invitation-state migration."
+  }
+  return "Official database push dry-run contains exactly the invitation-state migration."
+}
+
 function Apply-InvitationMigrationIfApproved([string[]]$RemoteVersions, [string]$BackupRoot) {
   $appliedNow = $false
   if ($InvitationMigration -notin $RemoteVersions) {
-    $dryRun = Invoke-Supabase @("db", "push", "--dry-run", "--skip-vault", "--remote=$SupabaseProjectRef")
-    $mentioned = @([regex]::Matches($dryRun, '\b\d{14}\b') | ForEach-Object { $_.Value } | Sort-Object -Unique)
-    if ($mentioned.Count -ne 1 -or $mentioned[0] -ne $InvitationMigration) {
-      throw "Database push dry-run did not contain exactly the invitation-state migration."
-    }
+    Test-InvitationMigrationDryRun $RemoteVersions | Out-Null
     if (-not $AuthorizeSchemaMigration) { throw "The invitation-state migration is ready but not separately authorized." }
     Assert-JsonAttestation $AuthorizationRecord @("allowSchemaMigration") @{
       projectRef = $SupabaseProjectRef; commit = $ExpectedCommit
@@ -518,21 +526,25 @@ try {
     Add-Result "Production deployment and smoke tests" "BLOCKED" "No deployment or post-deployment request was performed." "Obtain separate deployment approval after all earlier gates pass."
     Add-Result "Automation Cron" "PASS" "Cron was not activated; activation is intentionally outside this orchestrator."
   } else {
-    if (-not ($AuthorizeSchemaMigration -and $AuthorizeDeployment)) {
-      throw "Release mode requires separate schema-migration and deployment authorization switches."
+    if ($Mode -eq "Release") {
+      if (-not ($AuthorizeSchemaMigration -and $AuthorizeDeployment)) {
+        throw "Release mode requires separate schema-migration and deployment authorization switches."
+      }
+      Assert-JsonAttestation $AuthorizationRecord @("allowSchemaMigration", "allowDeployment") @{
+        projectRef = $SupabaseProjectRef; productionOrigin = $ProductionOrigin; commit = $ExpectedCommit
+      } | Out-Null
+      Invoke-Check "Auth and SMTP attestation" {
+        Assert-JsonAttestation $AuthConfigurationAttestation @(
+          "customSmtpConfigured", "siteUrlMatches", "exactRedirectsConfigured",
+          "inviteTemplateVerified", "recoveryTemplateVerified", "signupDisabled",
+          "anonymousSignInDisabled", "privateBucketsVerified", "anonymousStorageDenied",
+          "crossClientRlsDenied", "workerSecretsIndependentlyVerified", "secretValuesExcluded"
+        ) @{ projectRef = $SupabaseProjectRef; productionOrigin = $ProductionOrigin } | Out-Null
+        "Secret-free Auth callback, SMTP, and account-policy evidence verified."
+      } "Complete and independently review the production Auth/SMTP attestation." | Out-Null
+    } else {
+      Add-Result "Auth and SMTP attestation" "BLOCKED" "Prepare mode does not accept unverified provider configuration claims." "Inspect production Auth/SMTP settings and create the reviewed, secret-free attestation before release."
     }
-    Assert-JsonAttestation $AuthorizationRecord @("allowSchemaMigration", "allowDeployment") @{
-      projectRef = $SupabaseProjectRef; productionOrigin = $ProductionOrigin; commit = $ExpectedCommit
-    } | Out-Null
-    Invoke-Check "Auth and SMTP attestation" {
-      Assert-JsonAttestation $AuthConfigurationAttestation @(
-        "customSmtpConfigured", "siteUrlMatches", "exactRedirectsConfigured",
-        "inviteTemplateVerified", "recoveryTemplateVerified", "signupDisabled",
-        "anonymousSignInDisabled", "privateBucketsVerified", "anonymousStorageDenied",
-        "crossClientRlsDenied", "workerSecretsIndependentlyVerified", "secretValuesExcluded"
-      ) @{ projectRef = $SupabaseProjectRef; productionOrigin = $ProductionOrigin } | Out-Null
-      "Secret-free Auth callback, SMTP, and account-policy evidence verified."
-    } "Complete and independently review the production Auth/SMTP attestation." | Out-Null
     Invoke-Check "Vercel production environment" {
       $names = Invoke-Vercel @("env", "list", "--environment", "production", "--project", $VercelProjectId, "--scope", $VercelTeamSlug)
       foreach ($name in $RequiredVercelEnvironmentNames) {
@@ -561,23 +573,31 @@ try {
     Invoke-Check "Automation migration equivalence" { Test-AutomationMigrationEquivalence | Out-Null; "Live public schema exactly matches a shadow built through the six automation migrations." } "Prepare a reviewed forward reconciliation migration; never replay the six files." | Out-Null
     Assert-ReleaseCanContinue "migration equivalence"
     $remoteVersions = Get-RemoteMigrationVersions
-    Invoke-Check "Official migration history repair" { Repair-MigrationHistoryIfApproved $remoteVersions } "Obtain explicit repair approval only after equivalence is proved." | Out-Null
-    Assert-ReleaseCanContinue "migration history repair"
-    $remoteVersions = Get-RemoteMigrationVersions
-    Invoke-Check "Invitation-state migration" { Apply-InvitationMigrationIfApproved $remoteVersions $backupRoot } "Stop, preserve evidence, and use a reviewed forward repair if application fails." | Out-Null
-    Assert-ReleaseCanContinue "schema migration"
+    if ($Mode -eq "Prepare") {
+      $missingAutomation = @($AutomationVersions | Where-Object { $_ -notin $remoteVersions })
+      Add-Result "Official migration history status" "PASS" ("{0} of six equivalent automation version(s) require official repair before release." -f $missingAutomation.Count)
+      Invoke-Check "Invitation-state migration dry-run" { Test-InvitationMigrationDryRun $remoteVersions } "Resolve unexpected pending migrations without replaying already-applied SQL." | Out-Null
+      Add-Result "Production mutation approval" "BLOCKED" "No migration history, schema, deployment, secret, or scheduler state was changed." "After reviewing this evidence, explicitly approve only the required official repair, invitation migration, and deployment."
+      Add-Result "Automation Cron" "PASS" "Cron was not activated; separate secret verification and authorization remain mandatory."
+    } else {
+      Invoke-Check "Official migration history repair" { Repair-MigrationHistoryIfApproved $remoteVersions } "Obtain explicit repair approval only after equivalence is proved." | Out-Null
+      Assert-ReleaseCanContinue "migration history repair"
+      $remoteVersions = Get-RemoteMigrationVersions
+      Invoke-Check "Invitation-state migration" { Apply-InvitationMigrationIfApproved $remoteVersions $backupRoot } "Stop, preserve evidence, and use a reviewed forward repair if application fails." | Out-Null
+      Assert-ReleaseCanContinue "schema migration"
 
-    Invoke-Check "Vercel production deployment" {
-      if (-not $AuthorizeDeployment) { throw "Production deployment is not authorized." }
-      Invoke-Vercel @("deploy", $RepositoryRoot, "--prod", "--yes", "--project", $VercelProjectId, "--scope", $VercelTeamSlug, "--json") | Out-Null
-      "Reviewed immutable commit deployed to the existing Zevantaa production project."
-    } "Keep Cron disabled and redeploy the last known-good immutable commit if smoke tests fail." | Out-Null
-    Assert-ReleaseCanContinue "production deployment"
-    Invoke-Check "Read-only production smoke tests" { Invoke-ProductionSmokeTests; "Public routes, security headers, and unauthenticated worker denial passed." } "Stop promotion, keep Cron disabled, inspect sanitized logs, and roll back the Vercel deployment." | Out-Null
-    Invoke-Check "Scheduler state" {
-      Test-SchedulerStateReadOnly (Join-Path $EvidenceRoot "scheduler-state.json")
-    } "Investigate unexpected scheduler state without deleting queue or document history." | Out-Null
-    Add-Result "Automation Cron" "PASS" "Cron was not activated; separate secret verification and authorization remain mandatory."
+      Invoke-Check "Vercel production deployment" {
+        if (-not $AuthorizeDeployment) { throw "Production deployment is not authorized." }
+        Invoke-Vercel @("deploy", $RepositoryRoot, "--prod", "--yes", "--project", $VercelProjectId, "--scope", $VercelTeamSlug, "--json") | Out-Null
+        "Reviewed immutable commit deployed to the existing Zevantaa production project."
+      } "Keep Cron disabled and redeploy the last known-good immutable commit if smoke tests fail." | Out-Null
+      Assert-ReleaseCanContinue "production deployment"
+      Invoke-Check "Read-only production smoke tests" { Invoke-ProductionSmokeTests; "Public routes, security headers, and unauthenticated worker denial passed." } "Stop promotion, keep Cron disabled, inspect sanitized logs, and roll back the Vercel deployment." | Out-Null
+      Invoke-Check "Scheduler state" {
+        Test-SchedulerStateReadOnly (Join-Path $EvidenceRoot "scheduler-state.json")
+      } "Investigate unexpected scheduler state without deleting queue or document history." | Out-Null
+      Add-Result "Automation Cron" "PASS" "Cron was not activated; separate secret verification and authorization remain mandatory."
+    }
   }
 } catch {
   $ReleaseStopped = $true

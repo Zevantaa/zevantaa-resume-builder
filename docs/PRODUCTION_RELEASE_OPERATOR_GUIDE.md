@@ -37,6 +37,27 @@ Reports are written as `release-report.json` and `release-report.md` below the
 specified evidence root. They contain controlled results only, never raw provider
 responses, candidate data, object keys, or credentials.
 
+## Read-only production preparation
+
+After dry-run authorization passes, use `Prepare` with a new, access-restricted
+evidence directory. This downloads and checksum-verifies the production backup,
+restores it into a fresh local Supabase stack, compares production with the six
+automation migrations, inspects official migration history, and dry-runs the
+invitation migration. It does not repair history, apply SQL, deploy, change
+secrets, or activate Cron.
+
+```powershell
+npm.cmd run release:production -- `
+  -Mode Prepare `
+  -ExpectedCommit "<full-reviewed-sha>" `
+  -EvidenceRoot "D:\ZevantaaReleaseEvidence\prepare-001" `
+  -VercelProjectId "<existing-zevantaa-project-id>"
+```
+
+The prepare verdict remains `FAIL` while Auth/SMTP attestation and production
+mutation approval are deliberately absent. Review the individual evidence gates;
+do not reinterpret the overall verdict as permission to release.
+
 ## What the authorized command does
 
 After every item in `PRODUCTION_RELEASE_ACCESS_CHECKLIST.md` is complete, invoke:
