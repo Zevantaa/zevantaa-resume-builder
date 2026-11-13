@@ -21,7 +21,7 @@ the orchestrator therefore names `fzltowzpfrnuxxxrzuih` explicitly. The script
 uses `db query --read-only` for production SQL evidence, `db diff` against a shadow
 built only through the six automation migrations, official `migration repair`
 only after equivalence and explicit approval, and `db push --dry-run` before the
-single invitation-state migration.
+two ordered forward migrations.
 
 ## First command: dry-run
 
@@ -58,7 +58,8 @@ After dry-run authorization passes, use `Prepare` with a new, access-restricted
 evidence directory. This downloads and checksum-verifies the production backup,
 restores it into a fresh local Supabase stack, compares production with the six
 automation migrations, inspects official migration history, and dry-runs the
-invitation migration. It does not repair history, apply SQL, deploy, change
+onboarding and complete-client-experience migrations in order. It does not
+repair history, apply SQL, deploy, change
 secrets, or activate Cron.
 
 ```powershell
@@ -138,9 +139,12 @@ The command executes these gates in order and stops at the first critical failur
 7. If history is missing and separately authorized, official
    `supabase migration repair --status applied ... --remote=<project>` for only the
    missing, already-proved-equivalent automation versions.
-8. `supabase db push --dry-run`; the output must name exactly
-   `20261111085249_client_onboarding_invitation_state.sql`. Only then can the
-   separately authorized push occur, followed by read-only postflight.
+8. `supabase db push --dry-run`; the output must name exactly the still-pending
+   approved migrations, in this order:
+   `20261111085249_client_onboarding_invitation_state.sql`, then
+   `20261113052443_complete_client_experience_admin_ats.sql`. Already recorded
+   versions are never replayed. Only then can the separately authorized push
+   occur, followed by read-only postflight.
 9. Deployment of the reviewed commit to the existing Vercel project, followed by
    public GET/security-header checks and proof that the internal worker rejects an
    unauthenticated request.

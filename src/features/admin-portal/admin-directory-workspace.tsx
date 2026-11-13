@@ -24,7 +24,8 @@ export async function AdminDirectoryWorkspace({ mode, searchParams }: {
   const base = mode === "overview" ? "/admin" : "/admin/clients";
   return <div className="dashboard-page dashboard-workspace-page admin-directory-page">
     <PageHeader
-      actions={<Link className="type-button dashboard-primary-link" href="/admin/clients/new">Create client account</Link>}
+      actions={<><Link className="type-button dashboard-text-link" href="/admin/clients/archived">Archived clients</Link>
+        <Link className="type-button dashboard-primary-link" href="/admin/clients/new">Create client account</Link></>}
       className="dashboard-admin-intro"
       description="Find a client, check review and document state, or open their existing management workspace."
       eyebrow="Zevantaa Master Admin Panel · Pipeline Control"
@@ -78,6 +79,10 @@ export async function AdminDirectoryWorkspace({ mode, searchParams }: {
               <Link href={`/admin/clients/${client.userId}/edit`}>Open</Link>
               <Link href={`/admin/clients/${client.userId}/resume-review`}>Review</Link>
               <Link href={`/admin/clients/${client.userId}/documents`}>Documents</Link>
+              <details className="admin-directory-more"><summary>More</summary>
+                <Link href={`/admin/clients/${client.userId}/edit#client-access-details`}>Copy Access Details</Link>
+                <Link href={`/admin/clients/${client.userId}/edit#client-lifecycle`}>Delete Client</Link>
+              </details>
             </div></TableCell>
           </TableRow>) : data.metrics.clients === 0
             ? <TableEmptyState colSpan={6} title="No clients yet" description="Create a client account to start the intake and review pipeline." />

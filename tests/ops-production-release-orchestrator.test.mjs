@@ -15,7 +15,7 @@ const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
 test("production release entry point is dry-run by default and pinned to Zevantaa targets", () => {
   assert.match(release, /\[string\]\$Mode = "DryRun"/);
   assert.match(release, /ValidateSet\("DryRun", "Prepare", "Release"\)/);
-  assert.match(release, /feature\/premium-uiux-document-upgrade/);
+  assert.match(release, /feature\/client-experience-admin-ats-enhancement/);
   assert.match(release, /https:\/\/github\.com\/Zevantaa\/zevantaa-resume-builder\.git/);
   assert.match(release, /https:\/\/ats\.zevantaacareers\.com/);
   assert.match(release, /fzltowzpfrnuxxxrzuih/);
@@ -86,7 +86,8 @@ test("backup streams official dump plans and private Storage bytes into age outs
 });
 
 test("migration comparison, repair, and push are fail-closed and ordered", () => {
-  assert.match(release, /Where-Object \{ \$_\.Name -notlike "\$InvitationMigration\*" \}/);
+  assert.match(release, /\$ForwardMigrations = @\([\s\S]*20261111085249[\s\S]*20261113052443/);
+  assert.match(release, /\$ForwardMigrations \| Where-Object \{ \$migrationName -like "\$_\*" \}/);
   assert.match(release, /"db", "diff"/);
   assert.match(release, /"--strict-coverage"/);
   assert.match(release, /"--from", \$SupabaseProjectRef, "--to", "migrations"/);
@@ -95,10 +96,12 @@ test("migration comparison, repair, and push are fail-closed and ordered", () =>
   assert.match(release, /function-canonicalization\.json/);
   assert.match(release, /"migration", "repair", "--status", "applied"/);
   assert.match(release, /"db", "push", "--dry-run", "--skip-vault"/);
-  assert.match(release, /Invitation-state migration dry-run/);
+  assert.match(release, /Forward migrations dry-run/);
   assert.match(release, /No migration history, schema, deployment, secret, or scheduler state was changed/);
-  assert.match(release, /\$mentioned\.Count -ne 1/);
+  assert.match(release, /\$mentioned\.Count -ne \$pending\.Count/);
+  assert.match(release, /did not preserve the approved forward-migration order/);
   assert.match(release, /20261111085249/);
+  assert.match(release, /20261113052443/);
   assert.match(release, /post-migration-counts\.json/);
   assert.match(release, /source-counts\.json/);
   assert.match(release, /preservation counts/);

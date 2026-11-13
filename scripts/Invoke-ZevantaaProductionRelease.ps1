@@ -20,7 +20,7 @@ Set-StrictMode -Version 2.0
 $ErrorActionPreference = "Stop"
 
 $RepositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
-$ExpectedBranch = "feature/premium-uiux-document-upgrade"
+$ExpectedBranch = "feature/client-experience-admin-ats-enhancement"
 $ExpectedRemote = "https://github.com/Zevantaa/zevantaa-resume-builder.git"
 $ProductionOrigin = "https://ats.zevantaacareers.com"
 $SupabaseProjectRef = "fzltowzpfrnuxxxrzuih"
@@ -33,7 +33,10 @@ $AutomationVersions = @(
   "20261103215458", "20261103220738", "20261103221521",
   "20261103222143", "20261103222518", "20261103223240"
 )
-$InvitationMigration = "20261111085249"
+$ForwardMigrations = @(
+  "20261111085249",
+  "20261113052443"
+)
 $RequiredVercelEnvironmentNames = @(
   "NEXT_PUBLIC_APP_URL", "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SECRET_KEY",
@@ -526,7 +529,10 @@ function Test-AutomationMigrationEquivalence {
   $targetMigrations = Join-Path $baselineRoot "supabase\migrations"
   New-Item -ItemType Directory -Path $targetMigrations -Force | Out-Null
   Get-ChildItem -LiteralPath (Join-Path $RepositoryRoot "supabase\migrations") -Filter "*.sql" |
-    Where-Object { $_.Name -notlike "$InvitationMigration*" } |
+    Where-Object {
+      $migrationName = $_.Name
+      -not ($ForwardMigrations | Where-Object { $migrationName -like "$_*" })
+    } |
     ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination $targetMigrations }
   $diffPath = Join-Path $baselineRoot "automation-to-live.sql"
   $reversePath = Join-Path $baselineRoot "live-to-automation.sql"
@@ -586,23 +592,30 @@ function Repair-MigrationHistoryIfApproved([string[]]$RemoteVersions) {
   return ("Official migration repair recorded {0} verified version(s)." -f $missing.Count)
 }
 
-function Test-InvitationMigrationDryRun([string[]]$RemoteVersions) {
-  if ($InvitationMigration -in $RemoteVersions) {
-    return "Invitation-state migration is already recorded; no replay is needed."
+function Test-ForwardMigrationsDryRun([string[]]$RemoteVersions) {
+  $pending = @($ForwardMigrations | Where-Object { $_ -notin $RemoteVersions })
+  if ($pending.Count -eq 0) {
+    return "Both approved forward migrations are already recorded; no replay is needed."
   }
   $dryRun = Invoke-Supabase @("db", "push", "--dry-run", "--skip-vault", "--remote=$SupabaseProjectRef")
-  $mentioned = @([regex]::Matches($dryRun, '\b\d{14}\b') | ForEach-Object { $_.Value } | Sort-Object -Unique)
-  if ($mentioned.Count -ne 1 -or $mentioned[0] -ne $InvitationMigration) {
-    throw "Database push dry-run did not contain exactly the invitation-state migration."
+  $mentioned = @([regex]::Matches($dryRun, '\b\d{14}\b') | ForEach-Object { $_.Value } | Select-Object -Unique)
+  if ($mentioned.Count -ne $pending.Count) {
+    throw "Database push dry-run did not contain exactly the pending approved forward migrations."
   }
-  return "Official database push dry-run contains exactly the invitation-state migration."
+  for ($index = 0; $index -lt $pending.Count; $index++) {
+    if ($mentioned[$index] -ne $pending[$index]) {
+      throw "Database push dry-run did not preserve the approved forward-migration order."
+    }
+  }
+  return ("Official database push dry-run contains exactly {0} pending approved forward migration(s), in order." -f $pending.Count)
 }
 
-function Apply-InvitationMigrationIfApproved([string[]]$RemoteVersions, [string]$BackupRoot) {
+function Apply-ForwardMigrationsIfApproved([string[]]$RemoteVersions, [string]$BackupRoot) {
   $appliedNow = $false
-  if ($InvitationMigration -notin $RemoteVersions) {
-    Test-InvitationMigrationDryRun $RemoteVersions | Out-Null
-    if (-not $AuthorizeSchemaMigration) { throw "The invitation-state migration is ready but not separately authorized." }
+  $pending = @($ForwardMigrations | Where-Object { $_ -notin $RemoteVersions })
+  if ($pending.Count -gt 0) {
+    Test-ForwardMigrationsDryRun $RemoteVersions | Out-Null
+    if (-not $AuthorizeSchemaMigration) { throw "The approved forward migrations are ready but not separately authorized." }
     Assert-JsonAttestation $AuthorizationRecord @("allowSchemaMigration") @{
       projectRef = $SupabaseProjectRef; commit = $ExpectedCommit
     } | Out-Null
@@ -617,10 +630,10 @@ function Apply-InvitationMigrationIfApproved([string[]]$RemoteVersions, [string]
   if ($null -eq $SourceSnapshot) { throw "The in-memory pre-migration preservation snapshot is unavailable." }
   $before = $SourceSnapshot | ConvertTo-Json -Compress -Depth 20
   if ($before -ne $after) {
-    throw "Auth, administrator, client, file, document, or queue counts changed during the invitation migration window."
+    throw "Auth, administrator, client, file, document, or existing queue counts changed during the forward-migration window."
   }
-  if ($appliedNow) { return "Invitation-state migration applied through the official CLI; all preservation counts and postflight checks passed." }
-  return "Invitation-state migration was already recorded; no replay occurred and preservation counts passed."
+  if ($appliedNow) { return "Approved forward migrations applied through the official CLI; all preservation counts and postflight checks passed." }
+  return "Approved forward migrations were already recorded; no replay occurred and preservation counts passed."
 }
 
 function Test-SchedulerStateReadOnly([string]$EvidenceFile) {
@@ -766,7 +779,7 @@ try {
   if ($Mode -eq "DryRun") {
     Add-Result "Production backup and isolated restore" "BLOCKED" "Not executed in dry-run mode." "Run Release mode only after access, authorization, off-repository evidence storage, and Docker are ready."
     Add-Result "Migration equivalence and repair" "BLOCKED" "No live schema mutation or history repair was attempted." "Authorize only after an empty shadow-vs-live diff and signed equivalence evidence."
-    Add-Result "Invitation migration" "BLOCKED" "No production migration was executed." "Complete backup/restore and separately authorize the single onboarding migration."
+    Add-Result "Forward migrations" "BLOCKED" "No production migration was executed." "Complete backup/restore and separately authorize the ordered onboarding and client-experience migrations."
     Add-Result "Auth, SMTP, and production environment" "BLOCKED" "Provider configuration attestation was not consumed in dry-run mode." "Complete the secret-free Auth/SMTP checklist and Vercel production environment validation."
     Add-Result "Production deployment and smoke tests" "BLOCKED" "No deployment or post-deployment request was performed." "Obtain separate deployment approval after all earlier gates pass."
     Add-Result "Automation Cron" "PASS" "Cron was not activated; activation is intentionally outside this orchestrator."
@@ -855,14 +868,14 @@ try {
     if ($Mode -eq "Prepare") {
       $missingAutomation = @($AutomationVersions | Where-Object { $_ -notin $remoteVersions })
       Add-Result "Official migration history status" "PASS" ("{0} of six equivalent automation version(s) require official repair before release." -f $missingAutomation.Count)
-      Invoke-Check "Invitation-state migration dry-run" { Test-InvitationMigrationDryRun $remoteVersions } "Resolve unexpected pending migrations without replaying already-applied SQL." | Out-Null
-      Add-Result "Production mutation approval" "BLOCKED" "No migration history, schema, deployment, secret, or scheduler state was changed." "After reviewing this evidence, explicitly approve only the required official repair, invitation migration, and deployment."
+      Invoke-Check "Forward migrations dry-run" { Test-ForwardMigrationsDryRun $remoteVersions } "Resolve unexpected pending migrations without replaying already-applied SQL." | Out-Null
+      Add-Result "Production mutation approval" "BLOCKED" "No migration history, schema, deployment, secret, or scheduler state was changed." "After reviewing this evidence, explicitly approve only the required official repair, ordered forward migrations, and deployment."
       Add-Result "Automation Cron" "PASS" "Cron was not activated; separate secret verification and authorization remain mandatory."
     } else {
       Invoke-Check "Official migration history repair" { Repair-MigrationHistoryIfApproved $remoteVersions } "Obtain explicit repair approval only after equivalence is proved." | Out-Null
       Assert-ReleaseCanContinue "migration history repair"
       $remoteVersions = Get-RemoteMigrationVersions
-      Invoke-Check "Invitation-state migration" { Apply-InvitationMigrationIfApproved $remoteVersions $backupRoot } "Stop, preserve evidence, and use a reviewed forward repair if application fails." | Out-Null
+      Invoke-Check "Forward migrations" { Apply-ForwardMigrationsIfApproved $remoteVersions $backupRoot } "Stop, preserve evidence, and use a reviewed forward repair if application fails." | Out-Null
       Assert-ReleaseCanContinue "schema migration"
 
       Invoke-Check "Vercel production deployment" {

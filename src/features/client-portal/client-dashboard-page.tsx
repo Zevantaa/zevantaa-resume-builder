@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { InlineAlert, PageHeader, StatusBadge } from "@/components/ui";
 import { IndicativeAtsPanel } from "@/features/document-generation/indicative-ats-panel";
+import { DocumentAtsComparisonCard } from "@/features/document-generation/document-ats-comparison-card";
+import { getCurrentClientDocumentAtsComparison } from "@/features/document-generation/document-ats-comparison-service";
 
 import { getCurrentClientAtsScore } from "./client-ats-score-service";
 import { getClientDashboardEvidence } from "./client-dashboard-service";
@@ -11,8 +13,9 @@ import { TARGET_MARKET_LABELS } from "./target-market-labels";
 import type { TargetMarket } from "@/types/client-profile";
 
 export async function ClientDashboardPage() {
-  const [summary, evidence, score] = await Promise.all([
+  const [summary, evidence, score, documentComparison] = await Promise.all([
     getClientDashboardSummary(), getClientDashboardEvidence(), getCurrentClientAtsScore(),
+    getCurrentClientDocumentAtsComparison(),
   ]);
   const view = buildClientDashboardView(summary, evidence, score);
 
@@ -66,6 +69,7 @@ export async function ClientDashboardPage() {
         </div>
 
         <div className="dashboard-output-column">
+          <DocumentAtsComparisonCard comparison={documentComparison} />
           {view.routing?.atsScoreVisible && score ? <IndicativeAtsPanel result={score} /> : null}
           <section aria-labelledby="outputs-heading" className="dashboard-workspace-panel dashboard-outputs-panel">
             <div className="dashboard-module-heading">
