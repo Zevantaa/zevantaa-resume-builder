@@ -19,15 +19,14 @@ intake mutation is a private source-resume upload/replacement or optional GCC
 photo upload/replacement. The authenticated user's active client-role linkage is
 resolved server-side. Uploads do not parse or alter structured profile facts.
 
-At successful provisioning, the temporary password exists only in the immediate
-Server Action response and the administrator's current screen. It is not written
-to the candidate profile, role row, logs, or welcome-message storage. The
-administrator may copy a complete plain-text message for a **secure** delivery
-channel. Manual email and WhatsApp drafts intentionally exclude the password
-because URL contents can enter browser history, logs, and third-party services.
-The password must be delivered separately and securely. The portal URL comes
-from `NEXT_PUBLIC_APP_URL`; provisioning refuses to proceed if it is missing
-or invalid.
+Provisioning sends a one-time Supabase Auth invitation through the trusted
+server action. No temporary password or invite token enters the form response,
+profile, role row, logs, analytics, or onboarding ledger. The ledger records
+only controlled delivery state and supports conditional retry after a failed
+attempt. The callback URL comes from `NEXT_PUBLIC_APP_URL`; provisioning fails
+closed if it is missing or invalid. Production delivery requires configured
+transactional SMTP and the exact allowlisted callback documented in
+`AUTH_CONFIGURATION.md`.
 
 The migration `20260929000100_admin_owned_profile_onboarding.sql` must be
 applied before using **Create a new candidate profile**. It makes the initial

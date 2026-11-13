@@ -31,7 +31,7 @@ export function EditClientAccountForm({
   }, [router, state.status, state.saveRevision]);
 
   return (
-    <form action={formAction} className="client-account-form">
+    <form action={formAction} aria-busy={isPending} className="client-account-form">
       <input name="userId" type="hidden" value={client.userId} />
 
       {state.message ? (

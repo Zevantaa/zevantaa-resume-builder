@@ -1,8 +1,12 @@
+import { notFound } from "next/navigation";
+
 import { PdfRenderQaPanel } from "@/features/document-generation/pdf/pdf-render-qa-panel";
+import { areQaUtilitiesEnabled } from "@/lib/qa-utilities";
 
 export const dynamic = "force-dynamic";
 
 export default function AdminPdfRenderTestPage() {
+  if (!areQaUtilitiesEnabled()) notFound();
   return (
     <div className="dashboard-page dashboard-profile-content layout-stack">
       <header className="client-profile-intro">

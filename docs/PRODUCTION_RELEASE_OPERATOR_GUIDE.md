@@ -1,0 +1,187 @@
+# Simplified secure production release operator guide
+
+## Safety model
+
+The single entry point is `scripts/Invoke-ZevantaaProductionRelease.ps1`. It is
+fail-closed, defaults to `DryRun`, pins Supabase CLI `3.1.0` and Vercel CLI
+`65.14.0`, writes evidence outside Git, and never activates Cron. It does not
+merge, push, force-push, reset a database, delete candidate data, expose secret
+values, or replay the six automation migrations.
+
+Production backup payloads use official `age` 1.3.2 authenticated encryption.
+The Supabase CLI still produces the authoritative dump plan, but that plan runs
+inside an ephemeral container and streams directly to `age`; the CLI is never
+allowed to create a plaintext dump file. Every backup is encrypted to two
+distinct post-quantum recipients: a local identity protected with Windows DPAPI
+and an operator-controlled offline recovery recipient. Private identities never
+enter Git, logs, command arguments, or the backup directory.
+
+Supabase CLI v3 targets local infrastructure by default. Every hosted operation in
+the orchestrator therefore names `fzltowzpfrnuxxxrzuih` explicitly. The script
+uses `db query --read-only` for production SQL evidence, `db diff` against a shadow
+built only through the six automation migrations, official `migration repair`
+only after equivalence and explicit approval, and `db push --dry-run` before the
+single invitation-state migration.
+
+## First command: dry-run
+
+From the repository root in VS Code PowerShell:
+
+```powershell
+npm.cmd run release:production -- -Mode DryRun -ExpectedCommit (git rev-parse HEAD) -EvidenceRoot "D:\ZevantaaReleaseEvidence\dry-run-001"
+```
+
+Dry-run performs all local quality gates and read-only GitHub, Supabase, and
+Vercel authorization checks. It does not create a backup, restore data, repair
+history, apply SQL, deploy, change secrets, or activate Cron. Its overall release
+verdict remains `FAIL` until those deliberately unexecuted production gates are
+completed; that is expected and is not a script malfunction.
+
+During development of the script only, `-AllowDirtyWorkingTree` can be used with
+`DryRun`. It is rejected as a release substitute and must never appear in the
+authorized production command.
+
+Reports are written as `release-report.json` and `release-report.md` below the
+specified evidence root. They contain controlled results only, never raw provider
+responses, candidate data, object keys, or credentials.
+
+## Read-only production preparation
+
+Install the signed official `age` 1.3.2 Windows release and confirm `age` and
+`age-keygen` are on `PATH`. The official Windows AMD64 archive SHA-256 is
+`f48d8f8f9ebe903ab5027ed067652f2cc1db94bc206976430133b905dcd8e8c7`.
+Create and protect an independent offline post-quantum identity, then provide
+only its public `age1pq1...` recipient to this process. Keep that private
+identity offline under Zevantaa recovery controls.
+
+After dry-run authorization passes, use `Prepare` with a new, access-restricted
+evidence directory. This downloads and checksum-verifies the production backup,
+restores it into a fresh local Supabase stack, compares production with the six
+automation migrations, inspects official migration history, and dry-runs the
+invitation migration. It does not repair history, apply SQL, deploy, change
+secrets, or activate Cron.
+
+```powershell
+npm.cmd run release:production -- `
+  -Mode Prepare `
+  -ExpectedCommit "<full-reviewed-sha>" `
+  -EvidenceRoot "D:\ZevantaaReleaseEvidence\prepare-001" `
+  -AgeRecoveryKeyPath "C:\ZevantaaReleaseKeys\production-backup-identity.dpapi" `
+  -AgeOfflineRecoveryRecipient "<offline-age1pq1-recipient>" `
+  -InitializeAgeRecoveryKey `
+  -VercelProjectId "<existing-zevantaa-project-id>"
+```
+
+Use `-InitializeAgeRecoveryKey` only once. It creates a new post-quantum age
+identity in memory, immediately protects it with Windows DPAPI CurrentUser, and
+writes only the protected blob to the separately supplied key path with a
+restricted ACL. Subsequent runs omit the switch and reuse that protected key.
+The key path must be outside both Git and the evidence directory.
+
+The prepare verdict remains `FAIL` while Auth/SMTP attestation and production
+mutation approval are deliberately absent. Review the individual evidence gates;
+do not reinterpret the overall verdict as permission to release.
+
+## What the authorized command does
+
+After every item in `PRODUCTION_RELEASE_ACCESS_CHECKLIST.md` is complete, invoke:
+
+```powershell
+npm.cmd run release:production -- `
+  -Mode Release `
+  -ExpectedCommit "<full-reviewed-sha>" `
+  -EvidenceRoot "D:\ZevantaaReleaseEvidence\release-001" `
+  -AuthorizationRecord "D:\ZevantaaReleaseEvidence\authorization.json" `
+  -AuthConfigurationAttestation "D:\ZevantaaReleaseEvidence\auth-smtp-attestation.json" `
+  -AgeRecoveryKeyPath "C:\ZevantaaReleaseKeys\production-backup-identity.dpapi" `
+  -AgeOfflineRecoveryRecipient "<offline-age1pq1-recipient>" `
+  -VercelProjectId "<existing-zevantaa-project-id>" `
+  -AuthorizeMigrationRepair `
+  -AuthorizeSchemaMigration `
+  -AuthorizeDeployment
+```
+
+Omit `-AuthorizeMigrationRepair` when all six versions already exist in remote
+history. The signed authorization file must agree with every supplied switch.
+
+The command executes these gates in order and stops at the first critical failure:
+
+1. Exact branch, origin, clean tree, immutable commit, tests, lint, TypeScript,
+   build, secret scan, production dependency audit, and whitespace check.
+2. Read and dry-run-push authorization to GitHub; read-only database access to the
+   named Supabase project; inspection of the existing linked Vercel project/domain.
+3. Secret-free Auth/SMTP/private-access/worker attestation, Vercel production
+   public-origin validation using a temporary Vercel environment pull, and
+   read-only proof that the two required Vault secret names exist while Cron
+   remains inactive. Sensitive Vercel values remain unreadable and are never
+   printed.
+4. Official Supabase logical-dump plans for roles, application schema,
+   recovery-only Auth/Storage managed schema, data, and
+   migration history stream from an ephemeral container directly into age; no
+   plaintext SQL file exists. Read-only managed-schema/RLS evidence and every actual object byte
+   in `candidate-intake-private`, `candidate-documents-private`, and
+   `zevantaa-brand-assets` are downloaded only into process memory and encrypted
+   before disk. The scoped official Supabase API-key command passes a project
+   secret only in memory to the Storage backup child process.
+5. Recovery runs in a network-isolated Docker container whose PostgreSQL data
+   directory and object restore area are both `tmpfs`. Age authentication is
+   checked while SQL streams into `psql`; each private object is restored into
+   memory, read back, size-checked and SHA-256 checked. Database aggregates and
+   Storage metadata/object counts must match production evidence. The container
+   is removed afterward, and the production database is never a restore target.
+6. Strict bidirectional shadow-vs-live schema diff using migrations only through
+   `20261103223240_ats_assessment_provenance.sql`. A material difference blocks
+   release. The only accepted nonempty result is the same function-only
+   canonicalization SQL in both directions, with no table, enum, constraint,
+   index, policy, trigger, grant, or RLS difference; its count and SHA-256 are
+   recorded as evidence.
+7. If history is missing and separately authorized, official
+   `supabase migration repair --status applied ... --remote=<project>` for only the
+   missing, already-proved-equivalent automation versions.
+8. `supabase db push --dry-run`; the output must name exactly
+   `20261111085249_client_onboarding_invitation_state.sql`. Only then can the
+   separately authorized push occur, followed by read-only postflight.
+9. Deployment of the reviewed commit to the existing Vercel project, followed by
+   public GET/security-header checks and proof that the internal worker rejects an
+   unauthenticated request.
+10. Read-only scheduler/queue state capture. Cron remains inactive unless a later,
+    separate operator action follows the scheduler runbook.
+
+## Evidence handling
+
+The evidence directory contains only age-encrypted database/object payloads,
+ciphertext checksums, and controlled release findings. Keep it access-restricted
+and keep both recovery identities elsewhere. Do not copy it into this repository, GitHub Actions,
+email, chat, or a public/synchronized folder. Record retention and secure deletion
+with the Zevantaa data owner.
+
+## PASS and FAIL
+
+`PASS` means every gate included in the selected mode completed. `FAIL` identifies
+the exact gate and recovery action. Never edit the report to change a verdict.
+Create a new evidence directory and rerun after remediation. A dry-run `FAIL`
+caused only by deliberately unopened production gates is the correct pre-release
+result.
+
+## Cron activation
+
+This command never calls `configure_zevantaa_automation_schedule()`. After a
+successful production release and authenticated end-to-end worker test, follow
+`AUTOMATION_SCHEDULER_RUNBOOK.md` with separate secret verification and explicit
+authorization. Emergency shutdown remains
+`select public.disable_zevantaa_automation_schedule();` by the database owner.
+
+## Official references
+
+- Supabase CLI v3 hosted-target behavior:
+  <https://supabase.com/changelog/supabase-cli-v3>
+- Supabase migration history and official repair workflow:
+  <https://supabase.com/docs/guides/deployment/database-migrations>
+- Supabase CLI backup and restore:
+  <https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore>
+- Supabase database-backup scope, including the Storage-byte exclusion:
+  <https://supabase.com/docs/guides/platform/backups>
+- age project and authenticated streaming format:
+  <https://github.com/FiloSottile/age>
+- Vercel CLI deployment workflow:
+  <https://vercel.com/docs/projects/deploy-from-cli>

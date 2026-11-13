@@ -1,5 +1,5 @@
-import { DashboardPlaceholder } from "@/components/dashboard/dashboard-placeholder";
+import { AdminWorkflowPage } from "@/features/admin-portal/admin-workflow-page";
 
-export default function AdminWorkflowPage() {
-  return <DashboardPlaceholder backHref="/admin" description="The document and employer-review workflow area is reserved for later implementation." title="Workflow" />;
+export default function WorkflowPage() {
+  return <AdminWorkflowPage />;
 }

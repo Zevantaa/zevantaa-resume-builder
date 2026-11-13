@@ -10,7 +10,7 @@ export default async function ClientResumeInputPage() {
   const review = await getClientResumeInputReview();
   return <div className="dashboard-page"><div className="layout-container-readable layout-stack">
     <header className="layout-stack">
-      <p className="type-label dashboard-kicker">Client portal Â· Resume input</p>
+      <p className="type-label dashboard-kicker">Client portal: Resume input</p>
       <h1 className="type-heading-1">Review only the details that need your input</h1>
       <p className="type-body text-text-muted">Zevantaa could not safely resolve every required career fact. Confirm or correct only information you can verify.</p>
     </header>

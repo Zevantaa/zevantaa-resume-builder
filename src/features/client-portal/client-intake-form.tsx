@@ -95,7 +95,7 @@ export function ClientIntakeForm({
               helperText="PDF, DOC or DOCX, maximum 10 MB. A replacement becomes current only after a successful private save and requires new administrator review."
               error={errors.resume} onChange={(event) => setSelectedResume({ name: event.target.files?.[0]?.name ?? "", actionState: state })} />
             <p className="type-supporting text-text-muted">{files.resume ? `Current: ${files.resume.originalFileName} (${files.resume.status})` : "No source resume yet. Upload one to begin administrator review."}</p>
-            {selectedResume.name && selectedResume.actionState === state && <p className="type-supporting">Selected replacement: {selectedResume.name}</p>}
+            {selectedResume.name && selectedResume.actionState === state && <p aria-live="polite" className="type-supporting client-intake-selection" role="status">Selected replacement: {selectedResume.name}</p>}
           </div>
           {isGccPhotoAvailable(details.selectedPackageCode) && <div className="client-intake-file-block">
             <FileInput key={`photo-${state.savedAt ?? "initial"}`} id="profile-photo" name="photo" label="GCC profile photograph (optional)"
@@ -104,7 +104,7 @@ export function ClientIntakeForm({
               helperText="Mainly for GCC/Middle East applications. JPEG, PNG or WebP, maximum 5 MB. A replacement becomes current only after a successful private save."
               error={errors.photo} onChange={(event) => setSelectedPhoto({ name: event.target.files?.[0]?.name ?? "", actionState: state })} />
             <p className="type-supporting text-text-muted">{files.photo ? `Current: ${files.photo.originalFileName} (${files.photo.status})` : "No photograph uploaded."}</p>
-            {selectedPhoto.name && selectedPhoto.actionState === state && <p className="type-supporting">Selected replacement: {selectedPhoto.name}</p>}
+            {selectedPhoto.name && selectedPhoto.actionState === state && <p aria-live="polite" className="type-supporting client-intake-selection" role="status">Selected replacement: {selectedPhoto.name}</p>}
           </div>}
         </div>
         <div className="client-contact-actions">

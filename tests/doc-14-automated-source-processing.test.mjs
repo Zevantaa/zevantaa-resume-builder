@@ -58,7 +58,7 @@ const supported = extraction([
   "Operations, Reporting",
 ].join("\n"));
 
-function setupWorker(source = supported, profileIsEmpty = true) {
+function setupWorker(source = supported, profileIsEmpty = true, failureAck = true) {
   const calls = [];
   let claimCount = 0;
   globalThis.__sourceProcessingQa.extract = async (requestedProfileId) => {
@@ -84,6 +84,7 @@ function setupWorker(source = supported, profileIsEmpty = true) {
       if (name === "accept_automated_resume_processing_job") {
         return { data: "55555555-5555-4555-8555-555555555555", error: null };
       }
+      if (name === "fail_resume_processing_job") return { data: failureAck, error: null };
       return { data: true, error: null };
     },
   };
@@ -158,6 +159,14 @@ test("worker records needs-input and retry outcomes distinctly", async () => {
   });
   assert.deepEqual(await processResumeProcessingJobs(1), { completed: 0, needsInput: 0, failed: 1 });
   assert.equal(calls.find((call) => call.name === "fail_resume_processing_job").args.p_error_code, "source-unavailable");
+});
+
+test("worker does not report a failure as recorded when its lease update affected no row", async () => {
+  setupWorker({
+    ...extraction(""), rawText: null, normalizedText: null, extractor: null,
+    status: "failed", failureReason: "source-unavailable",
+  }, true, false);
+  await assert.rejects(processResumeProcessingJobs(1), /failure could not be recorded/u);
 });
 
 test("migration creates a private durable lease queue tied to source-pointer changes", () => {

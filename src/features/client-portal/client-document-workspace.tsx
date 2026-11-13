@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { after } from "next/server";
 
-import { InlineAlert, StatusBadge } from "@/components/ui";
+import { InlineAlert, PageHeader, StatusBadge } from "@/components/ui";
 import { requireApplicationRole } from "@/features/authentication/authorization";
 import { processDocumentRegenerationJobs } from "@/features/document-generation/document-regeneration-service";
 
@@ -23,11 +23,11 @@ export async function ClientDocumentWorkspace({ coverLettersOnly = false }: { co
   const view = buildClientDashboardView(summary, evidence, score);
   const outputs = view.outputs.filter((item) => item.id.endsWith("cover-letter") === coverLettersOnly);
   return <div className="dashboard-page dashboard-workspace-page client-v8-documents">
-    <header className="layout-stack">
-      <p className="type-label dashboard-kicker">Client portal · Output workspace</p>
-      <h1 className="type-heading-1">{coverLettersOnly ? "Cover letters" : "Resumes & documents"}</h1>
-      <p className="type-body text-text-muted">Only outputs in your assigned package appear here. A download is shown only for a verified saved PDF.</p>
-    </header>
+    <PageHeader
+      description="Only outputs in your assigned package appear here. A download is shown only for a verified saved PDF."
+      eyebrow="Client portal · Output workspace"
+      title={coverLettersOnly ? "Cover letters" : "Resumes & documents"}
+    />
     {!summary || !evidence ? <InlineAlert variant="error">Your linked profile is unavailable. Please contact Zevantaa support.</InlineAlert> :
       <section className="dashboard-workspace-panel" aria-label={coverLettersOnly ? "Cover-letter availability" : "Resume availability"}>
         {!view.routing ? <InlineAlert variant="warning">Assigned package unavailable. Contact Zevantaa support.</InlineAlert> :

@@ -25,6 +25,9 @@ registerHooks({
     if (specifier === "@/lib/supabase/server") return {
       url: mock("export async function createServerSupabaseClient() { return globalThis.__recovery.supabase; }"), shortCircuit: true,
     };
+    if (specifier === "@/lib/supabase/admin") return {
+      url: mock("export function createSupabaseAdminClient() { return globalThis.__recovery.admin; }"), shortCircuit: true,
+    };
     if (specifier === "@/lib/supabase/config") return {
       url: mock("export function isSupabaseConfigured() { return true; } export class SupabaseConfigurationError extends Error {}"), shortCircuit: true,
     };
@@ -105,6 +108,13 @@ function reset() {
           state.requestRedirect = options.redirectTo;
           return { error: null };
         },
+      },
+    },
+    admin: {
+      from(table) {
+        assert.equal(table, "client_onboarding_invitations");
+        return { update(values) { state.acceptedAt = values.accepted_at; return this; },
+          eq() { return this; }, is() { return Promise.resolve({ error: null }); } };
       },
     },
   };
@@ -192,7 +202,7 @@ test("token-hash recovery callback verifies the one-time recovery token", async 
 
 test("missing, invalid and failed-exchange callbacks fail closed", async () => {
   const state = reset();
-  for (const query of ["portal=admin", "portal=admin&type=recovery", "portal=admin&error=access_denied", "portal=admin&token_hash=opaque&type=invite"]) {
+  for (const query of ["portal=admin", "portal=admin&type=recovery", "portal=admin&error=access_denied"]) {
     const response = await GET(new Request(`http://localhost:3000/auth/callback?${query}`));
     assert.equal(response.url, "http://localhost:3000/reset-password?portal=admin&error=invalid-link");
   }
@@ -200,6 +210,14 @@ test("missing, invalid and failed-exchange callbacks fail closed", async () => {
   const expired = await GET(new Request("http://localhost:3000/auth/callback?portal=admin&code=expired"));
   assert.match(expired.url, /error=invalid-link$/);
   assert.equal(state.setCookie, undefined);
+});
+
+test("invite token establishes the same verified one-time password setup session", async () => {
+  const state = reset();
+  const response = await GET(new Request("http://localhost:3000/auth/callback?portal=client&token_hash=opaque&type=invite"));
+  assert.deepEqual(state.verifyInput, { token_hash: "opaque", type: "invite" });
+  assert.equal(response.url, "http://localhost:3000/reset-password?portal=client");
+  assert.ok(state.setCookie);
 });
 
 test("ordinary sign-in code cannot authorize password recovery", async () => {
@@ -224,5 +242,6 @@ test("proof is user-bound, signed, time-limited, and required for password updat
   assert.equal(state.password, "secure-password");
   assert.equal(state.signedOut, true);
   assert.equal(state.proof, undefined);
+  assert.equal(typeof state.acceptedAt, "string");
   assert.equal(await hasVerifiedRecoverySession(), false);
 });

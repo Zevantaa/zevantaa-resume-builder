@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { Card, InlineAlert } from "@/components/ui";
+import { Card, InlineAlert, PageHeader } from "@/components/ui";
 import { isGccPhotoAvailable } from "@/features/document-generation/package-routing";
 
 import { ClientIntakeForm } from "./client-intake-form";
@@ -20,14 +20,12 @@ export async function ClientProfilePage() {
   return (
     <div className="dashboard-page">
         <div className="dashboard-profile-content layout-stack">
-          <div className="client-profile-intro">
-            <p className="type-label dashboard-kicker">Profile & intake</p>
-            <h1 className="type-heading-1 text-text">Your candidate profile</h1>
-            <p className="type-body text-text-muted">
-              Review your Zevantaa-managed details and upload your private source
-              resume{details && isGccPhotoAvailable(details.selectedPackageCode) ? " or optional GCC photograph" : ""}.
-            </p>
-          </div>
+          <PageHeader
+            description={<>Review your Zevantaa-managed details and upload your private source
+              resume{details && isGccPhotoAvailable(details.selectedPackageCode) ? " or optional GCC photograph" : ""}.</>}
+            eyebrow="Profile & intake"
+            title="Your candidate profile"
+          />
 
           <Card className="client-contact-card">
             <div className="client-contact-card-heading">

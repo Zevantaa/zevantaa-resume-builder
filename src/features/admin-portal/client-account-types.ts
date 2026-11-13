@@ -1,5 +1,5 @@
 export type ClientAccountStatus = "active" | "disabled";
-export type CredentialMode = "generated" | "manual";
+export type ClientInvitationDeliveryStatus = "not-sent" | "pending" | "sent" | "failed";
 
 export type CandidateAccountOption = {
   email: string;
@@ -50,16 +50,14 @@ export type AdminProfileFields = {
 
 export type ClientAccountFormState = {
   fieldErrors?: Partial<
-    Record<"candidateProfileId" | "fullName" | "email" | "mobileNumber" | "whatsappNumber" | "linkedinUrl" | "currentLocation" | "relocationPreference" | "packageCode" | "temporaryPassword" | "accountStatus", string>
+    Record<"candidateProfileId" | "fullName" | "email" | "mobileNumber" | "whatsappNumber" | "linkedinUrl" | "currentLocation" | "relocationPreference" | "packageCode" | "accountStatus", string>
   >;
   message?: string;
   status: "idle" | "success" | "error";
-  credentials?: {
+  invitation?: {
     email: string;
-    temporaryPassword: string;
-    welcomeMessage: string;
-    emailLink: string;
-    whatsappLink: string | null;
+    deliveryStatus: ClientInvitationDeliveryStatus;
+    invitationId: string;
   };
 };
 

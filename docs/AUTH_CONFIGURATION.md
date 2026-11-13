@@ -92,9 +92,8 @@ passwords are not logged or stored by the application.
 The hosted default email service is suitable only for limited testing; configure
 production SMTP before relying on recovery emails operationally.
 
-Client users are not created by this batch. They will be provisioned through the
-future administrator workflow; dashboard-created fictional users may be used for
-manual login testing in the meantime.
+Client users are created only through the protected administrator invitation
+workflow described below.
 
 ## Application role assignments
 
@@ -163,20 +162,48 @@ candidate-creation option. It permits a candidate to exist without an uploaded
 source resume; the first client upload fills the private file reference.
 
 The form and its server action both sit behind authoritative admin checks. The
-server-only service creates and confirms the Supabase Auth email, creates or
-updates the candidate's core profile and package, then writes the `client`
-role and candidate link. Failed steps attempt to restore the profile and remove
-the new Auth user. The temporary password is shown only in the successful
-response and is never logged or stored by the application. A copyable welcome
-message includes it, but manual email/WhatsApp draft links omit it; deliver
-the password separately through a secure channel. Set `NEXT_PUBLIC_APP_URL`
-to the public application origin before provisioning. An `active` client can
-enter `/client`; a `disabled` account is rejected by server-side portal
-authorization.
+server-only service creates or updates the candidate profile, records a private
+`client_onboarding_invitations` delivery attempt, and calls Supabase Auth's
+administrator invitation API. The returned Auth user is linked to the existing
+`client` role only once. No password, invitation token, or email body is stored
+by the application. Failed delivery remains visible and can be retried from
+durable state. An unaccepted `sent` invitation can also receive a fresh setup
+email from the admin workflow when its original link expires. The server
+atomically claims the row before contacting Auth, so concurrent clicks cannot
+duplicate delivery. An unconfirmed Auth user receives a new invite; an email-
+confirmed user who did not finish password setup receives the existing recovery
+flow. Neither path deletes, relinks, or exposes the Auth user.
 
-For V1, transmit the temporary password through an approved secure channel. The
-client can use the existing recovery flow to replace it. Production recovery
-email delivery still requires suitable SMTP configuration.
+Apply `20261111085249_client_onboarding_invitation_state.sql` before deploying
+this code. Set `NEXT_PUBLIC_APP_URL` to the exact public HTTPS origin. Add this
+exact production redirect URL under **Authentication > URL Configuration >
+Redirect URLs**:
+
+```text
+https://YOUR-APP-ORIGIN/auth/callback?portal=client&intent=invite
+```
+
+For device-independent invitation activation, configure **Authentication >
+Email Templates > Invite user** with a token-hash target (retain approved
+Zevantaa wording around it):
+
+```html
+<a href="{{ .RedirectTo }}&amp;token_hash={{ .TokenHash }}&amp;type=invite">Set up your Zevantaa account</a>
+```
+
+Do not place a password, real token, or service key in the template. The link
+establishes a short-lived verified setup session; after the client sets a
+password, the application records `accepted_at`, consumes the proof, and signs
+out the setup session. An `active` client can then enter `/client`; a `disabled`
+account remains rejected by server-side authorization.
+
+The UI states are deliberately precise: `pending` means a send call is in
+progress, `sent` means Supabase Auth accepted the invitation or recovery setup
+email for delivery (not proof of inbox placement), `failed` is safely retryable,
+and `not-sent` is a durable pre-send state. A linked failed row is retried without
+creating or deleting an Auth user. Production use requires custom transactional
+SMTP. Supabase's default sender is appropriate only for limited testing and must
+not be treated as reliable client delivery.
 
 ## Session persistence and logout
 

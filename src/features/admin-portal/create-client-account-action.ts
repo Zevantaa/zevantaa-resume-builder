@@ -1,42 +1,11 @@
 "use server";
 
 import type { ClientAccountFormState } from "./client-account-types";
-import { provisionClientAccount } from "./client-account-service";
+import { provisionClientAccount, retryClientInvitation } from "./client-account-service";
 import { validateAdminProfile } from "./admin-profile-validation";
-import { createWelcomeMessage, getClientPortalUrl } from "./welcome-message";
-
-const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{12,}$/;
-
-function generateTemporaryPassword() {
-  const lowercase = "abcdefghijkmnopqrstuvwxyz";
-  const uppercase = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const digits = "23456789";
-  const symbols = "!@#$%&*+-=?";
-  const all = lowercase + uppercase + digits + symbols;
-  const random = new Uint32Array(20);
-  crypto.getRandomValues(random);
-
-  const password = [
-    lowercase[random[0] % lowercase.length],
-    uppercase[random[1] % uppercase.length],
-    digits[random[2] % digits.length],
-    symbols[random[3] % symbols.length],
-    ...Array.from(random.slice(4), (value) => all[value % all.length]),
-  ];
-
-  for (let index = password.length - 1; index > 0; index -= 1) {
-    const swapIndex = random[index] % (index + 1);
-    [password[index], password[swapIndex]] = [
-      password[swapIndex],
-      password[index],
-    ];
-  }
-
-  return password.join("");
-}
 
 const errorMessages = {
-  "auth-creation": "The authentication account could not be created. Try again.",
+  "auth-creation": "The secure invitation could not be created. Try again.",
   "duplicate-email": "An account already exists for this email address.",
   "duplicate-profile": "This candidate profile already has a client account.",
   "invalid-package": "Select a valid active Zevantaa package.",
@@ -46,12 +15,38 @@ const errorMessages = {
   "linkage-cleanup":
     "Account linkage failed and cleanup could not be confirmed. Review Supabase Auth before retrying.",
   "missing-candidate": "The selected candidate profile is unavailable.",
+  "invitation-delivery": "The account setup was saved, but invitation delivery failed. Check transactional email configuration, then retry safely.",
+  "invitation-state": "The invitation state changed or already succeeded. Refresh the page before trying again.",
 } as const;
 
 export async function createClientAccountAction(
   _previousState: ClientAccountFormState,
   formData: FormData,
 ): Promise<ClientAccountFormState> {
+  const retryInvitationId = String(formData.get("retryInvitationId") ?? "").trim();
+  if (retryInvitationId) {
+    try {
+      const retried = await retryClientInvitation(retryInvitationId);
+      if (!retried.ok) {
+        return {
+          invitation: retried.invitationId ? {
+            email: retried.email ?? "",
+            deliveryStatus: "failed",
+            invitationId: retried.invitationId,
+          } : undefined,
+          message: errorMessages[retried.code],
+          status: "error",
+        };
+      }
+      return {
+        invitation: { email: retried.email, deliveryStatus: "sent", invitationId: retried.invitationId },
+        message: "Client invitation sent successfully.",
+        status: "success",
+      };
+    } catch {
+      return { message: "Invitation retry is temporarily unavailable.", status: "error" };
+    }
+  }
   const candidateProfileId = String(formData.get("candidateProfileId") ?? "").trim();
   const { errors: profileErrors, values: profile } = validateAdminProfile({
     fullName: String(formData.get("fullName") ?? ""),
@@ -63,9 +58,7 @@ export async function createClientAccountAction(
     relocationPreference: String(formData.get("relocationPreference") ?? ""),
     packageCode: String(formData.get("packageCode") ?? ""),
   });
-  const credentialMode = formData.get("credentialMode");
   const accountStatus = formData.get("accountStatus");
-  const suppliedPassword = String(formData.get("temporaryPassword") ?? "");
   const fieldErrors: NonNullable<ClientAccountFormState["fieldErrors"]> = { ...profileErrors };
 
   if (!candidateProfileId) {
@@ -76,24 +69,9 @@ export async function createClientAccountAction(
     fieldErrors.accountStatus = "Select a valid account status.";
   }
 
-  const temporaryPassword =
-    credentialMode === "generated" ? generateTemporaryPassword() : suppliedPassword;
-
-  if (credentialMode !== "generated" && credentialMode !== "manual") {
-    fieldErrors.temporaryPassword = "Choose a credential option.";
-  } else if (!PASSWORD_PATTERN.test(temporaryPassword)) {
-    fieldErrors.temporaryPassword =
-      "Use at least 12 characters with uppercase, lowercase, number and symbol.";
-  }
-
   if (Object.keys(fieldErrors).length > 0) {
     return { fieldErrors, status: "error" };
   }
-  const portalUrl = getClientPortalUrl();
-  if (!portalUrl) {
-    return { message: "Configure NEXT_PUBLIC_APP_URL before provisioning client credentials.", status: "error" };
-  }
-
   let result;
 
   try {
@@ -101,7 +79,6 @@ export async function createClientAccountAction(
       accountStatus: accountStatus as "active" | "disabled",
       candidateProfileId,
       profile,
-      temporaryPassword,
     });
   } catch {
     return {
@@ -111,16 +88,24 @@ export async function createClientAccountAction(
   }
 
   if (!result.ok) {
-    return { message: errorMessages[result.code], status: "error" };
+    return {
+      invitation: result.invitationId ? {
+        email: profile.email,
+        deliveryStatus: "failed",
+        invitationId: result.invitationId,
+      } : undefined,
+      message: errorMessages[result.code],
+      status: "error",
+    };
   }
 
   return {
-    credentials: {
+    invitation: {
       email: profile.email,
-      temporaryPassword,
-      ...createWelcomeMessage(profile, temporaryPassword, portalUrl, result.packageName, accountStatus as "active" | "disabled"),
+      deliveryStatus: "sent",
+      invitationId: result.invitationId,
     },
-    message: "Client account created and linked successfully.",
+    message: "Client account created and secure invitation sent.",
     status: "success",
   };
 }

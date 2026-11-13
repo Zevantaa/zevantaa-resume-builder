@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { requireApplicationRole } from "@/features/authentication/authorization";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getPackageRouting } from "@/features/document-generation/package-routing";
+import { getClientInvitationRedirectUrl, getClientRecoveryRedirectUrl } from "./welcome-message";
 
 import type {
   CandidateAccountOption,
@@ -19,11 +20,10 @@ type ProvisionClientAccountInput = {
   accountStatus: ClientAccountStatus;
   candidateProfileId: string;
   profile: AdminProfileFields;
-  temporaryPassword: string;
 };
 
 export type ProvisionClientAccountResult =
-  | { ok: true; packageName: string }
+  | { ok: true; packageName: string; invitationId: string }
   | {
       code:
         | "duplicate-email"
@@ -34,9 +34,16 @@ export type ProvisionClientAccountResult =
         | "missing-candidate"
         | "auth-creation"
         | "linkage"
-        | "linkage-cleanup";
+        | "linkage-cleanup"
+        | "invitation-delivery"
+        | "invitation-state";
       ok: false;
+      invitationId?: string;
     };
+
+export type RetryClientInvitationResult =
+  | { ok: true; invitationId: string; email: string }
+  | { ok: false; code: "auth-creation" | "duplicate-email" | "invitation-delivery" | "invitation-state" | "linkage" | "linkage-cleanup"; invitationId?: string; email?: string };
 
 type UpdateClientAccountInput = {
   accountStatus: ClientAccountStatus;
@@ -114,7 +121,7 @@ export async function listProvisionedClients(): Promise<
   const { data: roleRows, error } = await supabase
     .from("user_roles")
     .select(
-      "account_status, candidate_profile_id, user_id, candidate_profiles!inner(full_name, selected_package_code, package_definitions!inner(display_name))",
+      "account_status, candidate_profile_id, user_id, candidate_profiles!inner(full_name, primary_email, selected_package_code, package_definitions!inner(display_name))",
     )
     .eq("role_code", "client")
     .not("candidate_profile_id", "is", null)
@@ -124,15 +131,7 @@ export async function listProvisionedClients(): Promise<
     throw new Error("Provisioned clients could not be loaded.");
   }
 
-  const clients = await Promise.all(
-    (roleRows ?? []).map(async (row) => {
-      const { data, error: authError } =
-        await supabase.auth.admin.getUserById(row.user_id);
-
-      if (authError || !data.user?.email) {
-        return null;
-      }
-
+  const clients = (roleRows ?? []).map((row) => {
       const profile = Array.isArray(row.candidate_profiles)
         ? row.candidate_profiles[0]
         : row.candidate_profiles;
@@ -143,18 +142,15 @@ export async function listProvisionedClients(): Promise<
       return {
         accountStatus: row.account_status as ClientAccountStatus,
         candidateProfileId: row.candidate_profile_id as string,
-        email: data.user.email,
+        email: profile.primary_email,
         fullName: profile.full_name,
         packageCode: profile.selected_package_code,
         packageName: packageDefinition.display_name,
         userId: row.user_id,
       } satisfies ProvisionedClientSummary;
-    }),
-  );
+    });
 
-  return clients.filter(
-    (client): client is ProvisionedClientSummary => client !== null,
-  );
+  return clients;
 }
 
 export async function getProvisionedClient(
@@ -243,7 +239,6 @@ export async function provisionClientAccount({
   accountStatus,
   candidateProfileId,
   profile,
-  temporaryPassword,
 }: ProvisionClientAccountInput): Promise<ProvisionClientAccountResult> {
   const adminContext = await requireApplicationRole("admin");
   if (process.env.NODE_ENV === "production") {
@@ -253,15 +248,17 @@ export async function provisionClientAccount({
   const creatingProfile = candidateProfileId === "new";
   const linkedProfileId = creatingProfile ? randomUUID() : candidateProfileId;
   let candidateSnapshot: Record<string, unknown> | null = null;
+  let candidateUpdatedAt: string | null = null;
   if (!creatingProfile) {
     const { data: candidate, error: candidateError } = await supabase
       .from("candidate_profiles")
-      .select("full_name, primary_email, mobile_number, whatsapp_number, linkedin_url, current_location, relocation_preference, selected_package_code, target_markets")
+      .select("full_name, primary_email, mobile_number, whatsapp_number, linkedin_url, current_location, relocation_preference, selected_package_code, target_markets, updated_at")
       .eq("id", linkedProfileId)
       .is("archived_at", null)
       .maybeSingle();
     if (candidateError || !candidate) return { code: "missing-candidate", ok: false };
     candidateSnapshot = { ...candidate, target_markets: [...candidate.target_markets] };
+    candidateUpdatedAt = candidate.updated_at;
 
     const { data: existingLink, error: linkLookupError } = await supabase
       .from("user_roles")
@@ -285,24 +282,7 @@ export async function provisionClientAccount({
   if (duplicate === null) return { code: "profile-update", ok: false };
   if (duplicate) return { code: "duplicate-email", ok: false };
 
-  const { data: authData, error: authError } =
-    await supabase.auth.admin.createUser({
-      email: profile.email,
-      email_confirm: true,
-      password: temporaryPassword,
-    });
-
-  if (authError || !authData.user) {
-    if (
-      authError?.code === "email_exists" ||
-      authError?.code === "user_already_exists"
-    ) {
-      return { code: "duplicate-email", ok: false };
-    }
-
-    return { code: "auth-creation", ok: false };
-  }
-
+  const profileWriteAt = new Date().toISOString();
   const profileWrite = creatingProfile
     ? await supabase.from("candidate_profiles").insert({
         id: linkedProfileId,
@@ -314,16 +294,64 @@ export async function provisionClientAccount({
     : await supabase.from("candidate_profiles")
         .update({
           ...profileValues(profile, selectedPackage.target_markets),
-          updated_at: new Date().toISOString(),
+          updated_at: profileWriteAt,
           updated_by_user_id: adminContext.userId,
         })
         .eq("id", linkedProfileId)
+        .eq("updated_at", candidateUpdatedAt)
         .is("archived_at", null)
         .select("id")
         .maybeSingle();
   if (profileWrite.error || (!creatingProfile && !profileWrite.data)) {
-    const { error: cleanupError } = await supabase.auth.admin.deleteUser(authData.user.id);
-    return { code: cleanupError ? "reconciliation-required" : "profile-update", ok: false };
+    return { code: "profile-update", ok: false };
+  }
+
+  const redirectTo = getClientInvitationRedirectUrl();
+  if (!redirectTo) return { code: "auth-creation", ok: false };
+
+  const { data: invitation, error: invitationError } = await supabase
+    .from("client_onboarding_invitations")
+    .insert({
+      account_status: accountStatus,
+      candidate_profile_id: linkedProfileId,
+      created_by_user_id: adminContext.userId,
+      delivery_status: "pending",
+      email: profile.email,
+      attempt_count: 1,
+      last_attempt_at: new Date().toISOString(),
+    })
+    .select("id")
+    .maybeSingle();
+  if (invitationError || !invitation) {
+    const rollback = creatingProfile
+      ? await supabase.from("candidate_profiles").delete().eq("id", linkedProfileId)
+      : await supabase.from("candidate_profiles").update({
+          ...candidateSnapshot,
+          updated_at: new Date().toISOString(),
+          updated_by_user_id: adminContext.userId,
+        }).eq("id", linkedProfileId).eq("updated_at", profileWriteAt);
+    return { code: rollback.error ? "reconciliation-required" : "invitation-state", ok: false };
+  }
+
+  const { data: authData, error: authError } =
+    await supabase.auth.admin.inviteUserByEmail(profile.email, { redirectTo });
+
+  if (authError || !authData.user) {
+    const duplicateAuth = authError?.code === "email_exists" || authError?.code === "user_already_exists";
+    const cleanupError = authData.user && !duplicateAuth
+      ? (await supabase.auth.admin.deleteUser(authData.user.id)).error
+      : null;
+    await supabase.from("client_onboarding_invitations").update({
+      auth_user_id: cleanupError && authData.user ? authData.user.id : null,
+      delivery_status: "failed",
+      last_error_code: duplicateAuth ? "duplicate-email" : cleanupError ? "auth-cleanup-failed" : "delivery-failed",
+      updated_at: new Date().toISOString(),
+    }).eq("id", invitation.id).eq("delivery_status", "pending");
+    if (duplicateAuth) {
+      return { code: "duplicate-email", ok: false };
+    }
+    if (cleanupError) return { code: "linkage-cleanup", ok: false };
+    return { code: "invitation-delivery", invitationId: invitation.id, ok: false };
   }
 
   const { error: roleError } = await supabase.from("user_roles").insert({
@@ -334,33 +362,194 @@ export async function provisionClientAccount({
   });
 
   if (!roleError) {
+    const { data: sent, error: sentError } = await supabase
+      .from("client_onboarding_invitations")
+      .update({
+        auth_user_id: authData.user.id,
+        delivery_status: "sent",
+        last_error_code: null,
+        sent_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", invitation.id)
+      .eq("delivery_status", "pending")
+      .select("id")
+      .maybeSingle();
+    if (sentError || !sent) {
+      return { code: "reconciliation-required", invitationId: invitation.id, ok: false };
+    }
     if (process.env.NODE_ENV === "production") {
       await (await import("@/lib/security/audit-events")).recordSecurityEvent({
         eventType: "client.account.created", actorUserId: adminContext.userId!,
         targetUserId: authData.user.id, candidateProfileId: linkedProfileId, outcome: "success",
       });
     }
-    return { ok: true, packageName: selectedPackage.display_name };
+    return { ok: true, packageName: selectedPackage.display_name, invitationId: invitation.id };
   }
-
-  const { error: profileRollbackError } = creatingProfile
-    ? await supabase.from("candidate_profiles").delete().eq("id", linkedProfileId)
-    : await supabase.from("candidate_profiles")
-        .update({
-          ...candidateSnapshot,
-          updated_at: new Date().toISOString(),
-          updated_by_user_id: adminContext.userId,
-        })
-        .eq("id", linkedProfileId);
 
   const { error: cleanupError } = await supabase.auth.admin.deleteUser(
     authData.user.id,
   );
 
+  await supabase.from("client_onboarding_invitations").update({
+    auth_user_id: cleanupError ? authData.user.id : null,
+    delivery_status: "failed",
+    last_error_code: cleanupError ? "linkage-cleanup" : "linkage-failed",
+    updated_at: new Date().toISOString(),
+  }).eq("id", invitation.id).eq("delivery_status", "pending");
+
   return {
-    code: profileRollbackError ? "reconciliation-required" : cleanupError ? "linkage-cleanup" : "linkage",
+    code: cleanupError ? "linkage-cleanup" : "linkage",
+    invitationId: invitation.id,
     ok: false,
   };
+}
+
+/**
+ * Retry failed first delivery or issue a fresh setup email for an unaccepted
+ * linked account. The durable row is claimed before any provider call, so
+ * concurrent clicks cannot send duplicate messages.
+ */
+export async function retryClientInvitation(invitationId: string): Promise<RetryClientInvitationResult> {
+  const adminContext = await requireApplicationRole("admin");
+  if (process.env.NODE_ENV === "production") {
+    await (await import("@/lib/security/rate-limit")).enforceRateLimit("client-provision", adminContext.userId!, 10);
+  }
+  const supabase = createSupabaseAdminClient();
+  const { data: invitation, error } = await supabase.from("client_onboarding_invitations")
+    .select("id, candidate_profile_id, email, account_status, delivery_status, attempt_count, auth_user_id, accepted_at")
+    .eq("id", invitationId).maybeSingle();
+  if (error || !invitation || invitation.accepted_at || invitation.attempt_count >= 20 ||
+      !["failed", "sent"].includes(invitation.delivery_status)) {
+    return { code: "invitation-state", ok: false };
+  }
+
+  if (invitation.auth_user_id) {
+    if (invitation.account_status !== "active") return { code: "invitation-state", ok: false };
+    const [roleResult, profileResult, authResult] = await Promise.all([
+      supabase.from("user_roles").select("user_id, account_status, role_code")
+        .eq("candidate_profile_id", invitation.candidate_profile_id)
+        .eq("user_id", invitation.auth_user_id).eq("role_code", "client").maybeSingle(),
+      supabase.from("candidate_profiles").select("id").eq("id", invitation.candidate_profile_id)
+        .is("archived_at", null).maybeSingle(),
+      supabase.auth.admin.getUserById(invitation.auth_user_id),
+    ]);
+    const authUser = authResult.data.user;
+    if (roleResult.error || profileResult.error || authResult.error || !roleResult.data ||
+        roleResult.data.account_status !== "active" || !profileResult.data || !authUser?.email ||
+        authUser.email.trim().toLowerCase() !== invitation.email) {
+      return { code: "invitation-state", invitationId, email: invitation.email, ok: false };
+    }
+    const invitationRedirect = getClientInvitationRedirectUrl();
+    const recoveryRedirect = getClientRecoveryRedirectUrl();
+    if (!invitationRedirect || !recoveryRedirect) {
+      return { code: "auth-creation", invitationId, email: invitation.email, ok: false };
+    }
+    const { data: claimed, error: claimError } = await supabase.from("client_onboarding_invitations")
+      .update({
+        attempt_count: invitation.attempt_count + 1,
+        delivery_status: "pending",
+        last_attempt_at: new Date().toISOString(),
+        last_error_code: null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", invitationId).eq("delivery_status", invitation.delivery_status)
+      .eq("attempt_count", invitation.attempt_count).eq("auth_user_id", invitation.auth_user_id)
+      .is("accepted_at", null).select("id").maybeSingle();
+    if (claimError || !claimed) return { code: "invitation-state", ok: false };
+
+    const confirmed = Boolean(authUser.email_confirmed_at);
+    let deliveryError: unknown = null;
+    let invitedUserId: string | null = null;
+    if (confirmed) {
+      const delivery = await supabase.auth.resetPasswordForEmail(invitation.email, { redirectTo: recoveryRedirect });
+      deliveryError = delivery.error;
+    } else {
+      const delivery = await supabase.auth.admin.inviteUserByEmail(invitation.email, { redirectTo: invitationRedirect });
+      deliveryError = delivery.error;
+      invitedUserId = delivery.data.user?.id ?? null;
+    }
+    if (deliveryError || (!confirmed && invitedUserId !== invitation.auth_user_id)) {
+      await supabase.from("client_onboarding_invitations").update({
+        delivery_status: "failed",
+        last_error_code: "delivery-failed",
+        updated_at: new Date().toISOString(),
+      }).eq("id", invitationId).eq("delivery_status", "pending")
+        .eq("auth_user_id", invitation.auth_user_id);
+      return { code: "invitation-delivery", invitationId, email: invitation.email, ok: false };
+    }
+    const { data: sent, error: sentError } = await supabase.from("client_onboarding_invitations")
+      .update({ delivery_status: "sent", last_error_code: null, sent_at: new Date().toISOString(),
+        updated_at: new Date().toISOString() })
+      .eq("id", invitationId).eq("delivery_status", "pending")
+      .eq("auth_user_id", invitation.auth_user_id).select("id").maybeSingle();
+    if (sentError || !sent) {
+      return { code: "invitation-state", invitationId, email: invitation.email, ok: false };
+    }
+    return { ok: true, invitationId, email: invitation.email };
+  }
+
+  if (invitation.delivery_status !== "failed") return { code: "invitation-state", ok: false };
+  const [{ data: role, error: roleLookupError }, { data: profile, error: profileLookupError }] = await Promise.all([
+    supabase.from("user_roles").select("user_id")
+      .eq("candidate_profile_id", invitation.candidate_profile_id).maybeSingle(),
+    supabase.from("candidate_profiles").select("id").eq("id", invitation.candidate_profile_id)
+      .is("archived_at", null).maybeSingle(),
+  ]);
+  if (roleLookupError || profileLookupError || role || !profile) return { code: "invitation-state", ok: false };
+
+  const redirectTo = getClientInvitationRedirectUrl();
+  if (!redirectTo) return { code: "auth-creation", invitationId, email: invitation.email, ok: false };
+  const { data: claimed, error: claimError } = await supabase.from("client_onboarding_invitations")
+    .update({
+      attempt_count: invitation.attempt_count + 1,
+      delivery_status: "pending",
+      last_attempt_at: new Date().toISOString(),
+      last_error_code: null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", invitationId).eq("delivery_status", "failed").eq("attempt_count", invitation.attempt_count)
+    .select("id").maybeSingle();
+  if (claimError || !claimed) return { code: "invitation-state", ok: false };
+
+  const { data: authData, error: authError } = await supabase.auth.admin
+    .inviteUserByEmail(invitation.email, { redirectTo });
+  if (authError || !authData.user) {
+    const duplicateAuth = authError?.code === "email_exists" || authError?.code === "user_already_exists";
+    const cleanupError = authData.user && !duplicateAuth
+      ? (await supabase.auth.admin.deleteUser(authData.user.id)).error
+      : null;
+    await supabase.from("client_onboarding_invitations").update({
+      auth_user_id: cleanupError && authData.user ? authData.user.id : null,
+      delivery_status: "failed",
+      last_error_code: duplicateAuth ? "duplicate-email" : cleanupError ? "auth-cleanup-failed" : "delivery-failed",
+      updated_at: new Date().toISOString(),
+    }).eq("id", invitationId).eq("delivery_status", "pending");
+    if (duplicateAuth) {
+      return { code: "duplicate-email", email: invitation.email, ok: false };
+    }
+    if (cleanupError) return { code: "linkage-cleanup", email: invitation.email, ok: false };
+    return { code: "invitation-delivery", invitationId, email: invitation.email, ok: false };
+  }
+  const { error: roleError } = await supabase.from("user_roles").insert({
+    account_status: invitation.account_status,
+    candidate_profile_id: invitation.candidate_profile_id,
+    role_code: "client",
+    user_id: authData.user.id,
+  });
+  if (roleError) {
+    const { error: cleanupError } = await supabase.auth.admin.deleteUser(authData.user.id);
+    await supabase.from("client_onboarding_invitations").update({
+      auth_user_id: cleanupError ? authData.user.id : null,
+      delivery_status: "failed",
+      last_error_code: cleanupError ? "linkage-cleanup" : "linkage-failed",
+      updated_at: new Date().toISOString(),
+    }).eq("id", invitationId).eq("delivery_status", "pending");
+    return { code: cleanupError ? "linkage-cleanup" : "linkage", invitationId, email: invitation.email, ok: false };
+  }
+  const { data: sent, error: sentError } = await supabase.from("client_onboarding_invitations")
+    .update({ auth_user_id: authData.user.id, delivery_status: "sent", sent_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", invitationId).eq("delivery_status", "pending").select("id").maybeSingle();
+  if (sentError || !sent) return { code: "invitation-state", invitationId, email: invitation.email, ok: false };
+  return { ok: true, invitationId, email: invitation.email };
 }
 
 export async function updateClientAccount({

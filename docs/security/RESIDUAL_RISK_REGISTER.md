@@ -12,7 +12,7 @@
 | Medium | Browser-direct Supabase login/recovery cannot use the app's server-side counters; provider rate limits/dashboard and network controls unverified. | Auth/operations: verify Auth rate limits and abuse alerts, assess proxy/WAF. |
 | Medium | Fixed-window rate-limit counters require bounded retention/cleanup; no scheduler is configured. | Operations: schedule reviewed deletion of expired counters and monitor table growth after migration rollout. |
 | Medium | Audit writes are best effort and only partly instrumented (account changes, career/upload, password update, PDF, brand); audit table is not immutable against privileged owners. | Security: expand events (review confirmation, explicit privacy generation, failures), monitoring/retention and tamper evidence. |
-| Medium | Protected temporary extraction/PDF QA routes remain deployed if the branch is released unchanged. | Product/security: remove or feature-gate before production release. |
+| Closed locally; preview QA pending | Temporary extraction/PDF QA utilities could expose testing controls if only navigation links were hidden. | All page, route-handler and server-action entry points now require explicit server-only local/preview opt-in and are hard-disabled in production. Verify 404/action denial in preview and production smoke tests. |
 | Medium | Server-role bypass requires flawless application ownership checks; this is reviewed/tested, not independently pentested. | Security: manual BOLA/IDOR assessment and privileged-service review. |
 | Low/Medium | No approved deletion/export/retention policy; no automated destructive retention implemented. | Product/legal: approve policy and test controlled workflows. |
 

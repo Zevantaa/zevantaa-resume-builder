@@ -1,10 +1,14 @@
+import { notFound } from "next/navigation";
+
 import { InlineAlert } from "@/components/ui";
 import { getClientIntakeFiles } from "@/features/client-portal/client-intake-service";
 import { ExtractionTestPanel } from "@/features/document-generation/extraction-test-panel";
+import { areQaUtilitiesEnabled } from "@/lib/qa-utilities";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClientExtractionTestPage() {
+  if (!areQaUtilitiesEnabled()) notFound();
   const files = await getClientIntakeFiles();
   const resume = files?.resume;
 
