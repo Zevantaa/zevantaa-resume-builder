@@ -44,7 +44,7 @@ export async function ClientDashboardPage() {
             <p className="type-supporting text-text-muted">Package and contact details are managed by Zevantaa, not editable here.</p>
             <div className="dashboard-status-line"><span>Profile status</span><StatusBadge variant={view.reviewConfirmed ? "success" : "neutral"}>{view.profileStatus}</StatusBadge></div>
             {!view.resumeAvailable && <InlineAlert variant="information">No source resume is available. Upload one from your profile to begin review.</InlineAlert>}
-            {view.resumeAvailable && !view.reviewConfirmed && <InlineAlert variant="information">This source resume has not been confirmed by an administrator. A replacement requires new review; previously reviewed profile facts are not silently overwritten.</InlineAlert>}
+            {view.resumeAvailable && !view.reviewConfirmed && <InlineAlert variant="information">Review and confirm the extracted details before generation begins. A replacement never silently overwrites previously confirmed profile facts.</InlineAlert>}
             <Link className="type-button dashboard-primary-link" href="/client/profile">View profile & manage uploads <span aria-hidden="true">→</span></Link>
             <Link className="type-button dashboard-text-link" href="/client/career-profile">Update Career Profile</Link>
           </section>

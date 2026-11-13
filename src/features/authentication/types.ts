@@ -6,6 +6,7 @@ export type AccountStatus = "active" | "disabled";
 
 export type AuthContext = {
   accountStatus: AccountStatus | null;
+  mustChangePassword: boolean;
   role: ApplicationRole | null;
   userId: string | null;
 };
@@ -19,7 +20,7 @@ export type PasswordSignInCredentials = {
 export type PasswordSignInResult = {
   email: string | null;
   portal: AuthPortalIntent;
-  redirectTo: "/admin" | "/client";
+  redirectTo: "/admin" | "/client" | "/change-password";
   userId: string;
 };
 

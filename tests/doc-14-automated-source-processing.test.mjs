@@ -25,7 +25,7 @@ registerHooks({
 });
 
 globalThis.__sourceProcessingQa = { db: null, extract: null };
-const { assessResumeExtraction, requireExistingProfileMergeInput } = await import("../src/features/document-generation/resume-processing-readiness.ts");
+const { assessResumeExtraction } = await import("../src/features/document-generation/resume-processing-readiness.ts");
 const { processResumeProcessingJobs } = await import("../src/features/document-generation/resume-processing-service.ts");
 
 const profileId = "11111111-1111-4111-8111-111111111111";
@@ -58,7 +58,7 @@ const supported = extraction([
   "Operations, Reporting",
 ].join("\n"));
 
-function setupWorker(source = supported, profileIsEmpty = true, failureAck = true) {
+function setupWorker(source = supported, failureAck = true) {
   const calls = [];
   let claimCount = 0;
   globalThis.__sourceProcessingQa.extract = async (requestedProfileId) => {
@@ -78,12 +78,6 @@ function setupWorker(source = supported, profileIsEmpty = true, failureAck = tru
           lease_token: lease,
         }], error: null } : { data: [], error: null };
       }
-      if (name === "resume_profile_is_empty_for_automatic_import") {
-        return { data: profileIsEmpty, error: null };
-      }
-      if (name === "accept_automated_resume_processing_job") {
-        return { data: "55555555-5555-4555-8555-555555555555", error: null };
-      }
       if (name === "fail_resume_processing_job") return { data: failureAck, error: null };
       return { data: true, error: null };
     },
@@ -91,10 +85,11 @@ function setupWorker(source = supported, profileIsEmpty = true, failureAck = tru
   return calls;
 }
 
-test("unambiguous supported career facts pass the conservative automatic gate", () => {
+test("unambiguous supported career facts still require explicit client confirmation", () => {
   const result = assessResumeExtraction(supported);
-  assert.equal(result.outcome, "completed");
+  assert.equal(result.outcome, "needs-input");
   assert.equal(result.structuredResult.autoAcceptable, true);
+  assert.ok(result.findings.some((item) => item.code === "client-confirmation-required"));
   assert.ok(result.structuredResult.proposals.some((item) => item.section === "employment"));
   assert.match(result.normalizedTextSha256, /^[0-9a-f]{64}$/);
   assert.equal(JSON.stringify(result.structuredResult).includes("rawText"), false);
@@ -123,28 +118,25 @@ test("temporary private-source failures remain retryable", () => {
     { outcome: "retry", errorCode: "source-unavailable" });
 });
 
-test("bounded worker atomically accepts a clean first source without persisting raw text", async () => {
+test("bounded worker records a clean first source for client review without persisting raw text", async () => {
   const calls = setupWorker();
-  assert.deepEqual(await processResumeProcessingJobs(2), { completed: 1, needsInput: 0, failed: 0 });
-  const completion = calls.find((call) => call.name === "accept_automated_resume_processing_job");
+  assert.deepEqual(await processResumeProcessingJobs(2), { completed: 0, needsInput: 1, failed: 0 });
+  const completion = calls.find((call) => call.name === "complete_resume_processing_job");
   assert.equal(completion.args.p_job_id, jobId);
   assert.equal(completion.args.p_lease_token, lease);
   assert.equal(JSON.stringify(completion.args.p_structured_result).includes(supported.normalizedText), false);
   assert.equal(calls.filter((call) => call.name === "claim_resume_processing_job").length, 2);
-  assert.equal(calls.some((call) => call.name === "complete_resume_processing_job"), false);
+  assert.equal(completion.args.p_status, "needs-input");
+  assert.equal(calls.some((call) => call.name === "accept_automated_resume_processing_job"), false);
 });
 
-test("existing canonical facts require targeted merge input instead of duplicate append", async () => {
-  const transformed = requireExistingProfileMergeInput(assessResumeExtraction(supported));
-  assert.equal(transformed.outcome, "needs-input");
-  assert.equal(transformed.structuredResult.autoAcceptable, false);
-  assert.equal(transformed.findings[0].code, "existing-profile-merge-required");
-
-  const calls = setupWorker(supported, false);
+test("existing canonical facts are never checked by an automatic-acceptance path", async () => {
+  const calls = setupWorker(supported);
   assert.deepEqual(await processResumeProcessingJobs(1), { completed: 0, needsInput: 1, failed: 0 });
   const completion = calls.find((call) => call.name === "complete_resume_processing_job");
   assert.equal(completion.args.p_status, "needs-input");
-  assert.equal(completion.args.p_readiness_findings[0].code, "existing-profile-merge-required");
+  assert.ok(completion.args.p_readiness_findings.some((item) => item.code === "client-confirmation-required"));
+  assert.equal(calls.some((call) => call.name === "resume_profile_is_empty_for_automatic_import"), false);
   assert.equal(calls.some((call) => call.name === "accept_automated_resume_processing_job"), false);
 });
 
@@ -165,7 +157,7 @@ test("worker does not report a failure as recorded when its lease update affecte
   setupWorker({
     ...extraction(""), rawText: null, normalizedText: null, extractor: null,
     status: "failed", failureReason: "source-unavailable",
-  }, true, false);
+  }, false);
   await assert.rejects(processResumeProcessingJobs(1), /failure could not be recorded/u);
 });
 
@@ -181,7 +173,7 @@ test("migration creates a private durable lease queue tied to source-pointer cha
   assert.doesNotMatch(sql, /grant .*resume_processing_jobs to authenticated/i);
 });
 
-test("automatic acceptance is service-only, atomic and refuses profile merges", () => {
+test("legacy automatic acceptance remains private while the release path no longer calls it", () => {
   const sql = readFileSync(new URL("../supabase/migrations/20261103220738_automated_resume_acceptance.sql", import.meta.url), "utf8");
   assert.match(sql, /review_mode in \('automatic', 'client-confirmed', 'admin-confirmed'\)/i);
   assert.match(sql, /resume_profile_is_empty_for_automatic_import/i);
@@ -194,4 +186,9 @@ test("automatic acceptance is service-only, atomic and refuses profile merges", 
   assert.match(sql, /from public\.user_roles r[\s\S]*r\.role_code = 'client'[\s\S]*r\.candidate_profile_id = v_job\.candidate_profile_id/i);
   assert.match(sql, /revoke all on function public\.accept_automated_resume_processing_job[\s\S]*from public, anon, authenticated/i);
   assert.doesNotMatch(sql, /grant execute on function public\.accept_automated_resume_processing_job[\s\S]*to authenticated/i);
+  const service = readFileSync(new URL("../src/features/document-generation/resume-processing-service.ts", import.meta.url), "utf8");
+  assert.doesNotMatch(service, /accept_automated_resume_processing_job/i);
+  const releaseSql = readFileSync(new URL("../supabase/migrations/20261113124500_client_confirmation_release_fixes.sql", import.meta.url), "utf8");
+  assert.match(releaseSql, /r\.source_file_id = v_profile\.existing_resume_file_id/i);
+  assert.match(releaseSql, /review_mode in \('client-confirmed', 'admin-confirmed'\)/i);
 });

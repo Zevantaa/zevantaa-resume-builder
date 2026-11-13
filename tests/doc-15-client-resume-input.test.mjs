@@ -37,7 +37,11 @@ function setup() {
   const state = {
     userId, linked: { profileId, userId }, calls: [], revalidated: null,
     rows: {
-      candidate_profiles: [{ id: profileId, existing_resume_file_id: sourceId, archived_at: null }],
+      candidate_profiles: [{ id: profileId, existing_resume_file_id: sourceId, archived_at: null,
+        full_name: "Fictional Candidate", primary_email: "fictional@example.test",
+        mobile_number: "+91 90000 00000", whatsapp_number: null,
+        linkedin_url: "https://www.linkedin.com/in/fictional-candidate",
+        current_location: "Pune, India", relocation_preference: "open", professional_summary: null }],
       resume_processing_jobs: [{ id: jobId, candidate_profile_id: profileId, source_file_id: sourceId,
         status: "needs-input", structured_result: { proposals: [proposal] },
         readiness_findings: [{ code: "ambiguous-career-facts", message: "Review highlighted details." }] }],
@@ -70,6 +74,12 @@ function proposalForm(overrides = {}) {
   const form = new FormData();
   form.set("jobId", overrides.jobId ?? jobId);
   form.set("confirmReview", "yes");
+  form.set("profile:fullName", "Fictional Candidate");
+  form.set("profile:mobileNumber", "+91 90000 00000");
+  form.set("profile:whatsappNumber", "");
+  form.set("profile:linkedinUrl", "https://www.linkedin.com/in/fictional-candidate");
+  form.set("profile:currentLocation", "Pune, India");
+  form.set("profile:relocationPreference", "open");
   form.set(`accept:${proposal.id}`, "on");
   for (const [key, value] of Object.entries(proposal.fields)) form.set(`field:${proposal.id}:${key}`, value);
   return form;
@@ -88,10 +98,11 @@ test("client confirmation submits only stored proposal identities through the at
   const result = await confirmClientResumeProposalsAction({ ok: false, message: "" }, proposalForm());
   assert.equal(result.ok, true);
   const call = state.calls[0];
-  assert.equal(call.name, "confirm_client_resume_processing_input");
+  assert.equal(call.name, "confirm_client_resume_processing_input_v2");
   assert.equal(call.args.p_job_id, jobId);
   assert.equal(call.args.p_actor_user_id, userId);
   assert.equal(call.args.p_approved[0].id, proposal.id);
+  assert.equal(call.args.p_profile_patch.fullName, "Fictional Candidate");
   assert.equal(state.revalidated, "/client");
 });
 

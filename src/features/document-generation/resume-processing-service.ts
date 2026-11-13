@@ -3,7 +3,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import { extractProfileSourceResume } from "./current-client-resume-service";
-import { assessResumeExtraction, requireExistingProfileMergeInput } from "./resume-processing-readiness";
+import { assessResumeExtraction } from "./resume-processing-readiness";
 
 type ClaimedResumeJob = {
   job_id: string;
@@ -38,7 +38,7 @@ export async function processResumeProcessingJobs(limit = 1): Promise<ResumeProc
       if (extraction.sourceFileId && extraction.sourceFileId !== job.source_file_id) {
         throw new Error("source-replaced");
       }
-      let assessment = assessResumeExtraction(extraction);
+      const assessment = assessResumeExtraction(extraction);
       if (assessment.outcome === "retry") {
         const failed = await db.rpc("fail_resume_processing_job", {
           p_job_id: job.job_id,
@@ -49,25 +49,7 @@ export async function processResumeProcessingJobs(limit = 1): Promise<ResumeProc
         result.failed++;
         continue;
       }
-      if (assessment.outcome === "completed") {
-        const emptyProfile = await db.rpc("resume_profile_is_empty_for_automatic_import", {
-          p_profile_id: job.candidate_profile_id,
-        });
-        if (emptyProfile.error) throw new Error("Automatic-import readiness could not be checked.");
-        if (emptyProfile.data !== true) assessment = requireExistingProfileMergeInput(assessment);
-      }
-
-      const completionRpc = assessment.outcome === "completed"
-        ? "accept_automated_resume_processing_job"
-        : "complete_resume_processing_job";
-      const completionArgs = assessment.outcome === "completed" ? {
-        p_job_id: job.job_id,
-        p_lease_token: job.lease_token,
-        p_extractor: assessment.extractor,
-        p_normalized_text_sha256: assessment.normalizedTextSha256,
-        p_structured_result: assessment.structuredResult,
-        p_readiness_findings: assessment.findings,
-      } : {
+      const completionArgs = {
         p_job_id: job.job_id,
         p_lease_token: job.lease_token,
         p_status: assessment.outcome,
@@ -76,9 +58,8 @@ export async function processResumeProcessingJobs(limit = 1): Promise<ResumeProc
         p_structured_result: assessment.structuredResult,
         p_readiness_findings: assessment.findings,
       };
-      const completed = await db.rpc(completionRpc, completionArgs);
-      if (completed.error || (assessment.outcome !== "completed" && completed.data !== true) ||
-          (assessment.outcome === "completed" && typeof completed.data !== "string")) {
+      const completed = await db.rpc("complete_resume_processing_job", completionArgs);
+      if (completed.error || completed.data !== true) {
         throw new Error("Source-processing completion could not be recorded.");
       }
       if (assessment.outcome === "completed") result.completed++;

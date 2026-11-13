@@ -38,7 +38,7 @@ test("automation route is Node-only, bounded and fails closed without its bearer
   assert.equal((await POST(request("wrong-secret-that-is-still-long-enough"))).status, 401);
 });
 
-test("authorized invocation processes one job from each durable queue", async () => {
+test("authorized invocation processes a bounded two-job batch from each durable queue", async () => {
   const token = "fixture-automation-secret-at-least-32-characters";
   process.env.AUTOMATION_WORKER_SECRET = token;
   const limits = [];
@@ -48,7 +48,7 @@ test("authorized invocation processes one job from each durable queue", async ()
   const response = await POST(request(token));
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "private, no-store");
-  assert.deepEqual(limits, [["source", 1], ["documents", 1], ["assessments", 1]]);
+  assert.deepEqual(limits, [["source", 2], ["documents", 2], ["assessments", 2]]);
   assert.deepEqual(await response.json(), { ok: true, source: { completed: 1, needsInput: 0, failed: 0 }, documents: { completed: 1, failed: 0 }, assessments: { completed: 1, unavailable: 0, failed: 0 } });
 });
 

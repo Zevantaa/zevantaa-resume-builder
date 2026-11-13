@@ -22,7 +22,7 @@ Login, client account creation/edit, and source-file save already disable their 
 
 Client source resumes accept PDF/DOC/DOCX up to 10 MB; optional entitled GCC photos accept JPEG/PNG/WebP up to 5 MB. Both are validated server-side, including file signature, before private Storage or database writes. The server resolves the current user-to-profile link, creates a new version with `replaces_file_id`, then compare-and-swaps the profile's current file references. Failed saves compensate only newly created records/objects; historical files are not destructively removed. After a successful swap, the prior file record is marked `replaced` where possible and remains private for audit. A failed history-status update is surfaced as a warning.
 
-Review confirmation is keyed to the **current source file ID**. Replacing the resume therefore requires fresh administrator review; it cannot silently overwrite canonical profile facts. An optional GCC photo replacement changes only the current photo reference after successful upload and does not grant GCC entitlement to other packages. No public Storage URL is used.
+Review confirmation is keyed to the **current source file ID**. Replacing the resume therefore requires fresh confirmation by the linked client; extracted duplicates and conflicts are presented without silently overwriting canonical profile facts. Administrators retain read-only processing evidence and support access, not a normal approval gate. An optional GCC photo replacement changes only the current photo reference after successful upload and does not grant GCC entitlement to other packages. No public Storage URL is used.
 
 ## Permission matrix
 
