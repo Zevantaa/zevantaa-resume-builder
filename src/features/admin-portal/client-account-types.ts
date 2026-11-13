@@ -35,6 +35,15 @@ export type ProvisionedClientDetail = ProvisionedClientSummary & {
   linkedinUrl: string;
   currentLocation: string;
   relocationPreference: string;
+  clientPortalUrl: string;
+  invitation: {
+    id: string;
+    deliveryStatus: ClientInvitationDeliveryStatus;
+    acceptedAt: string | null;
+    lastAttemptAt: string | null;
+    sentAt: string | null;
+  } | null;
+  smtpVerified: boolean;
 };
 
 export type AdminProfileFields = {

@@ -23,13 +23,18 @@ If the repaired history is later found incorrect, stop and obtain database-owner
 review. Use official `migration repair --status reverted` only with explicit
 approval and evidence of the actual schema state. Do not alter the table manually.
 
-## After invitation migration, before deployment
+## After forward migrations, before deployment
 
 Keep the additive `client_onboarding_invitations` table in place. It begins empty,
 does not backfill or modify Auth users, roles, profiles, files, or documents, and is
-backward-compatible with the previous application. Do not drop it as a rollback.
-If postflight counts or grants are wrong, stop and prepare a forward-only repair or
-restore first into isolation from the verified backup.
+backward-compatible with the previous application. Also keep the additive client
+lifecycle and document-ATS tables, columns, triggers, and functions. The document
+ATS migration queues assessments for eligible existing source and generated resume
+files, but does not change those files, document versions, Auth users, profiles, or
+role assignments. Do not drop these objects or delete queued evidence as a
+rollback. If postflight counts, grants, triggers, or queue constraints are wrong,
+stop and prepare a forward-only repair or restore first into isolation from the
+verified backup.
 
 ## After deployment
 

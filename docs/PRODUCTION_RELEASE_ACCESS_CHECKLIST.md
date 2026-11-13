@@ -108,3 +108,11 @@ Migration repair may be set true only after the orchestrator produces an empty
 shadow-versus-live schema diff for the state ending at migration
 `20261103223240`. Repair corrects migration history only; it never proves schema
 equivalence by itself.
+
+The subsequent official `db push --dry-run` must contain only the still-pending
+approved forward migrations, preserving this order:
+
+1. `20261111085249_client_onboarding_invitation_state.sql`
+2. `20261113052443_complete_client_experience_admin_ats.sql`
+
+If either version is already recorded, it must be omitted rather than replayed.

@@ -174,8 +174,9 @@ duplicate delivery. An unconfirmed Auth user receives a new invite; an email-
 confirmed user who did not finish password setup receives the existing recovery
 flow. Neither path deletes, relinks, or exposes the Auth user.
 
-Apply `20261111085249_client_onboarding_invitation_state.sql` before deploying
-this code. Set `NEXT_PUBLIC_APP_URL` to the exact public HTTPS origin. Add this
+Apply `20261111085249_client_onboarding_invitation_state.sql`, followed by
+`20261113052443_complete_client_experience_admin_ats.sql`, before deploying this
+code. Set `NEXT_PUBLIC_APP_URL` to the exact public HTTPS origin. Add this
 exact production redirect URL under **Authentication > URL Configuration >
 Redirect URLs**:
 

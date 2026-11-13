@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
 import { processGlobalDocumentRegenerationJobs } from "@/features/document-generation/document-regeneration-service";
+import { processDocumentAtsAssessmentJobs } from "@/features/document-generation/document-ats-assessment-service";
 import { processResumeProcessingJobs } from "@/features/document-generation/resume-processing-service";
 
 export const runtime = "nodejs";
@@ -29,13 +30,16 @@ export async function POST(request: Request): Promise<Response> {
 
   let source = { completed: 0, needsInput: 0, failed: 0 };
   let documents = { completed: 0, failed: 0 };
+  let assessments = { completed: 0, unavailable: 0, failed: 0 };
   let ok = true;
   try { source = await processResumeProcessingJobs(1); }
   catch { ok = false; }
   try { documents = await processGlobalDocumentRegenerationJobs(1); }
   catch { ok = false; }
+  try { assessments = await processDocumentAtsAssessmentJobs(1); }
+  catch { ok = false; }
 
-  return Response.json({ ok, source, documents }, {
+  return Response.json({ ok, source, documents, assessments }, {
     status: ok ? 200 : 503,
     headers: { "Cache-Control": "private, no-store" },
   });

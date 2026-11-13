@@ -5,12 +5,13 @@ import { randomUUID } from "node:crypto";
 import { requireApplicationRole } from "@/features/authentication/authorization";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getPackageRouting } from "@/features/document-generation/package-routing";
-import { getClientInvitationRedirectUrl, getClientRecoveryRedirectUrl } from "./welcome-message";
+import { getClientInvitationRedirectUrl, getClientPortalUrl, getClientRecoveryRedirectUrl } from "./welcome-message";
 
 import type {
   CandidateAccountOption,
   AdminProfileFields,
   ClientAccountStatus,
+  ClientInvitationDeliveryStatus,
   PackageAssignmentOption,
   ProvisionedClientDetail,
   ProvisionedClientSummary,
@@ -169,7 +170,7 @@ export async function getProvisionedClient(
     return null;
   }
 
-  const [{ data: profile }, { data: authData, error: authError }, packages] =
+  const [{ data: profile }, { data: authData, error: authError }, packages, invitationResult] =
     await Promise.all([
       supabase
         .from("candidate_profiles")
@@ -179,9 +180,13 @@ export async function getProvisionedClient(
         .maybeSingle(),
       supabase.auth.admin.getUserById(userId),
       getPackageOptions(),
+      supabase.from("client_onboarding_invitations")
+        .select("id, delivery_status, accepted_at, last_attempt_at, sent_at")
+        .eq("candidate_profile_id", role.candidate_profile_id).maybeSingle(),
     ]);
 
-  if (!profile || authError || !authData.user?.email) {
+  const portalUrl = getClientPortalUrl();
+  if (!profile || authError || invitationResult.error || !authData.user?.email || !portalUrl) {
     return null;
   }
 
@@ -202,8 +207,53 @@ export async function getProvisionedClient(
     packageCode: profile.selected_package_code,
     packageName,
     packages,
+    clientPortalUrl: portalUrl,
+    invitation: invitationResult.data ? {
+      id: invitationResult.data.id,
+      deliveryStatus: invitationResult.data.delivery_status as ClientInvitationDeliveryStatus,
+      acceptedAt: invitationResult.data.accepted_at,
+      lastAttemptAt: invitationResult.data.last_attempt_at,
+      sentAt: invitationResult.data.sent_at,
+    } : null,
+    smtpVerified: process.env.ZEVANTAA_SMTP_VERIFIED === "true",
     userId,
   };
+}
+
+export async function generateClientPasswordSetupLink(userId: string): Promise<string> {
+  const actor = await requireApplicationRole("admin");
+  if (process.env.NODE_ENV === "production") {
+    await (await import("@/lib/security/rate-limit")).enforceRateLimit("client-provision", actor.userId!, 10);
+  }
+  const db = createSupabaseAdminClient();
+  const { data: role, error: roleError } = await db.from("user_roles")
+    .select("candidate_profile_id, account_status").eq("user_id", userId)
+    .eq("role_code", "client").maybeSingle();
+  if (roleError || !role?.candidate_profile_id || role.account_status !== "active") {
+    throw new Error("Client access is unavailable.");
+  }
+  const [{ data: profile, error: profileError }, authResult] = await Promise.all([
+    db.from("candidate_profiles").select("primary_email").eq("id", role.candidate_profile_id)
+      .is("archived_at", null).maybeSingle(),
+    db.auth.admin.getUserById(userId),
+  ]);
+  if (profileError || authResult.error || !profile || !authResult.data.user?.email ||
+      profile.primary_email.trim().toLowerCase() !== authResult.data.user.email.trim().toLowerCase()) {
+    throw new Error("Client access could not be verified.");
+  }
+  const redirectTo = getClientRecoveryRedirectUrl();
+  if (!redirectTo) throw new Error("Password setup is not configured.");
+  const generated = await db.auth.admin.generateLink({
+    type: "recovery", email: authResult.data.user.email, options: { redirectTo },
+  });
+  if (generated.error || generated.data.user.id !== userId || !generated.data.properties.action_link) {
+    throw new Error("A secure password-setup link could not be generated.");
+  }
+  const actionLink = new URL(generated.data.properties.action_link);
+  if (actionLink.protocol !== "https:" || !actionLink.pathname.endsWith("/auth/v1/verify")) {
+    throw new Error("The password-setup provider returned an invalid link.");
+  }
+  return actionLink.toString();
 }
 
 export async function listEligibleCandidateProfiles(): Promise<
