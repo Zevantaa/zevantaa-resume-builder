@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState, type FormEvent } from "react";
+import { useActionState, useEffect, useState, type FormEvent } from "react";
 
 import { FileInput, InlineAlert } from "@/components/ui";
 import { isGccPhotoAvailable } from "@/features/document-generation/package-routing";
@@ -35,6 +35,13 @@ export function ClientIntakeForm({
   const [clientErrors, setClientErrors] = useState<Record<string, string>>({});
   const selectedPackage = details.packages.find((option) => option.code === details.selectedPackageCode);
   const errors = { ...state.errors, ...clientErrors };
+  const hasUnsavedSelection = Boolean(selectedResume.name || selectedPhoto.name);
+  useEffect(() => {
+    if (!hasUnsavedSelection || isPending) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [hasUnsavedSelection, isPending]);
 
   function validateBeforeSubmit(event: FormEvent<HTMLFormElement>) {
     const formData = new FormData(event.currentTarget);
@@ -61,11 +68,17 @@ export function ClientIntakeForm({
       nextErrors.resume ??= "Choose a resume or photograph to upload.";
     }
     setClientErrors(nextErrors);
-    if (Object.keys(nextErrors).length) event.preventDefault();
+    if (Object.keys(nextErrors).length) {
+      event.preventDefault();
+      const first = nextErrors.resume ? "profile-resume" : "profile-photo";
+      window.requestAnimationFrame(() => document.getElementById(first)?.focus({ preventScroll: false }));
+    }
   }
 
   return (
     <div className="client-contact-form">
+      <details className="client-intake-managed-details">
+      <summary className="type-button">Review Zevantaa-managed profile details</summary>
       <p className="type-supporting text-text-muted">These details are managed by Zevantaa. Contact the administrator to request a correction.</p>
       <dl className="dashboard-detail-list client-contact-grid">
         <div><dt>Full name</dt><dd>{profile.fullName}</dd></div>
@@ -79,6 +92,7 @@ export function ClientIntakeForm({
       </dl>
       {selectedPackage && <p className="type-supporting text-text-muted client-package-markets">Target markets: {selectedPackage.targetMarkets.map((market) => TARGET_MARKET_LABELS[market]).join(" · ")}</p>}
       {selectedPackage && !selectedPackage.isActive && <InlineAlert variant="warning">Your assigned package is inactive. Contact Zevantaa about its status.</InlineAlert>}
+      </details>
 
       <form action={formAction} aria-busy={isPending} className="client-contact-form" onSubmit={validateBeforeSubmit}>
         <div className="client-profile-section-divider">

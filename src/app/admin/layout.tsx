@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 const navigation: readonly DashboardNavigationItem[] = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/clients", label: "Client directory" },
+  { href: "/admin/clients/archived", label: "Archived clients" },
   { href: "/admin/clients/new", label: "Create client" },
   { href: "/admin/documents", label: "Documents" },
   { href: "/admin/workflow", label: "Workflow" },

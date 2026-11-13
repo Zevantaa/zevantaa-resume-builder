@@ -4,6 +4,8 @@ import { after } from "next/server";
 import { InlineAlert, PageHeader, StatusBadge } from "@/components/ui";
 import { requireApplicationRole } from "@/features/authentication/authorization";
 import { processDocumentRegenerationJobs } from "@/features/document-generation/document-regeneration-service";
+import { DocumentAtsComparisonCard } from "@/features/document-generation/document-ats-comparison-card";
+import { getCurrentClientDocumentAtsComparison } from "@/features/document-generation/document-ats-comparison-service";
 
 import { getCurrentClientAtsScore } from "./client-ats-score-service";
 import { getClientDashboardEvidence } from "./client-dashboard-service";
@@ -17,8 +19,9 @@ export async function ClientDocumentWorkspace({ coverLettersOnly = false }: { co
     try { await processDocumentRegenerationJobs(linked.profileId, actor.userId!, 1); }
     catch { /* Queue remains durable for the next authorized visit. */ }
   });
-  const [summary, evidence, score] = await Promise.all([
+  const [summary, evidence, score, comparison] = await Promise.all([
     getClientDashboardSummary(), getClientDashboardEvidence(), getCurrentClientAtsScore(),
+    getCurrentClientDocumentAtsComparison(),
   ]);
   const view = buildClientDashboardView(summary, evidence, score);
   const outputs = view.outputs.filter((item) => item.id.endsWith("cover-letter") === coverLettersOnly);
@@ -28,6 +31,7 @@ export async function ClientDocumentWorkspace({ coverLettersOnly = false }: { co
       eyebrow="Client portal · Output workspace"
       title={coverLettersOnly ? "Cover letters" : "Resumes & documents"}
     />
+    {!coverLettersOnly && <DocumentAtsComparisonCard comparison={comparison} />}
     {!summary || !evidence ? <InlineAlert variant="error">Your linked profile is unavailable. Please contact Zevantaa support.</InlineAlert> :
       <section className="dashboard-workspace-panel" aria-label={coverLettersOnly ? "Cover-letter availability" : "Resume availability"}>
         {!view.routing ? <InlineAlert variant="warning">Assigned package unavailable. Contact Zevantaa support.</InlineAlert> :

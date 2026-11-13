@@ -81,6 +81,12 @@ export function ClientCareerEditor({ initial, revision, skillLibrary }: {
   const [state, action, isPending] = useActionState(saveCareerProfileAction, initialState);
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
   useEffect(() => { if (state.status === "success") router.refresh(); }, [router, state.status, state.savedAt]);
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 
   function chooseSection(next: EditorSection) {
     setSection(next);

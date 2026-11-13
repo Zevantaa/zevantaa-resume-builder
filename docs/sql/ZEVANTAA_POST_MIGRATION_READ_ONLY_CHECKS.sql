@@ -1,5 +1,6 @@
 -- ZEVANTAA PR #1 POST-MIGRATION VERIFICATION (READ ONLY)
--- Run after all six migrations commit and before scheduler activation.
+-- Run after the six automation migrations and both approved forward migrations
+-- commit, and before scheduler activation.
 
 with expected(version, name) as (values
   ('20261103215458','automated_source_processing'),
@@ -7,7 +8,9 @@ with expected(version, name) as (values
   ('20261103221521','automated_entitlement_orchestration'),
   ('20261103222143','supabase_automation_scheduler'),
   ('20261103222518','client_resume_input_confirmation'),
-  ('20261103223240','ats_assessment_provenance')
+  ('20261103223240','ats_assessment_provenance'),
+  ('20261111085249','client_onboarding_invitation_state'),
+  ('20261113052443','complete_client_experience_admin_ats')
 )
 select e.version, e.name,
   exists (select 1 from supabase_migrations.schema_migrations m
@@ -21,7 +24,10 @@ select c.relname, c.relrowsecurity,
 from pg_class c
 where c.oid in (
   'public.resume_processing_jobs'::regclass,
-  'public.ats_assessment_snapshots'::regclass
+  'public.ats_assessment_snapshots'::regclass,
+  'public.client_lifecycle_events'::regclass,
+  'public.client_permanent_deletion_requests'::regclass,
+  'public.document_ats_assessments'::regclass
 )
 order by c.relname;
 
@@ -31,14 +37,22 @@ select
   has_table_privilege('anon','public.resume_processing_jobs','SELECT')
     as anon_can_read_source_queue,
   has_table_privilege('authenticated','public.ats_assessment_snapshots','SELECT')
-    as authenticated_can_read_ats_snapshots;
+    as authenticated_can_read_ats_snapshots,
+  has_table_privilege('anon','public.document_ats_assessments','SELECT')
+    as anon_can_read_document_ats,
+  has_table_privilege('authenticated','public.document_ats_assessments','SELECT')
+    as authenticated_can_read_document_ats,
+  has_table_privilege('service_role','public.document_ats_assessments','SELECT,INSERT,UPDATE,DELETE')
+    as service_can_manage_document_ats;
 
 select tgname, tgrelid::regclass as relation_name, tgenabled
 from pg_trigger
 where not tgisinternal and tgname in (
   'candidate_profiles_enqueue_source_processing',
   'profile_resume_reviews_enqueue_outputs',
-  'candidate_profiles_reconcile_package_outputs'
+  'candidate_profiles_reconcile_package_outputs',
+  'file_records_enqueue_document_ats_assessment',
+  'document_records_enqueue_document_ats_assessment'
 )
 order by tgname;
 
@@ -84,6 +98,29 @@ select count(*) as ats_snapshot_count,
   count(*) filter (where score < 0 or score > 100 or benchmark <> 90)
     as invalid_ats_snapshot_headers
 from public.ats_assessment_snapshots;
+
+select status::text, count(*) as document_ats_assessments,
+  count(*) filter (where status = 'processing' and lease_until < now())
+    as expired_document_ats_leases,
+  count(*) filter (where status = 'ready' and (score is null or score < 0 or score > 100))
+    as invalid_ready_scores,
+  count(*) filter (where status <> 'ready' and score is not null)
+    as scores_outside_ready_state
+from public.document_ats_assessments
+group by status order by status;
+
+select
+  count(*) filter (where role_code = 'admin' and is_active) as active_administrators,
+  count(*) filter (where role_code = 'client' and is_active) as active_clients,
+  count(*) filter (where role_code = 'client' and not is_active) as inactive_clients
+from public.user_roles;
+
+select
+  count(*) filter (where archived_at is not null and client_recovery_until is null)
+    as archived_profiles_without_recovery_window,
+  count(*) filter (where archived_at is null and client_recovery_until is not null)
+    as active_profiles_with_recovery_window
+from public.candidate_profiles;
 
 select count(*) as duplicate_source_job_groups
 from (

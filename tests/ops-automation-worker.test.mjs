@@ -11,10 +11,13 @@ registerHooks({ resolve(specifier, context, nextResolve) {
   if (specifier === "@/features/document-generation/document-regeneration-service") return {
     url: moduleUrl("export async function processGlobalDocumentRegenerationJobs(limit){return globalThis.__automationQa.documents(limit)}"), shortCircuit: true,
   };
+  if (specifier === "@/features/document-generation/document-ats-assessment-service") return {
+    url: moduleUrl("export async function processDocumentAtsAssessmentJobs(limit){return globalThis.__automationQa.assessments(limit)}"), shortCircuit: true,
+  };
   return nextResolve(specifier, context);
 } });
 
-globalThis.__automationQa = { source: null, documents: null };
+globalThis.__automationQa = { source: null, documents: null, assessments: null };
 const { POST, maxDuration, runtime } = await import("../src/app/api/internal/automation/route.ts");
 const previousSecret = process.env.AUTOMATION_WORKER_SECRET;
 afterEach(() => {
@@ -41,11 +44,12 @@ test("authorized invocation processes one job from each durable queue", async ()
   const limits = [];
   globalThis.__automationQa.source = async (limit) => { limits.push(["source", limit]); return { completed: 1, needsInput: 0, failed: 0 }; };
   globalThis.__automationQa.documents = async (limit) => { limits.push(["documents", limit]); return { completed: 1, failed: 0 }; };
+  globalThis.__automationQa.assessments = async (limit) => { limits.push(["assessments", limit]); return { completed: 1, unavailable: 0, failed: 0 }; };
   const response = await POST(request(token));
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "private, no-store");
-  assert.deepEqual(limits, [["source", 1], ["documents", 1]]);
-  assert.deepEqual(await response.json(), { ok: true, source: { completed: 1, needsInput: 0, failed: 0 }, documents: { completed: 1, failed: 0 } });
+  assert.deepEqual(limits, [["source", 1], ["documents", 1], ["assessments", 1]]);
+  assert.deepEqual(await response.json(), { ok: true, source: { completed: 1, needsInput: 0, failed: 0 }, documents: { completed: 1, failed: 0 }, assessments: { completed: 1, unavailable: 0, failed: 0 } });
 });
 
 test("one queue failure does not prevent bounded progress in the other", async () => {
@@ -53,9 +57,10 @@ test("one queue failure does not prevent bounded progress in the other", async (
   process.env.AUTOMATION_WORKER_SECRET = token;
   globalThis.__automationQa.source = async () => { throw new Error("private detail"); };
   globalThis.__automationQa.documents = async () => ({ completed: 1, failed: 0 });
+  globalThis.__automationQa.assessments = async () => ({ completed: 0, unavailable: 1, failed: 0 });
   const response = await POST(request(token));
   assert.equal(response.status, 503);
-  assert.deepEqual(await response.json(), { ok: false, source: { completed: 0, needsInput: 0, failed: 0 }, documents: { completed: 1, failed: 0 } });
+  assert.deepEqual(await response.json(), { ok: false, source: { completed: 0, needsInput: 0, failed: 0 }, documents: { completed: 1, failed: 0 }, assessments: { completed: 0, unavailable: 1, failed: 0 } });
 });
 
 test("scheduler migration stores no secret and requires explicit owner activation", () => {
