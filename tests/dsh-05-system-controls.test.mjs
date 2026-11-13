@@ -75,7 +75,7 @@ test("admin directory distinguishes zero clients from no matching search results
 test("client views distinguish missing source, review, entitlement, and stored PDFs", () => {
   const page = source("src/features/client-portal/client-dashboard-page.tsx");
   assert.match(page, /No source resume is available/);
-  assert.match(page, /not been confirmed by an administrator/);
+  assert.match(page, /Review and confirm the extracted details/);
   assert.match(page, /No stored PDFs are available yet/);
   assert.match(source("src/features/client-portal/client-document-workspace.tsx"), /This package does not include/);
   assert.match(dashboard, /source_file_id", profile\.existing_resume_file_id/);

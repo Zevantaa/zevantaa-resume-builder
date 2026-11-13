@@ -1,4 +1,5 @@
 export type ClientAccountStatus = "active" | "disabled";
+export type ClientAccessMethod = "invitation" | "temporary-password";
 export type ClientInvitationDeliveryStatus = "not-sent" | "pending" | "sent" | "failed";
 
 export type CandidateAccountOption = {
@@ -59,7 +60,7 @@ export type AdminProfileFields = {
 
 export type ClientAccountFormState = {
   fieldErrors?: Partial<
-    Record<"candidateProfileId" | "fullName" | "email" | "mobileNumber" | "whatsappNumber" | "linkedinUrl" | "currentLocation" | "relocationPreference" | "packageCode" | "accountStatus", string>
+    Record<"candidateProfileId" | "fullName" | "email" | "mobileNumber" | "whatsappNumber" | "linkedinUrl" | "currentLocation" | "relocationPreference" | "packageCode" | "accountStatus" | "accessMethod", string>
   >;
   message?: string;
   status: "idle" | "success" | "error";
@@ -68,6 +69,7 @@ export type ClientAccountFormState = {
     deliveryStatus: ClientInvitationDeliveryStatus;
     invitationId: string;
   };
+  temporaryPassword?: string;
 };
 
 export const initialClientAccountFormState: ClientAccountFormState = {

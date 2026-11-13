@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
 import { requireApplicationRole } from "@/features/authentication/authorization";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -9,6 +9,7 @@ import { getClientInvitationRedirectUrl, getClientPortalUrl, getClientRecoveryRe
 
 import type {
   CandidateAccountOption,
+  ClientAccessMethod,
   AdminProfileFields,
   ClientAccountStatus,
   ClientInvitationDeliveryStatus,
@@ -18,13 +19,14 @@ import type {
 } from "./client-account-types";
 
 type ProvisionClientAccountInput = {
+  accessMethod?: ClientAccessMethod;
   accountStatus: ClientAccountStatus;
   candidateProfileId: string;
   profile: AdminProfileFields;
 };
 
 export type ProvisionClientAccountResult =
-  | { ok: true; packageName: string; invitationId: string }
+  | { ok: true; packageName: string; invitationId: string; temporaryPassword?: string }
   | {
       code:
         | "duplicate-email"
@@ -80,6 +82,11 @@ function profileValues(profile: AdminProfileFields, targetMarkets: string[]) {
     selected_package_code: profile.packageCode,
     target_markets: targetMarkets,
   };
+}
+
+/** 192 random bits plus all required character classes; returned only once. */
+function createTemporaryPassword(): string {
+  return `Zv!7-${randomBytes(24).toString("base64url")}`;
 }
 
 async function emailUsedByAnotherProfile(
@@ -256,6 +263,44 @@ export async function generateClientPasswordSetupLink(userId: string): Promise<s
   return actionLink.toString();
 }
 
+/** Replaces (never retrieves) a client credential and returns it exactly once. */
+export async function reissueClientTemporaryPassword(userId: string): Promise<string> {
+  const actor = await requireApplicationRole("admin");
+  if (process.env.NODE_ENV === "production") {
+    await (await import("@/lib/security/rate-limit")).enforceRateLimit("client-provision", actor.userId!, 10);
+  }
+  const db = createSupabaseAdminClient();
+  const { data: role, error: roleError } = await db.from("user_roles")
+    .select("candidate_profile_id, account_status").eq("user_id", userId)
+    .eq("role_code", "client").maybeSingle();
+  if (roleError || !role?.candidate_profile_id || role.account_status !== "active") {
+    throw new Error("Client access is unavailable.");
+  }
+  const [profileResult, authResult] = await Promise.all([
+    db.from("candidate_profiles").select("primary_email").eq("id", role.candidate_profile_id)
+      .is("archived_at", null).maybeSingle(),
+    db.auth.admin.getUserById(userId),
+  ]);
+  const user = authResult.data.user;
+  if (profileResult.error || authResult.error || !profileResult.data || !user?.email ||
+      profileResult.data.primary_email.trim().toLowerCase() !== user.email.trim().toLowerCase()) {
+    throw new Error("Client access could not be verified.");
+  }
+  const temporaryPassword = createTemporaryPassword();
+  const { error } = await db.auth.admin.updateUserById(userId, {
+    password: temporaryPassword,
+    app_metadata: { ...user.app_metadata, must_change_password: true },
+  });
+  if (error) throw new Error("The temporary password could not be issued.");
+  if (process.env.NODE_ENV === "production") {
+    await (await import("@/lib/security/audit-events")).recordSecurityEvent({
+      eventType: "client.account.updated", actorUserId: actor.userId!, targetUserId: userId,
+      candidateProfileId: role.candidate_profile_id, outcome: "success", detailCode: "profile-update",
+    });
+  }
+  return temporaryPassword;
+}
+
 export async function listEligibleCandidateProfiles(): Promise<
   CandidateAccountOption[]
 > {
@@ -286,10 +331,12 @@ export async function listEligibleCandidateProfiles(): Promise<
 }
 
 export async function provisionClientAccount({
+  accessMethod,
   accountStatus,
   candidateProfileId,
   profile,
 }: ProvisionClientAccountInput): Promise<ProvisionClientAccountResult> {
+  const resolvedAccessMethod = accessMethod ?? "invitation";
   const adminContext = await requireApplicationRole("admin");
   if (process.env.NODE_ENV === "production") {
     await (await import("@/lib/security/rate-limit")).enforceRateLimit("client-provision", adminContext.userId!, 10);
@@ -356,8 +403,8 @@ export async function provisionClientAccount({
     return { code: "profile-update", ok: false };
   }
 
-  const redirectTo = getClientInvitationRedirectUrl();
-  if (!redirectTo) return { code: "auth-creation", ok: false };
+  const redirectTo = resolvedAccessMethod === "invitation" ? getClientInvitationRedirectUrl() : null;
+  if (resolvedAccessMethod === "invitation" && !redirectTo) return { code: "auth-creation", ok: false };
 
   const { data: invitation, error: invitationError } = await supabase
     .from("client_onboarding_invitations")
@@ -367,8 +414,8 @@ export async function provisionClientAccount({
       created_by_user_id: adminContext.userId,
       delivery_status: "pending",
       email: profile.email,
-      attempt_count: 1,
-      last_attempt_at: new Date().toISOString(),
+      attempt_count: resolvedAccessMethod === "invitation" ? 1 : 0,
+      last_attempt_at: resolvedAccessMethod === "invitation" ? new Date().toISOString() : null,
     })
     .select("id")
     .maybeSingle();
@@ -383,8 +430,15 @@ export async function provisionClientAccount({
     return { code: rollback.error ? "reconciliation-required" : "invitation-state", ok: false };
   }
 
-  const { data: authData, error: authError } =
-    await supabase.auth.admin.inviteUserByEmail(profile.email, { redirectTo });
+  const temporaryPassword = resolvedAccessMethod === "temporary-password" ? createTemporaryPassword() : undefined;
+  const { data: authData, error: authError } = resolvedAccessMethod === "temporary-password"
+    ? await supabase.auth.admin.createUser({
+        email: profile.email,
+        password: temporaryPassword!,
+        email_confirm: true,
+        app_metadata: { must_change_password: true },
+      })
+    : await supabase.auth.admin.inviteUserByEmail(profile.email, { redirectTo: redirectTo! });
 
   if (authError || !authData.user) {
     const duplicateAuth = authError?.code === "email_exists" || authError?.code === "user_already_exists";
@@ -412,13 +466,14 @@ export async function provisionClientAccount({
   });
 
   if (!roleError) {
+    const deliveryStatus = resolvedAccessMethod === "invitation" ? "sent" : "not-sent";
     const { data: sent, error: sentError } = await supabase
       .from("client_onboarding_invitations")
       .update({
         auth_user_id: authData.user.id,
-        delivery_status: "sent",
+        delivery_status: deliveryStatus,
         last_error_code: null,
-        sent_at: new Date().toISOString(),
+        sent_at: resolvedAccessMethod === "invitation" ? new Date().toISOString() : null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", invitation.id)
@@ -434,7 +489,9 @@ export async function provisionClientAccount({
         targetUserId: authData.user.id, candidateProfileId: linkedProfileId, outcome: "success",
       });
     }
-    return { ok: true, packageName: selectedPackage.display_name, invitationId: invitation.id };
+    return temporaryPassword
+      ? { ok: true, packageName: selectedPackage.display_name, invitationId: invitation.id, temporaryPassword }
+      : { ok: true, packageName: selectedPackage.display_name, invitationId: invitation.id };
   }
 
   const { error: cleanupError } = await supabase.auth.admin.deleteUser(

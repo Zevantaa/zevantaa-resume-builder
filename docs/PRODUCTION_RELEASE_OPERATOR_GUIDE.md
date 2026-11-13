@@ -142,7 +142,8 @@ The command executes these gates in order and stops at the first critical failur
 8. `supabase db push --dry-run`; the output must name exactly the still-pending
    approved migrations, in this order:
    `20261111085249_client_onboarding_invitation_state.sql`, then
-   `20261113052443_complete_client_experience_admin_ats.sql`. Already recorded
+   `20261113052443_complete_client_experience_admin_ats.sql`, then
+   `20261113124500_client_confirmation_release_fixes.sql`. Already recorded
    versions are never replayed. Only then can the separately authorized push
    occur, followed by read-only postflight.
 9. Deployment of the reviewed commit to the existing Vercel project, followed by

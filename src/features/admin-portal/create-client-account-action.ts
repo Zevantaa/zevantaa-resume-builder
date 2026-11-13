@@ -40,7 +40,7 @@ export async function createClientAccountAction(
       }
       return {
         invitation: { email: retried.email, deliveryStatus: "sent", invitationId: retried.invitationId },
-        message: "Client invitation sent successfully.",
+        message: "Supabase accepted the invitation request. Inbox delivery remains unverified.",
         status: "success",
       };
     } catch {
@@ -59,6 +59,7 @@ export async function createClientAccountAction(
     packageCode: String(formData.get("packageCode") ?? ""),
   });
   const accountStatus = formData.get("accountStatus");
+  const accessMethod = formData.get("accessMethod") ?? "invitation";
   const fieldErrors: NonNullable<ClientAccountFormState["fieldErrors"]> = { ...profileErrors };
 
   if (!candidateProfileId) {
@@ -68,6 +69,9 @@ export async function createClientAccountAction(
   if (accountStatus !== "active" && accountStatus !== "disabled") {
     fieldErrors.accountStatus = "Select a valid account status.";
   }
+  if (accessMethod !== "invitation" && accessMethod !== "temporary-password") {
+    fieldErrors.accessMethod = "Select a secure access method.";
+  }
 
   if (Object.keys(fieldErrors).length > 0) {
     return { fieldErrors, status: "error" };
@@ -76,6 +80,7 @@ export async function createClientAccountAction(
 
   try {
     result = await provisionClientAccount({
+      accessMethod: accessMethod as "invitation" | "temporary-password",
       accountStatus: accountStatus as "active" | "disabled",
       candidateProfileId,
       profile,
@@ -102,10 +107,13 @@ export async function createClientAccountAction(
   return {
     invitation: {
       email: profile.email,
-      deliveryStatus: "sent",
+      deliveryStatus: result.temporaryPassword ? "not-sent" : "sent",
       invitationId: result.invitationId,
     },
-    message: "Client account created and secure invitation sent.",
+    temporaryPassword: result.temporaryPassword,
+    message: result.temporaryPassword
+      ? "Client account created. Copy the one-time temporary password now."
+      : "Client account created. Supabase accepted the invitation request for delivery.",
     status: "success",
   };
 }

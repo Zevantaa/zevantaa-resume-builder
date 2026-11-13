@@ -23,9 +23,12 @@ export function ClientAccountForm({ candidates, packages }: { candidates: Candid
       {state.status === "success" && state.invitation ? (
         <InlineAlert variant="success">
           <strong>{state.message}</strong>
-          <span>Supabase Auth accepted the invitation for delivery. No password is generated, displayed, logged, or shared by this application.</span>
+          {state.temporaryPassword ? <>
+            <span>This credential is displayed once, is not stored by Zevantaa ATS, and must be replaced at first sign-in.</span>
+            <span className="credential-result">Temporary password: <code>{state.temporaryPassword}</code></span>
+          </> : <span>Provider acceptance does not prove inbox delivery. No password is generated, displayed, logged, or shared for invitation access.</span>}
           <span className="credential-result">Email: <code>{state.invitation.email}</code></span>
-          <span className="credential-result">Delivery state: <strong>{state.invitation.deliveryStatus}</strong></span>
+          <span className="credential-result">Delivery state: <strong>{state.invitation.deliveryStatus === "sent" ? "provider-accepted" : state.invitation.deliveryStatus}</strong></span>
         </InlineAlert>
       ) : state.status === "error" && state.message ? (
         <InlineAlert variant="error">
@@ -56,8 +59,14 @@ export function ClientAccountForm({ candidates, packages }: { candidates: Candid
         }} />}
 
       <InlineAlert variant="neutral">
-        A one-time password-setup invitation will be sent through Supabase Auth. Production delivery requires transactional SMTP configuration.
+        Invitation email requires verified transactional SMTP. A temporary password is generated server-side, displayed once, never stored, and forces a password change at first sign-in.
       </InlineAlert>
+
+      <SelectField defaultValue="invitation" error={state.fieldErrors?.accessMethod}
+        id="access-method" label="Initial access method" name="accessMethod" required>
+        <option value="invitation">Secure email invitation</option>
+        <option value="temporary-password">One-time temporary password</option>
+      </SelectField>
 
       <SelectField defaultValue="active" error={state.fieldErrors?.accountStatus}
         id="account-status" label="Account status" name="accountStatus" required>
@@ -66,7 +75,7 @@ export function ClientAccountForm({ candidates, packages }: { candidates: Candid
       </SelectField>
 
       <button className="type-button auth-submit" disabled={isPending || !candidateId} type="submit">
-        {isPending ? "Creating account…" : "Create account and send invitation"}
+        {isPending ? "Creating account…" : "Create client account"}
       </button>
     </form>
   );
