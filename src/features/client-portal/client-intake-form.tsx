@@ -106,9 +106,9 @@ export function ClientIntakeForm({
               disabled={isPending}
               required={!files.resume || files.resume.status !== "available"}
               accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              helperText="PDF, DOC or DOCX, maximum 10 MB. A replacement becomes current only after a successful private save and requires new administrator review."
+              helperText="PDF, DOC or DOCX, maximum 10 MB. A replacement becomes current only after a successful private save and requires your review and confirmation."
               error={errors.resume} onChange={(event) => setSelectedResume({ name: event.target.files?.[0]?.name ?? "", actionState: state })} />
-            <p className="type-supporting text-text-muted">{files.resume ? `Current: ${files.resume.originalFileName} (${files.resume.status})` : "No source resume yet. Upload one to begin administrator review."}</p>
+            <p className="type-supporting text-text-muted">{files.resume ? `Current: ${files.resume.originalFileName} (${files.resume.status})` : "No source resume yet. Upload one to begin secure extraction and review."}</p>
             {selectedResume.name && selectedResume.actionState === state && <p aria-live="polite" className="type-supporting client-intake-selection" role="status">Selected replacement: {selectedResume.name}</p>}
           </div>
           {isGccPhotoAvailable(details.selectedPackageCode) && <div className="client-intake-file-block">

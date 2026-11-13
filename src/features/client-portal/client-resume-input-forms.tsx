@@ -11,7 +11,15 @@ import { confirmCanonicalResumeProfileAction, confirmClientResumeProposalsAction
 
 const initial: ClientResumeInputState = { ok: false, message: "" };
 
-export function ClientResumeProposalForm({ jobId, proposals }: { jobId: string; proposals: ResumeReviewProposal[] }) {
+export function ClientResumeProposalForm({ jobId, proposals, proposalStates, profile }: {
+  jobId: string; proposals: ResumeReviewProposal[];
+  proposalStates: Record<string, "new" | "already-saved" | "conflict">;
+  profile: {
+    fullName: string; primaryEmail: string; mobileNumber: string; whatsappNumber: string;
+    linkedinUrl: string; currentLocation: string;
+    relocationPreference: "open" | "not-open" | "conditional" | "not-specified";
+  };
+}) {
   const router = useRouter();
   const [state, action, pending] = useActionState(confirmClientResumeProposalsAction, initial);
   useEffect(() => { if (state.ok) router.refresh(); }, [router, state.ok]);
@@ -19,9 +27,26 @@ export function ClientResumeProposalForm({ jobId, proposals }: { jobId: string; 
     <input type="hidden" name="jobId" value={jobId} />
     {state.message && <InlineAlert variant={state.ok ? "success" : "error"}>{state.message}</InlineAlert>}
     <p className="type-body text-text-muted">Select only facts you recognize and correct any highlighted value. Unselected entries are ignored; no fact is invented.</p>
+    <fieldset className="resume-review-entry">
+      <legend className="type-heading-4">Personal and contact details</legend>
+      <p className="type-supporting text-text-muted">Confirm the details used across every document. Your sign-in email is shown read-only; contact Zevantaa support to change the Auth-linked address.</p>
+      <div className="resume-review-fields">
+        <label className="form-field"><span className="type-label form-label">Full name</span><input className="form-control" defaultValue={profile.fullName} maxLength={160} name="profile:fullName" required /></label>
+        <label className="form-field"><span className="type-label form-label">Sign-in email</span><input className="form-control" readOnly value={profile.primaryEmail} /></label>
+        <label className="form-field"><span className="type-label form-label">Mobile number</span><input className="form-control" defaultValue={profile.mobileNumber} maxLength={40} name="profile:mobileNumber" required /></label>
+        <label className="form-field"><span className="type-label form-label">WhatsApp number</span><input className="form-control" defaultValue={profile.whatsappNumber} maxLength={40} name="profile:whatsappNumber" /></label>
+        <label className="form-field"><span className="type-label form-label">LinkedIn URL</span><input className="form-control" defaultValue={profile.linkedinUrl} maxLength={500} name="profile:linkedinUrl" placeholder="https://www.linkedin.com/in/..." type="url" /></label>
+        <label className="form-field"><span className="type-label form-label">Current location</span><input className="form-control" defaultValue={profile.currentLocation} maxLength={200} name="profile:currentLocation" required /></label>
+        <label className="form-field"><span className="type-label form-label">Relocation preference</span><select className="form-control" defaultValue={profile.relocationPreference} name="profile:relocationPreference" required>
+          <option value="not-specified">Not specified</option><option value="open">Open</option><option value="conditional">Conditional</option><option value="not-open">Not open</option>
+        </select></label>
+      </div>
+    </fieldset>
     {proposals.map((proposal) => <fieldset className="resume-review-entry" key={proposal.id}>
       <legend className="type-heading-4">{proposal.section}: source line {proposal.sourceLines.join(", ")}</legend>
-      <label className="type-label"><input type="checkbox" name={`accept:${proposal.id}`} /> Confirm this entry</label>
+      {proposalStates[proposal.id] === "conflict" && <InlineAlert variant="warning">This appears to conflict with a previously confirmed {proposal.section} entry. Leave it unselected to preserve the saved fact, or correct and confirm it as an additional entry.</InlineAlert>}
+      {proposalStates[proposal.id] === "already-saved" && <InlineAlert variant="information">This fact already exists in your saved structured profile and will not be duplicated.</InlineAlert>}
+      <label className="type-label"><input disabled={proposalStates[proposal.id] === "already-saved"} type="checkbox" name={`accept:${proposal.id}`} /> Confirm this entry</label>
       <div className="resume-review-fields">{Object.entries(proposal.fields).map(([key, value]) => <label className="form-field" key={key}>
         <span className="type-label form-label">{key.replace(/([A-Z])/g, " $1")}</span>
         {["text", "description", "highlights"].includes(key)

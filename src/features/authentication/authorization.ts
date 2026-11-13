@@ -23,7 +23,7 @@ function isAccountStatus(value: unknown): value is AccountStatus {
 
 async function loadAuthContext(): Promise<AuthContext> {
   if (!isSupabaseConfigured()) {
-    return { accountStatus: null, role: null, userId: null };
+    return { accountStatus: null, mustChangePassword: false, role: null, userId: null };
   }
 
   try {
@@ -33,7 +33,7 @@ async function loadAuthContext(): Promise<AuthContext> {
     const userId = claimsData?.claims?.sub;
 
     if (claimsError || typeof userId !== "string") {
-      return { accountStatus: null, role: null, userId: null };
+      return { accountStatus: null, mustChangePassword: false, role: null, userId: null };
     }
 
     const { data: roleRecord, error: roleError } = await supabase
@@ -43,25 +43,29 @@ async function loadAuthContext(): Promise<AuthContext> {
       .maybeSingle();
 
     if (roleError || !isApplicationRole(roleRecord?.role_code)) {
-      return { accountStatus: null, role: null, userId };
+      return { accountStatus: null, mustChangePassword: false, role: null, userId };
     }
 
     if (
       roleRecord.role_code === "client" &&
       typeof roleRecord.candidate_profile_id !== "string"
     ) {
-      return { accountStatus: null, role: null, userId };
+      return { accountStatus: null, mustChangePassword: false, role: null, userId };
     }
 
     return {
       accountStatus: isAccountStatus(roleRecord.account_status)
         ? roleRecord.account_status
         : null,
+      mustChangePassword: Boolean(
+        (claimsData?.claims as { app_metadata?: { must_change_password?: unknown } } | undefined)
+          ?.app_metadata?.must_change_password === true,
+      ),
       role: roleRecord.role_code,
       userId,
     };
   } catch {
-    return { accountStatus: null, role: null, userId: null };
+    return { accountStatus: null, mustChangePassword: false, role: null, userId: null };
   }
 }
 

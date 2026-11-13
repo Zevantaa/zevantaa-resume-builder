@@ -22,9 +22,26 @@ export async function confirmClientResumeProposalsAction(
   if (formData.get("confirmReview") !== "yes") return { ok: false, message: "Explicit confirmation is required." };
   const approved = reviewedEntries(formData, review.proposals);
   if (!approved?.length) return { ok: false, message: "Select at least one supported entry and check its values." };
-  const { error } = await createSupabaseAdminClient().rpc("confirm_client_resume_processing_input", {
+  const profilePatch = {
+    fullName: String(formData.get("profile:fullName") ?? "").trim(),
+    mobileNumber: String(formData.get("profile:mobileNumber") ?? "").trim(),
+    whatsappNumber: String(formData.get("profile:whatsappNumber") ?? "").trim(),
+    linkedinUrl: String(formData.get("profile:linkedinUrl") ?? "").trim(),
+    currentLocation: String(formData.get("profile:currentLocation") ?? "").trim(),
+    relocationPreference: String(formData.get("profile:relocationPreference") ?? ""),
+  };
+  const validLinkedIn = !profilePatch.linkedinUrl || /^https:\/\/([a-z0-9-]+\.)?linkedin\.com\//iu.test(profilePatch.linkedinUrl);
+  if (profilePatch.fullName.length < 2 || profilePatch.fullName.length > 160 ||
+      profilePatch.mobileNumber.length < 5 || profilePatch.mobileNumber.length > 40 ||
+      profilePatch.whatsappNumber.length > 40 || profilePatch.currentLocation.length < 2 ||
+      profilePatch.currentLocation.length > 200 || profilePatch.linkedinUrl.length > 500 || !validLinkedIn ||
+      !["open", "not-open", "conditional", "not-specified"].includes(profilePatch.relocationPreference)) {
+    return { ok: false, message: "Correct the highlighted identity and contact details before confirming." };
+  }
+  const { error } = await createSupabaseAdminClient().rpc("confirm_client_resume_processing_input_v2", {
     p_job_id: review.jobId,
     p_actor_user_id: actor.userId,
+    p_profile_patch: profilePatch,
     p_approved: approved,
   });
   if (error) return { ok: false, message: "The corrected details could not be saved. No partial update was accepted." };

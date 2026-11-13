@@ -35,7 +35,8 @@ $AutomationVersions = @(
 )
 $ForwardMigrations = @(
   "20261111085249",
-  "20261113052443"
+  "20261113052443",
+  "20261113124500"
 )
 $RequiredVercelEnvironmentNames = @(
   "NEXT_PUBLIC_APP_URL", "NEXT_PUBLIC_SUPABASE_URL",
@@ -595,7 +596,7 @@ function Repair-MigrationHistoryIfApproved([string[]]$RemoteVersions) {
 function Test-ForwardMigrationsDryRun([string[]]$RemoteVersions) {
   $pending = @($ForwardMigrations | Where-Object { $_ -notin $RemoteVersions })
   if ($pending.Count -eq 0) {
-    return "Both approved forward migrations are already recorded; no replay is needed."
+    return "All approved forward migrations are already recorded; no replay is needed."
   }
   $dryRun = Invoke-Supabase @("db", "push", "--dry-run", "--skip-vault", "--remote=$SupabaseProjectRef")
   $mentioned = @([regex]::Matches($dryRun, '\b\d{14}\b') | ForEach-Object { $_.Value } | Select-Object -Unique)

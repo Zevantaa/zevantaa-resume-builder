@@ -35,13 +35,13 @@ export async function AdminDirectoryWorkspace({ mode, searchParams }: {
     {mode === "overview" && <section aria-label="Operational overview" className="admin-directory-metrics">
       <div><strong>{data.metrics.clients}</strong><span>Provisioned clients</span></div>
       <div><strong>{data.metrics.sourceResumes}</strong><span>Source resumes uploaded</span></div>
-      <div><strong>{data.metrics.awaitingReview}</strong><span>Awaiting resume review</span></div>
+      <div><strong>{data.metrics.awaitingReview}</strong><span>Awaiting client confirmation</span></div>
       <div><strong>{data.metrics.reviewed}</strong><span>Reviewed/confirmed</span></div>
       <div><strong>{data.metrics.generatedOnPage}</strong><span>Stored PDFs on this page</span></div>
     </section>}
     {mode === "overview" && <section aria-label="Priority pipeline" className="admin-v8-priority-band">
       <div><StatusBadge variant="warning">Needs review</StatusBadge><strong>{data.metrics.awaitingReview} source resume{data.metrics.awaitingReview === 1 ? "" : "s"}</strong>
-        <span>Uploaded source files awaiting administrator confirmation.</span></div>
+        <span>Uploaded source files awaiting client review or correction.</span></div>
       <div><StatusBadge variant="neutral">Incomplete intake</StatusBadge><strong>{data.metrics.clients - data.metrics.sourceResumes} without a source resume</strong>
         <span>Source-file intake remains unfinished; career edits are separate.</span></div>
       <div><StatusBadge variant="success">Reviewed</StatusBadge><strong>{data.metrics.reviewed} confirmed source resume{data.metrics.reviewed === 1 ? "" : "s"}</strong>

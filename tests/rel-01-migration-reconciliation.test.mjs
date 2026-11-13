@@ -4,10 +4,10 @@ import { compareMigrationHistory, readLocalMigrations } from "../scripts/check-m
 
 test("repository migration inventory is ordered and has no duplicate names or versions", () => {
   const local = readLocalMigrations();
-  assert.equal(local.length, 23);
+  assert.equal(local.length, 24);
   assert.equal(new Set(local.map((row) => row.name)).size, local.length);
   assert.equal(new Set(local.map((row) => row.version)).size, local.length);
-  assert.equal(local.at(-1).name, "complete_client_experience_admin_ats");
+  assert.equal(local.at(-1).name, "client_confirmation_release_fixes");
 });
 
 test("DOC-13 recorded SQL is recognized as applied under its alternate version, not replayed", () => {

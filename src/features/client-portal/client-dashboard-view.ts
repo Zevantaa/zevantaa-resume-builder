@@ -29,10 +29,17 @@ export function buildClientDashboardView(
     ? getPackageRouting(summary.packageCode) : null;
   const resumeAvailable = evidence?.resume?.status === "available";
   const reviewConfirmed = Boolean(resumeAvailable && evidence?.reviewConfirmed);
+  const updates = Object.values(evidence?.documentUpdates ?? {});
+  const expectedOutputs = routing?.allowedOutputs.length ?? 0;
+  const availableOutputs = Object.keys(evidence?.downloadableDocuments ?? {}).length;
   const profileStatus = !summary || !evidence || !resumeAvailable
     ? "Profile setup incomplete"
     : !reviewConfirmed ? "Resume processing or input required"
-      : score?.status === "ready" ? "Document generation in progress" : "Profile reviewed/confirmed";
+      : updates.includes("failed") ? "Document generation needs attention"
+        : updates.includes("updating") ? "Document generation in progress"
+          : expectedOutputs > 0 && availableOutputs >= expectedOutputs
+            ? "Documents ready"
+            : score?.status === "ready" ? "Document publication pending" : "Profile reviewed/confirmed";
   const outputs = (routing?.allowedOutputs ?? []).map((output) => {
     const documentId = evidence?.downloadableDocuments[output] ?? null;
     return {

@@ -32,11 +32,11 @@ export async function POST(request: Request): Promise<Response> {
   let documents = { completed: 0, failed: 0 };
   let assessments = { completed: 0, unavailable: 0, failed: 0 };
   let ok = true;
-  try { source = await processResumeProcessingJobs(1); }
+  try { source = await processResumeProcessingJobs(2); }
   catch { ok = false; }
-  try { documents = await processGlobalDocumentRegenerationJobs(1); }
+  try { documents = await processGlobalDocumentRegenerationJobs(2); }
   catch { ok = false; }
-  try { assessments = await processDocumentAtsAssessmentJobs(1); }
+  try { assessments = await processDocumentAtsAssessmentJobs(2); }
   catch { ok = false; }
 
   return Response.json({ ok, source, documents, assessments }, {

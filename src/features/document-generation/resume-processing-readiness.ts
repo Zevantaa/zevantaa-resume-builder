@@ -10,6 +10,7 @@ export type ResumeProcessingFindingCode =
   | "source-needs-replacement"
   | "ambiguous-career-facts"
   | "missing-substantive-career-history"
+  | "client-confirmation-required"
   | "existing-profile-merge-required";
 
 export type ResumeProcessingFinding = {
@@ -105,8 +106,14 @@ export function assessResumeExtraction(extraction: ResumeExtractionResult): Resu
   }
 
   const autoAcceptable = findings.length === 0;
+  findings.push({
+    code: "client-confirmation-required",
+    message: autoAcceptable
+      ? "Review the extracted details and confirm the facts before documents are generated."
+      : "Correct the highlighted details and confirm the supported facts before documents are generated.",
+  });
   return {
-    outcome: autoAcceptable ? "completed" : "needs-input",
+    outcome: "needs-input",
     extractor: extraction.extractor,
     normalizedTextSha256: createHash("sha256").update(extraction.normalizedText).digest("hex"),
     findings,
@@ -114,6 +121,8 @@ export function assessResumeExtraction(extraction: ResumeExtractionResult): Resu
       schemaVersion: 1,
       sourceFileId: extraction.sourceFileId,
       pageCount: extraction.pageCount,
+      // This records parser confidence only. Explicit client confirmation is
+      // still the publication boundary for every newly uploaded source.
       autoAcceptable,
       proposals: draft.proposals,
       parserWarnings: draft.warnings,

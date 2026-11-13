@@ -62,7 +62,9 @@ export async function signInWithPassword({
     return {
       email: data.user.email ?? null,
       portal,
-      redirectTo: AUTH_PORTALS[portal].destination,
+      redirectTo: portal === "client" && data.user.app_metadata?.must_change_password === true
+        ? "/change-password"
+        : AUTH_PORTALS[portal].destination,
       userId: data.user.id,
     };
   } catch (error) {

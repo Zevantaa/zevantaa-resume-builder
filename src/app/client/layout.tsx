@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
 
 import { DashboardShell, type DashboardNavigationItem } from "@/components/dashboard/dashboard-shell";
 import { requireApplicationRole } from "@/features/authentication/authorization";
@@ -20,9 +21,10 @@ export default async function ClientLayout({
 }: {
   children: ReactNode;
 }) {
-  const [, branding] = await Promise.all([
+  const [auth, branding] = await Promise.all([
     requireApplicationRole("client"),
     getBrandSettings(),
   ]);
+  if (auth.mustChangePassword) redirect("/change-password");
   return <DashboardShell navigation={navigation} portal="client" logoSrc={brandLogoPath(branding)}>{children}</DashboardShell>;
 }
