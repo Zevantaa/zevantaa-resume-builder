@@ -44,7 +44,8 @@ function bullets(values: readonly string[] | undefined): PdfBlock[] {
 }
 
 function section(id: string, title: string, blocks: PdfBlock[]): PdfSection[] {
-  return blocks.length ? [{ id, title, blocks }] : [];
+  return blocks.length ? [{ id, title, blocks, headingStyle: "ruled",
+    ...(blocks[0]?.kind === "entry" ? { keepWithFirstEntry: true } : {}) }] : [];
 }
 
 export class GlobalAtsResumeNotReadyError extends Error {
@@ -71,29 +72,23 @@ export function buildGlobalAtsResumeModel(
     throw new GlobalAtsResumeNotReadyError(mapping.findings);
   }
 
-  const primaryContact = joined([
-    data.identity.primaryEmail,
-    data.identity.mobileNumber,
-    data.identity.whatsappNumber && `WhatsApp: ${data.identity.whatsappNumber}`,
-  ]);
+  const role = data.employment?.find((item) => item.currentRole) ?? data.employment?.[0];
+  const primaryContact = joined([data.identity.currentLocation, data.identity.mobileNumber,
+    data.identity.primaryEmail, data.identity.whatsappNumber && `WhatsApp: ${data.identity.whatsappNumber}`]);
   const identity: PdfSection = { id: "identity", blocks: privacy ? [
-    { kind: "heading", level: 1, text: data.identity.fullName },
-    { kind: "paragraph", text: `Zevantaa Careers | Candidate Reference: ${privacy.referenceId}` },
+    { kind: "premium-identity", style: "global-ats", name: data.identity.fullName,
+      headline: role?.jobTitle, contact: [`Zevantaa Careers | Candidate Reference: ${privacy.referenceId}`,
+        ...(data.identity.currentLocation ? [data.identity.currentLocation] : [])] },
     { kind: "paragraph", text: "For candidate contact, please route communication through Zevantaa Careers and quote the reference above." },
-    ...paragraph(data.identity.currentLocation),
   ] : [
-    { kind: "heading", level: 1, text: data.identity.fullName },
-    ...paragraph(primaryContact),
+    { kind: "premium-identity", style: "global-ats", name: data.identity.fullName,
+      headline: role?.jobTitle, contact: [primaryContact] },
     ...urlParagraphs(data.identity.linkedinUrl),
-    ...paragraph(data.identity.currentLocation),
   ] };
 
-  const employment = (data.employment ?? []).flatMap((item): PdfBlock[] => [
-    { kind: "heading", level: 2, text: joined([item.jobTitle, item.employerName]) },
-    ...paragraph(joined([item.location, dateRange(item.startDate, item.endDate, item.currentRole)])),
-    ...paragraph(item.description),
-    ...bullets(item.highlights),
-  ]);
+  const employment = (data.employment ?? []).map((item): PdfBlock => ({ kind: "entry", title: item.jobTitle,
+    subtitle: item.employerName, date: dateRange(item.startDate, item.endDate, item.currentRole), location: item.location,
+    description: item.description, bullets: item.highlights, keepTogether: false, keepOpeningTogether: true }));
   const education = (data.education ?? []).flatMap((item): PdfBlock[] => [
     { kind: "heading", level: 2, text: joined([item.qualification, item.institutionName]) },
     ...paragraph(joined([

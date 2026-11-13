@@ -11,7 +11,7 @@ const navigation: readonly DashboardNavigationItem[] = [
   { href: "/admin/clients", label: "Client directory" },
   { href: "/admin/clients/new", label: "Create client" },
   { href: "/admin/documents", label: "Documents" },
-  { href: "/admin/workflow", label: "Workflow", note: "Coming later" },
+  { href: "/admin/workflow", label: "Workflow" },
   { href: "/admin/appearance", label: "Appearance" },
 ];
 
@@ -20,8 +20,9 @@ export default async function AdminLayout({
 }: {
   children: ReactNode;
 }) {
-  await requireApplicationRole("admin");
-
-  const branding = await getBrandSettings();
+  const [, branding] = await Promise.all([
+    requireApplicationRole("admin"),
+    getBrandSettings(),
+  ]);
   return <DashboardShell navigation={navigation} portal="admin" logoSrc={brandLogoPath(branding)}>{children}</DashboardShell>;
 }

@@ -46,6 +46,9 @@ export function validateEnvironment(environment, values = process.env) {
   if (environment === "production" && values.NEXT_PUBLIC_APP_URL?.includes("localhost")) {
     problems.push("Production NEXT_PUBLIC_APP_URL cannot be localhost.");
   }
+  if (environment === "production" && values.ENABLE_QA_UTILITIES === "true") {
+    problems.push("Production cannot enable QA utilities.");
+  }
   if (values.SECURITY_RATE_LIMIT_KEY && !PLACEHOLDER.test(values.SECURITY_RATE_LIMIT_KEY.trim()) &&
       values.SECURITY_RATE_LIMIT_KEY.length < 32) {
     problems.push("SECURITY_RATE_LIMIT_KEY must contain at least 32 characters.");

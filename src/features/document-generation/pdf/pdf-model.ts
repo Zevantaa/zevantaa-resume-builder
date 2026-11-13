@@ -22,7 +22,7 @@ export interface PdfSection {
   title?: string;
   blocks: PdfBlock[];
   breakBefore?: boolean;
-  headingStyle?: "plain" | "ruled" | "accent" | "uppercase";
+  headingStyle?: "plain" | "ruled" | "accent" | "uppercase" | "gold-rule" | "editorial";
   /** Render the section title and first structured entry's title/metadata as one opening block. */
   keepWithFirstEntry?: boolean;
 }
@@ -32,9 +32,19 @@ export interface PdfContactItem {
   href?: string;
 }
 
+export type PdfIdentityStyle =
+  | "global-ats"
+  | "boardroom"
+  | "executive-sidebar"
+  | "editorial-masthead"
+  | "gold-accent"
+  | "cover-letter";
+
 export type PdfBlock =
-  | { kind: "gcc-identity"; name: string; details: string[]; photoDataUri?: string }
+  | { kind: "gcc-identity"; name: string; headline?: string; details: string[]; photoDataUri?: string }
   | { kind: "european-identity"; name: string; contact: string[]; context: string[] }
+  | { kind: "premium-identity"; style: PdfIdentityStyle; name: string; headline?: string; contact: string[] }
+  | { kind: "competency-grid"; items: string[]; columns?: 2 | 3; tone?: "plain" | "navy" | "gold" }
   | { kind: "heading"; text: string; level?: 1 | 2; keepWithNext?: boolean }
   | { kind: "banner"; title: string; subtitle?: string }
   | { kind: "rule" }
@@ -42,5 +52,5 @@ export type PdfBlock =
   | { kind: "bullets"; items: string[] }
   | { kind: "contact-row"; items: PdfContactItem[] }
   | { kind: "entry"; title: string; subtitle?: string; date?: string; location?: string; description?: string; bullets?: string[]; keepTogether?: boolean; keepOpeningTogether?: boolean }
-  | { kind: "columns"; left: PdfBlock[]; right: PdfBlock[] }
+  | { kind: "columns"; left: PdfBlock[]; right: PdfBlock[]; variant?: "balanced" | "sidebar" | "split-grid" }
   | { kind: "page-break" };

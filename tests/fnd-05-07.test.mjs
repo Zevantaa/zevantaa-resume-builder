@@ -8,7 +8,7 @@ const authorizationModule =
 const adminModule =
   "data:text/javascript,export%20function%20createSupabaseAdminClient()%7Breturn%20globalThis.__fnd05.client%7D";
 const actionServiceModule =
-  "data:text/javascript,export%20async%20function%20provisionClientAccount(input)%7Breturn%20globalThis.__fnd05.provision(input)%7D%3Bexport%20async%20function%20updateClientAccount(input)%7Breturn%20globalThis.__fnd05.update(input)%7D";
+  "data:text/javascript,export%20async%20function%20provisionClientAccount(input)%7Breturn%20globalThis.__fnd05.provision(input)%7D%3Bexport%20async%20function%20retryClientInvitation(id)%7Breturn%20globalThis.__fnd05.retry(id)%7D%3Bexport%20async%20function%20updateClientAccount(input)%7Breturn%20globalThis.__fnd05.update(input)%7D";
 const mockModule = (source) => `data:text/javascript,${encodeURIComponent(source)}`;
 
 registerHooks({
@@ -78,7 +78,7 @@ const { createClientAccountAction } = await import(
 const { editClientAccountAction } = await import(
   "../src/features/admin-portal/edit-client-account-action.ts"
 );
-const { provisionClientAccount, updateClientAccount, getProvisionedClient } = await import(
+const { provisionClientAccount, retryClientInvitation, updateClientAccount, getProvisionedClient } = await import(
   "../src/features/admin-portal/client-account-service.ts"
 );
 const { requireApplicationRole } = await import(
@@ -163,7 +163,11 @@ function setup() {
       },
     ],
     roles: [],
+    invitations: [],
     authCreateCalls: 0,
+    recoveryCalls: 0,
+    recoveryRedirect: null,
+    failInviteOnce: false,
     failRoleInsert: false,
     failRoleUpdate: false,
     revalidated: [],
@@ -175,9 +179,13 @@ function setup() {
         ? state.candidates
         : table === "package_definitions"
           ? state.packages
-          : state.roles;
+          : table === "client_onboarding_invitations"
+            ? state.invitations
+            : state.roles;
     const filters = [];
     let updateValues;
+    let insertValues;
+    let insertApplied = false;
     const builder = {
       select() { return this; },
       eq(key, value) { filters.push((row) => row[key] === value); return this; },
@@ -187,10 +195,14 @@ function setup() {
       update(values) { updateValues = values; return this; },
       insert(values) {
         if (table === "user_roles" && state.failRoleInsert) {
-          return Promise.resolve({ error: { code: "linkage_failed" } });
+          return { select() { return this; }, maybeSingle() { return Promise.resolve({ data: null, error: { code: "linkage_failed" } }); }, then(resolve) { return Promise.resolve({ data: null, error: { code: "linkage_failed" } }).then(resolve); } };
         }
-        records.push({ ...values });
-        return Promise.resolve({ error: null });
+        insertValues = { ...(Array.isArray(values) ? values[0] : values) };
+        if (table === "client_onboarding_invitations") {
+          insertValues.id ??= "abababab-abab-4bab-8bab-abababababab";
+          insertValues.accepted_at ??= null;
+        }
+        return this;
       },
       delete() {
         return {
@@ -209,8 +221,13 @@ function setup() {
         return { data: null, error: { code: "role_update_failed" } };
       }
       const found = records.filter((row) => filters.every((filter) => filter(row)));
+      if (insertValues && !insertApplied) {
+        records.push(insertValues);
+        insertApplied = true;
+        return { data: single ? structuredClone(insertValues) : null, error: null };
+      }
       if (updateValues) found.forEach((row) => Object.assign(row, updateValues));
-      return { data: single ? found[0] ?? null : found, error: null };
+      return { data: structuredClone(single ? found[0] ?? null : found), error: null };
     }
     return builder;
   }
@@ -219,16 +236,25 @@ function setup() {
     from: query,
     auth: {
       admin: {
-        async createUser({ email, password, email_confirm }) {
+        async inviteUserByEmail(email, options) {
           state.authCreateCalls += 1;
-          if (state.authUsers.some((user) => user.email === email)) {
-            return { data: { user: null }, error: { code: "email_exists" } };
+          if (state.failInviteOnce) {
+            state.failInviteOnce = false;
+            return { data: { user: null }, error: { code: "smtp_failed" } };
+          }
+          const existing = state.authUsers.find((user) => user.email === email);
+          if (existing) {
+            if (existing.email_confirmed_at) {
+              return { data: { user: null }, error: { code: "email_exists" } };
+            }
+            existing.invitation_redirect_to = options.redirectTo;
+            return { data: { user: existing }, error: null };
           }
           const user = {
             id: userId,
             email,
-            password,
-            email_confirmed_at: email_confirm ? new Date().toISOString() : null,
+            invitation_redirect_to: options.redirectTo,
+            email_confirmed_at: null,
           };
           state.authUsers.push(user);
           return { data: { user }, error: null };
@@ -251,6 +277,13 @@ function setup() {
           return { error: null };
         },
       },
+      async resetPasswordForEmail(email, options) {
+        const user = state.authUsers.find((record) => record.email === email);
+        if (!user?.email_confirmed_at) return { data: {}, error: { code: "not_confirmed" } };
+        state.recoveryCalls += 1;
+        state.recoveryRedirect = options.redirectTo;
+        return { data: {}, error: null };
+      },
     },
   };
   globalThis.__fnd05 = {
@@ -263,13 +296,14 @@ function setup() {
     },
     currentRole: "admin",
     provision: provisionClientAccount,
+    retry: (id) => retryClientInvitation(id),
     update: updateClientAccount,
     revalidated: state.revalidated,
   };
   return state;
 }
 
-test("generated credentials create a confirmed, linked client without a database password", async () => {
+test("client creation sends a secure invitation and stores no plaintext password", async () => {
   const state = setup();
   const result = await createClientAccountAction({ status: "idle" }, form({
     candidateProfileId: candidateId,
@@ -278,20 +312,92 @@ test("generated credentials create a confirmed, linked client without a database
     accountStatus: "active",
   }));
   assert.equal(result.status, "success");
-  assert.match(result.credentials.temporaryPassword, /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{20}$/);
-  assert.ok(state.authUsers[0].email_confirmed_at);
+  assert.deepEqual(result.invitation, {
+    deliveryStatus: "sent",
+    email: "fictional@example.invalid",
+    invitationId: "abababab-abab-4bab-8bab-abababababab",
+  });
+  assert.equal(state.authUsers[0].email_confirmed_at, null);
+  assert.match(state.authUsers[0].invitation_redirect_to, /intent=invite/u);
   assert.deepEqual(state.roles[0], {
     account_status: "active",
     candidate_profile_id: candidateId,
     role_code: "client",
     user_id: userId,
   });
-  assert.ok(!JSON.stringify(state.roles).includes(result.credentials.temporaryPassword));
-  assert.ok(!JSON.stringify(state.candidates).includes(result.credentials.temporaryPassword));
-  assert.match(result.credentials.welcomeMessage, /Fictional Candidate/);
-  assert.match(result.credentials.welcomeMessage, /Indian Domestic/);
-  assert.ok(!result.credentials.emailLink.includes(result.credentials.temporaryPassword));
-  assert.ok(!result.credentials.whatsappLink?.includes(result.credentials.temporaryPassword));
+  assert.ok(!JSON.stringify(state).includes("temporaryPassword"));
+  assert.equal(state.invitations[0].delivery_status, "sent");
+  assert.equal(state.invitations[0].auth_user_id, userId);
+});
+
+test("failed invitation delivery has a durable state and retries exactly once", async () => {
+  const state = setup();
+  state.failInviteOnce = true;
+  const failed = await createClientAccountAction({ status: "idle" }, form({
+    candidateProfileId: candidateId, accountStatus: "active",
+  }));
+  assert.equal(failed.status, "error");
+  assert.equal(failed.invitation.deliveryStatus, "failed");
+  assert.equal(state.invitations[0].delivery_status, "failed");
+  assert.equal(state.roles.length, 0);
+
+  const retried = await createClientAccountAction(failed, form({
+    retryInvitationId: failed.invitation.invitationId,
+  }));
+  assert.equal(retried.status, "success");
+  assert.equal(retried.invitation.deliveryStatus, "sent");
+  assert.equal(state.invitations[0].attempt_count, 2);
+  assert.equal(state.roles.length, 1);
+  assert.equal(state.authCreateCalls, 2);
+
+  assert.deepEqual(await retryClientInvitation(failed.invitation.invitationId), {
+    ok: true, invitationId: failed.invitation.invitationId, email: "fictional@example.invalid",
+  });
+  assert.equal(state.authCreateCalls, 3);
+  assert.equal(state.invitations[0].attempt_count, 3);
+  state.invitations[0].accepted_at = "2026-11-11T12:00:00Z";
+  assert.deepEqual(await retryClientInvitation(failed.invitation.invitationId), {
+    code: "invitation-state", ok: false,
+  });
+  assert.equal(state.authCreateCalls, 3);
+});
+
+test("confirmed but unfinished clients receive a recovery setup email without relinking or deletion", async () => {
+  const state = setup();
+  const created = await provisionClientAccount({
+    accountStatus: "active", candidateProfileId: candidateId, profile,
+  });
+  assert.equal(created.ok, true);
+  state.authUsers[0].email_confirmed_at = "2026-11-11T10:00:00Z";
+  const roleBefore = structuredClone(state.roles[0]);
+  const resent = await retryClientInvitation(created.invitationId);
+  assert.deepEqual(resent, {
+    ok: true, invitationId: created.invitationId, email: "fictional@example.invalid",
+  });
+  assert.equal(state.recoveryCalls, 1);
+  assert.match(state.recoveryRedirect, /portal=client/u);
+  assert.doesNotMatch(state.recoveryRedirect, /intent=invite/u);
+  assert.equal(state.authCreateCalls, 1);
+  assert.equal(state.authUsers.length, 1);
+  assert.deepEqual(state.roles[0], roleBefore);
+  assert.equal(state.invitations[0].attempt_count, 2);
+  assert.equal(state.invitations[0].delivery_status, "sent");
+});
+
+test("concurrent setup-email requests claim one durable attempt", async () => {
+  const state = setup();
+  const created = await provisionClientAccount({
+    accountStatus: "active", candidateProfileId: candidateId, profile,
+  });
+  const results = await Promise.all([
+    retryClientInvitation(created.invitationId),
+    retryClientInvitation(created.invitationId),
+  ]);
+  assert.equal(results.filter((result) => result.ok).length, 1);
+  assert.equal(results.filter((result) => !result.ok && result.code === "invitation-state").length, 1);
+  assert.equal(state.authCreateCalls, 2);
+  assert.equal(state.invitations[0].attempt_count, 2);
+  assert.equal(state.invitations[0].delivery_status, "sent");
 });
 
 test("admin provisioning persists all authoritative fields on the existing profile", async () => {
@@ -322,9 +428,7 @@ test("admin provisioning persists all authoritative fields on the existing profi
   assert.equal(state.candidates[0].selected_package_code, "gcc-middle-east");
   assert.deepEqual(state.candidates[0].target_markets, ["gcc-middle-east"]);
   assert.equal(state.authUsers[0].email, "updated@example.invalid");
-  assert.match(result.credentials.welcomeMessage, /GCC \/ Middle East/);
-  assert.ok(result.credentials.whatsappLink.startsWith("https://wa.me/447700900456?"));
-  assert.ok(!result.credentials.whatsappLink.includes(result.credentials.temporaryPassword));
+  assert.equal(result.invitation.deliveryStatus, "sent");
 });
 
 test("admin can provision a new candidate before the first private resume upload", async () => {
@@ -350,7 +454,7 @@ test("admin can provision a new candidate before the first private resume upload
   assert.equal(state.authUsers[0].email, created.primary_email);
 });
 
-test("failed new-candidate linkage removes the new profile and Auth user", async () => {
+test("failed new-candidate linkage retains retryable profile state and removes the Auth user", async () => {
   const state = setup();
   state.failRoleInsert = true;
   const result = await createClientAccountAction({ status: "idle" }, form({
@@ -364,9 +468,10 @@ test("failed new-candidate linkage removes the new profile and Auth user", async
     accountStatus: "active",
   }));
   assert.equal(result.status, "error");
-  assert.equal(state.candidates.length, 1);
+  assert.equal(state.candidates.length, 2);
   assert.equal(state.authUsers.length, 0);
   assert.equal(state.roles.length, 0);
+  assert.equal(state.invitations[0].delivery_status, "failed");
 });
 
 test("invalid core fields and inactive package are rejected before account creation", async () => {
@@ -396,7 +501,7 @@ test("invalid core fields and inactive package are rejected before account creat
   assert.equal(state.authCreateCalls, 0);
 });
 
-test("failed role linkage restores candidate data and removes the new Auth user", async () => {
+test("failed role linkage preserves authoritative edits for safe invitation retry", async () => {
   const state = setup();
   state.failRoleInsert = true;
   const before = structuredClone(state.candidates[0]);
@@ -411,15 +516,14 @@ test("failed role linkage restores candidate data and removes the new Auth user"
   assert.equal(result.status, "error");
   assert.equal(state.authUsers.length, 0);
   assert.equal(state.roles.length, 0);
-  for (const key of ["full_name", "primary_email", "mobile_number", "whatsapp_number", "linkedin_url", "current_location", "relocation_preference", "selected_package_code"]) {
-    assert.equal(state.candidates[0][key], before[key], key);
-  }
-  assert.deepEqual(state.candidates[0].target_markets, before.target_markets);
+  assert.notEqual(state.candidates[0].full_name, before.full_name);
+  assert.equal(state.candidates[0].full_name, "Changed Fiction");
+  assert.equal(state.invitations[0].delivery_status, "failed");
 });
 
 test("duplicate email and candidate linkage are rejected", async () => {
   const state = setup();
-  state.authUsers.push({ id: "other", email: "fictional@example.invalid" });
+  state.authUsers.push({ id: "other", email: "fictional@example.invalid", email_confirmed_at: "2026-11-11T08:00:00Z" });
   const input = {
     accountStatus: "active",
     candidateProfileId: candidateId,
@@ -433,7 +537,7 @@ test("duplicate email and candidate linkage are rejected", async () => {
   assert.equal(state.authCreateCalls, 1);
 });
 
-test("weak or malformed creation input is rejected before Auth creation", async () => {
+test("malformed creation input is rejected before Auth invitation", async () => {
   const state = setup();
   const result = await createClientAccountAction({ status: "idle" }, form({
     candidateProfileId: candidateId,
@@ -444,7 +548,6 @@ test("weak or malformed creation input is rejected before Auth creation", async 
   }));
   assert.equal(result.status, "error");
   assert.ok(result.fieldErrors.email);
-  assert.ok(result.fieldErrors.temporaryPassword);
   assert.equal(state.authCreateCalls, 0);
 });
 
@@ -472,7 +575,11 @@ test("missing candidate is rejected and disabled provisioning records disabled s
     target_markets: ["indian-domestic"],
     archived_at: null,
   });
-  assert.deepEqual(await provisionClientAccount(input), { ok: true, packageName: "Indian Domestic" });
+  assert.deepEqual(await provisionClientAccount(input), {
+    invitationId: "abababab-abab-4bab-8bab-abababababab",
+    ok: true,
+    packageName: "Indian Domestic",
+  });
   assert.equal(state.roles[0].account_status, "disabled");
 });
 

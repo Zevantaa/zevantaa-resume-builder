@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { InlineAlert, SectionCard } from "@/components/ui";
+import { InlineAlert, PageHeader, SectionCard } from "@/components/ui";
 
 import { ClientAccountForm } from "./client-account-form";
 import { getPackageOptions, listEligibleCandidateProfiles } from "./client-account-service";
@@ -11,19 +11,14 @@ export async function CreateClientAccountPage() {
   return (
     <div className="dashboard-page">
       <div className="layout-container-readable layout-stack">
-        <header className="layout-stack client-account-header">
-          <div>
-            <p className="type-label text-text-muted">Admin portal</p>
-            <h1 className="type-heading-1 text-text">Create client account</h1>
-          </div>
-          <p className="type-body text-text-muted">
-            Create a new candidate or select an existing unlinked profile, review
-            core details, assign a package, and provision email/password access.
-          </p>
-        </header>
+        <PageHeader
+          description="Create a new candidate or select an existing unlinked profile, review core details, assign a package, and send secure password-setup access."
+          eyebrow="Admin portal"
+          title="Create client account"
+        />
 
         <SectionCard
-          description="Credentials are created in Supabase Auth through a trusted server action."
+          description="A one-time invitation is sent through Supabase Auth by a trusted server action; no password is shown to the administrator."
           title="Account details"
         >
           {candidates.length === 0 ? <InlineAlert variant="information">No existing candidate profiles are available. Create a new profile below.</InlineAlert> : null}

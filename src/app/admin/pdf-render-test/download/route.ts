@@ -14,6 +14,7 @@ import { renderPdfDownloadResponse } from "@/features/document-generation/pdf/pd
 import { buildPdfFilename } from "@/features/document-generation/pdf/pdf-filename";
 import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
 import type { CoverLetterType } from "@/types/document-record";
+import { areQaUtilitiesEnabled, qaNotFoundResponse } from "../../../../lib/qa-utilities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,7 @@ const names: Record<PdfRenderQaScenario, string> = {
 
 /** Admin-only POST harness. No candidate ID, profile data, or storage path is accepted. */
 export async function POST(request: Request): Promise<Response> {
+  if (!areQaUtilitiesEnabled()) return qaNotFoundResponse();
   await requireApplicationRole("admin");
 
   const origin = request.headers.get("origin");

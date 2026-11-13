@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
   if (
     !requestUrl.searchParams.has("error") &&
-    (code || (tokenHash && type === "recovery"))
+    (code || (tokenHash && (type === "recovery" || type === "invite")))
   ) {
     try {
       const supabase = await createServerSupabaseClient();
@@ -43,13 +43,13 @@ export async function GET(request: Request) {
         // omits it from this method's public TypeScript return type.
         const redirectType = (data as typeof data & { redirectType?: string })
           .redirectType;
-        if (!error && redirectType === "recovery") {
+        if (!error && (redirectType === "recovery" || redirectType === "invite")) {
           recoveryUserId = data.user?.id;
         }
       } else if (tokenHash) {
         const { data, error } = await supabase.auth.verifyOtp({
           token_hash: tokenHash,
-          type: "recovery",
+          type: type as "recovery" | "invite",
         });
         if (!error) recoveryUserId = data.user?.id;
       }

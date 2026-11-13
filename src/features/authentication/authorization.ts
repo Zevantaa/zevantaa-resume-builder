@@ -1,6 +1,7 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -20,7 +21,7 @@ function isAccountStatus(value: unknown): value is AccountStatus {
   return value === "active" || value === "disabled";
 }
 
-export async function getAuthContext(): Promise<AuthContext> {
+async function loadAuthContext(): Promise<AuthContext> {
   if (!isSupabaseConfigured()) {
     return { accountStatus: null, role: null, userId: null };
   }
@@ -63,6 +64,13 @@ export async function getAuthContext(): Promise<AuthContext> {
     return { accountStatus: null, role: null, userId: null };
   }
 }
+
+/**
+ * Deduplicate claims verification and the role lookup when a layout and page
+ * services authorize the same render. React clears this cache for each server
+ * request, so authorization is never persisted across navigations.
+ */
+export const getAuthContext = cache(loadAuthContext);
 
 export async function requireApplicationRole(
   expectedRole: ApplicationRole,

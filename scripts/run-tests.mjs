@@ -23,6 +23,12 @@ if (testFiles.length === 0) {
 
 const result = spawnSync(process.execPath, ["--test", ...testFiles], {
   cwd: projectRoot,
+  env: {
+    ...process.env,
+    DEPLOYMENT_ENV: "local",
+    ENABLE_QA_UTILITIES: "true",
+    VERCEL_ENV: "development",
+  },
   stdio: "inherit",
 });
 if (result.error) throw result.error;

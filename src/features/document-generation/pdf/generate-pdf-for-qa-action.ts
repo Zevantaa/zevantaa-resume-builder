@@ -1,6 +1,7 @@
 "use server";
 
 import { requireApplicationRole } from "@/features/authentication/authorization";
+import { assertQaUtilitiesEnabled } from "../../../lib/qa-utilities";
 
 import { createPdfRenderQaModel } from "./pdf-render-qa-fixtures";
 import type { PdfRenderQaResult, PdfRenderQaScenario } from "./pdf-render-qa-types";
@@ -9,6 +10,7 @@ import { renderPdfDocument } from "./render-pdf";
 const scenarios: readonly PdfRenderQaScenario[] = ["one-page", "multi-page", "unicode"];
 
 export async function generatePdfForQaAction(scenario: PdfRenderQaScenario): Promise<PdfRenderQaResult> {
+  assertQaUtilitiesEnabled();
   await requireApplicationRole("admin");
   if (!scenarios.includes(scenario)) throw new Error("Unsupported PDF QA scenario.");
 

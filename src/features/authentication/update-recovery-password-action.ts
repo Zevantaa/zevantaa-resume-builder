@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import {
   isValidRecoveryProof,
@@ -37,6 +38,12 @@ export async function updateRecoveryPasswordAction(password: string) {
   if (updateError) {
     throw new Error("We could not update your password. Request a new link and try again.");
   }
+  // This is a no-op for ordinary recovery users. For invited clients it records
+  // genuine activation only after the password was successfully established.
+  await createSupabaseAdminClient().from("client_onboarding_invitations").update({
+    accepted_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }).eq("auth_user_id", data.user.id).eq("delivery_status", "sent").is("accepted_at", null);
   if (process.env.NODE_ENV === "production") {
     await (await import("@/lib/security/audit-events")).recordSecurityEvent({
       eventType: "recovery.password.updated", actorUserId: data.user.id, outcome: "success",

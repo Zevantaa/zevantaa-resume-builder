@@ -96,7 +96,7 @@ test("normal profile retains all sections, explicit dates and supplied detail", 
   t.diagnostic(`European normal: ${pages.length} A4 pages`);
   assert.ok(pages.length >= 1 && pages.length <= 3);
   const text = pages.map((page) => page.text).join(" ");
-  for (const phrase of ["PROFILE", "Professional Profile", "Work Experience", "Education and Training",
+  for (const phrase of ["Europass Curriculum Vitae", "PERSONAL INFORMATION", "Professional Profile", "Work Experience", "Education and Training",
     "Skills", "Languages", "Certifications", "Projects", "Additional Information", "Jan 2014 - Dec 2014",
     "CGPA 8.1/10", "Issued: 2021", "Hindi (professional working)", "Role 1, supplied bullet 1"]) {
     assert.ok(text.includes(phrase), `Missing ${phrase}`);

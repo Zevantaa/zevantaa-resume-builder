@@ -99,19 +99,19 @@ export function buildCoverLetterContent(mapping: DocumentDataMappingResult, type
     throw new CoverLetterNotReadyError();
   }
 
-  const openings: Record<CoverLetterType, string> = {
-    "general-corporate": "I am writing regarding a professional opportunity with your organization.",
-    "international-relocation": "I am writing regarding an international opportunity with your organization.",
-    "technology-startup": "I am writing regarding a technology or startup opportunity with your organization.",
+  const opportunities: Record<CoverLetterType, string> = {
+    "general-corporate": "a professional opportunity",
+    "international-relocation": "an international opportunity",
+    "technology-startup": "a technology or startup opportunity",
   };
-  const paragraphs: SourcedLetterParagraph[] = [{ text: openings[type], sourcePaths: [] }];
+  const paragraphs: SourcedLetterParagraph[] = [];
   const role = recentRole(data);
   const skills = (data.skills ?? []).filter((item) => hasText(item.name) && clean(item.name).length <= 60 &&
     !/candidate[\s-]+supplied/iu.test(item.name)).slice(0, 3);
   if (role) {
     const skillClause = skills.length ? `, alongside work involving ${list(skills.map((item) => item.name))}` : "";
     const main: SourcedLetterParagraph[] = [{
-      text: sentence(`My background includes experience as ${role.jobTitle} with ${role.employerName}${skillClause}`),
+      text: sentence(`I am interested in ${opportunities[type]} where I can contribute the experience gained as ${role.jobTitle} with ${role.employerName}${skillClause}`),
       sourcePaths: [`employment.${role.id}`, ...skills.map((item) => `skills.${item.id}.name`)],
     }];
     const evidence = conciseSupplied(role.description, 160);
@@ -122,8 +122,10 @@ export function buildCoverLetterContent(mapping: DocumentDataMappingResult, type
     const firstBody = combined(main);
     if (firstBody) paragraphs.push(firstBody);
   } else if (skills.length) {
-    paragraphs.push({ text: sentence(`My skills include ${list(skills.map((item) => item.name))}`),
+    paragraphs.push({ text: sentence(`I am interested in ${opportunities[type]}. My skills include ${list(skills.map((item) => item.name))}`),
       sourcePaths: skills.map((item) => `skills.${item.id}.name`) });
+  } else {
+    paragraphs.push({ text: sentence(`I am interested in ${opportunities[type]} with your organization`), sourcePaths: [] });
   }
 
   const details: SourcedLetterParagraph[] = [];
@@ -174,19 +176,43 @@ export function buildCoverLetterContent(mapping: DocumentDataMappingResult, type
   }
   const secondBody = combined(details);
   if (secondBody) paragraphs.push(secondBody);
-  if (paragraphs.length === 1) throw new CoverLetterNotReadyError();
+  if (!paragraphs.length) throw new CoverLetterNotReadyError();
   paragraphs.push({ text: "Thank you for considering my application. I would welcome the opportunity to discuss my background further.", sourcePaths: [] });
   return { type, candidateName: data.identity.fullName, contactLines: contactLines(data),
     salutation: "Dear Hiring Manager,", paragraphs, signOff: "Sincerely," };
 }
 
-/** All three variants share one restrained, selectable-text business-letter layout. */
+/** Corporate and relocation use their approved references; Technology & Startup stays on the existing
+ * restrained layout until a category-matched reference is approved. */
 export function buildCoverLetterModel(mapping: DocumentDataMappingResult, type: CoverLetterType): CoverLetterOutput {
   const content = buildCoverLetterContent(mapping, type);
+  const role = recentRole(mapping.data);
+  if (type === "technology-startup") {
+    const blocks: PdfBlock[] = [
+      { kind: "heading", level: 1, text: content.candidateName, keepWithNext: true },
+      ...content.contactLines.map((text): PdfBlock => ({ kind: "paragraph", text, small: true })),
+      { kind: "rule" },
+      { kind: "heading", level: 2, text: "Re: Technology & Startup Opportunity", keepWithNext: true },
+      { kind: "paragraph", text: content.salutation, keepWithNext: true },
+      ...content.paragraphs.map((item): PdfBlock => ({ kind: "paragraph", text: item.text })),
+      { kind: "paragraph", text: content.signOff, keepWithNext: true },
+      { kind: "paragraph", text: content.candidateName },
+    ];
+    return { content, model: { sourceProfileId: mapping.data.sourceProfileId,
+      title: `${content.candidateName} - ${COVER_LETTER_LABELS[type]} Cover Letter`,
+      sections: [{ id: "letter", blocks }], footer: { text: "Zevantaa Careers", pageNumbers: "current", alignment: "right" } }, theme: {
+        margins: { top: 52, right: 58, bottom: 52, left: 58 },
+        typography: { bodySize: 10.4, smallSize: 8.8, heading1Size: 18, heading2Size: 11.4,
+          lineHeight: 1.5, paragraphGap: 11, sectionGap: 1, bulletIndent: 12 },
+        accentColor: "#274965", textColor: "#17263C", mutedColor: "#46566A",
+      } };
+  }
   const blocks: PdfBlock[] = [
-    { kind: "heading", level: 1, text: content.candidateName, keepWithNext: true },
-    ...content.contactLines.map((text): PdfBlock => ({ kind: "paragraph", text, small: true })),
-    { kind: "rule" },
+    { kind: "premium-identity", style: "cover-letter", name: content.candidateName,
+      headline: role?.jobTitle, contact: content.contactLines },
+    { kind: "heading", level: 2,
+      text: type === "general-corporate" ? "Re: Professional Opportunity" : "Re: International Opportunity",
+      keepWithNext: true },
     { kind: "paragraph", text: content.salutation, keepWithNext: true },
     ...content.paragraphs.map((item): PdfBlock => ({ kind: "paragraph", text: item.text })),
     { kind: "paragraph", text: content.signOff, keepWithNext: true },
@@ -194,10 +220,11 @@ export function buildCoverLetterModel(mapping: DocumentDataMappingResult, type: 
   ];
   return { content, model: { sourceProfileId: mapping.data.sourceProfileId,
     title: `${content.candidateName} - ${COVER_LETTER_LABELS[type]} Cover Letter`,
-    sections: [{ id: "letter", blocks }] }, theme: {
+    sections: [{ id: "letter", blocks }], footer: { text: "Zevantaa Careers", pageNumbers: "current", alignment: "right" } }, theme: {
       margins: { top: 55, right: 55, bottom: 55, left: 55 },
-      typography: { bodySize: 10.2, smallSize: 8.7, heading1Size: 18, heading2Size: 11,
-        lineHeight: 1.43, paragraphGap: 11, sectionGap: 1, bulletIndent: 12 },
-      accentColor: "#274965", textColor: "#17263C", mutedColor: "#46566A",
+      typography: { bodySize: 10.4, smallSize: 8.8, heading1Size: 19, heading2Size: 11.4,
+        lineHeight: 1.5, paragraphGap: 11, sectionGap: 1, bulletIndent: 12 },
+      accentColor: "#0F172A", secondaryAccentColor: "#0284C7", surfaceColor: "#F8FAFC",
+      textColor: "#1E293B", mutedColor: "#475569",
     } };
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { requireApplicationRole } from "@/features/authentication/authorization";
+import { assertQaUtilitiesEnabled } from "../../lib/qa-utilities";
 
 import { extractCurrentClientSourceResume } from "./current-client-resume-service";
 import type { ExtractionTestOutcome } from "./extraction-test-types";
@@ -8,6 +9,7 @@ import type { ExtractionTestOutcome } from "./extraction-test-types";
 const PREVIEW_LIMIT = 12_000;
 
 export async function extractResumeForQaAction(): Promise<ExtractionTestOutcome> {
+  assertQaUtilitiesEnabled();
   await requireApplicationRole("client");
 
   // The extractor resolves the active client's linked file and private object key.

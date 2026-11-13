@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { DataTable, StatusBadge, TableBody, TableCell, TableContainer,
+import { DataTable, PageHeader, StatusBadge, TableBody, TableCell, TableContainer,
   TableEmptyState, TableHeader, TableHeaderCell, TableRow } from "@/components/ui";
 import { ADMIN_DIRECTORY_PAGE_SIZE, directoryHref, parseAdminDirectoryFilters } from "./admin-directory-model";
 import { AdminDirectoryFilterForm } from "./admin-directory-filters";
@@ -23,14 +23,13 @@ export async function AdminDirectoryWorkspace({ mode, searchParams }: {
   const data = await getAdminDirectoryData(filters);
   const base = mode === "overview" ? "/admin" : "/admin/clients";
   return <div className="dashboard-page dashboard-workspace-page admin-directory-page">
-    <header className="dashboard-workspace-intro dashboard-admin-intro">
-      <div>
-        <p className="type-label dashboard-kicker">Zevantaa Master Admin Panel · Pipeline Control</p>
-        <h1 className="type-heading-1">{mode === "overview" ? "See what needs attention first." : "Clients"}</h1>
-        <p className="type-body text-text-muted">Find a client, check review and document state, or open their existing management workspace.</p>
-      </div>
-      <Link className="type-button dashboard-primary-link" href="/admin/clients/new">Create client account</Link>
-    </header>
+    <PageHeader
+      actions={<Link className="type-button dashboard-primary-link" href="/admin/clients/new">Create client account</Link>}
+      className="dashboard-admin-intro"
+      description="Find a client, check review and document state, or open their existing management workspace."
+      eyebrow="Zevantaa Master Admin Panel · Pipeline Control"
+      title={mode === "overview" ? "See what needs attention first." : "Clients"}
+    />
 
     {mode === "overview" && <section aria-label="Operational overview" className="admin-directory-metrics">
       <div><strong>{data.metrics.clients}</strong><span>Provisioned clients</span></div>

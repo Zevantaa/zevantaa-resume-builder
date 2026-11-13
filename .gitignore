@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/output/
 
 # next.js
 /.next/
@@ -39,6 +40,11 @@ yarn-error.log*
 
 # supabase cli local metadata
 /supabase/.temp/
+
+# release evidence and backups must remain outside Git
+/release-evidence/
+/backups/
+/restore-evidence/
 
 # typescript
 *.tsbuildinfo
