@@ -2,7 +2,7 @@
 
 Audited 28 November 2026 on `feature/master-template-fidelity` from `origin/develop` (`1281f65`). The only documented external reference directory is `C:\Development\zevantaa-design-references` (called **R** below). All 20 files in R were opened or rendered for inspection: 10 HTML files and 10 PDFs. The audit command `node scripts/audit-master-template-references.mjs "C:\Development\zevantaa-design-references"` found 10 named pairs, no unlisted files, no byte-identical duplicates, and selectable text on every PDF page. Reference page images were rendered with `scripts/render-pdf-visual-qa.mjs` and inspected. The supplied sample candidate information is design reference content only.
 
-The user identifies these as approved designs, but no signed approval manifest, embedded design version, or HTML-to-PDF build provenance was supplied. File modified times on 11 November 2026 are **copy times, not approval dates**. “Matching version” therefore remains **Unknown** even where the two files visibly share a design. No image comparison using identical sample data has yet been completed.
+The user previously described this reference set as the approved **5 November 2026** designs. No per-file approval manifest, embedded design version, or HTML-to-PDF build provenance was supplied. File modified times on 11 November 2026 are **copy times, not approval dates**. The table's “reference date” is unknown per file even though the set has a user-stated approval date. “Matching version” remains **Unknown** even where the two files visibly share a design. No image comparison using identical sample data has yet been completed.
 
 ## Frozen V1 outputs
 
