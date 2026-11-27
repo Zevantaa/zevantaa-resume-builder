@@ -198,6 +198,20 @@ test("overlong supplied summary is omitted rather than dumped into a letter", as
   }
 });
 
+test("very long verified LinkedIn contact does not clip the existing Technology letter", async () => {
+  const profile = createCoverLetterQaProfile();
+  profile.linkedinUrl = `https://www.linkedin.com/in/${"verified-fictional-profile-".repeat(8)}`;
+  const output = buildCoverLetterModel(map(profile), "technology-startup");
+  const pages = await inspect(await renderPdfDocument(output.model, output.theme));
+  assert.equal(pages.length, 1);
+  assert.match(pages[0].text, /linkedin\.com\/in\//);
+  for (const item of pages[0].items) {
+    const x = item.transform[4];
+    assert.ok(x >= 15 && x + item.width <= pages[0].width - 15,
+      `horizontal clip: ${item.str}`);
+  }
+});
+
 test("production route denies signed-out/client access, reloads facts and rejects tampering", async () => {
   const userId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   const url = `http://localhost:3000/admin/clients/${userId}/cover-letters/download`;

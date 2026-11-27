@@ -89,12 +89,12 @@ function bulletItems(items: readonly string[] | undefined, theme: PdfTheme, key:
 function shortEntry(block: Extract<PdfBlock, { kind: "entry" }>, theme: PdfTheme): boolean {
   if (block.keepTogether === false) return false;
   const all = [block.title, block.subtitle, block.date, block.location, block.description, ...(block.bullets ?? [])].filter(hasText);
-  const width = 595 - theme.margins.left - theme.margins.right;
+  const width = (theme.pageSize === "LETTER" ? 612 : 595) - theme.margins.left - theme.margins.right;
   const charsPerLine = Math.max(20, Math.floor(width / (theme.typography.bodySize * 0.55)));
   const lines = all.reduce((count, value) => count + Math.ceil(value.length / charsPerLine), 0);
   const height = lines * theme.typography.bodySize * theme.typography.lineHeight +
     (block.bullets?.length ?? 0) * theme.typography.paragraphGap;
-  return height < (842 - theme.margins.top - theme.margins.bottom) * 0.35;
+  return height < ((theme.pageSize === "LETTER" ? 792 : 842) - theme.margins.top - theme.margins.bottom) * 0.35;
 }
 
 function contactItem(item: PdfContactItem, theme: PdfTheme, key: string) {
@@ -266,7 +266,8 @@ function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
       fontWeight: 700,
       lineHeight: type.lineHeight, color: theme.textColor, marginBottom: type.paragraphGap },
     theme, key, block.keepWithNext === false ? 0 : type.bodySize * type.lineHeight * 2) : null;
-  if (block.kind === "paragraph") return hasText(block.text) ? text(block.text,
+  if (block.kind === "paragraph") return hasText(block.text) ? text(
+    block.small && /^https:\/\//iu.test(block.text) ? wrapContact(block.text, 54) : block.text,
     { fontSize: block.small ? type.smallSize : type.bodySize, lineHeight: type.lineHeight,
       color: theme.textColor, marginBottom: type.paragraphGap }, theme, key,
     block.keepWithNext ? type.bodySize * type.lineHeight * 2 : 0) : null;
@@ -389,7 +390,7 @@ export async function renderPdfDocument(model: PdfDocumentModel, overrides: PdfT
   ));
   const header = pageAdornment(model.header, "header", theme);
   const footer = pageAdornment(model.footer, "footer", theme);
-  const page = jsx(Page, { size: "A4", wrap: true,
+  const page = jsx(Page, { size: theme.pageSize, wrap: true,
     style: { paddingTop: theme.margins.top + (header ? ADORNMENT_HEIGHT + ADORNMENT_GAP : 0),
       paddingRight: theme.margins.right,
       paddingBottom: theme.margins.bottom + (footer ? ADORNMENT_HEIGHT + ADORNMENT_GAP : 0),

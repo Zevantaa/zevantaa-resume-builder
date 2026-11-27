@@ -12,6 +12,7 @@ export interface PdfTypography {
   bulletIndent: number;
 }
 export interface PdfTheme {
+  pageSize: "A4" | "LETTER";
   margins: PdfMargins;
   typography: PdfTypography;
   textColor: string;
@@ -21,6 +22,7 @@ export interface PdfTheme {
   surfaceColor: string;
 }
 export type PdfThemeOverrides = {
+  pageSize?: "A4" | "LETTER";
   margins?: Partial<PdfMargins>;
   typography?: Partial<PdfTypography>;
   textColor?: string;
@@ -31,6 +33,7 @@ export type PdfThemeOverrides = {
 };
 
 export const DEFAULT_PDF_THEME: Readonly<PdfTheme> = {
+  pageSize: "A4",
   margins: { top: 42, right: 44, bottom: 42, left: 44 },
   typography: {
     fontFamily: "Zevantaa PDF Latin",
@@ -53,6 +56,9 @@ export const DEFAULT_PDF_THEME: Readonly<PdfTheme> = {
 
 /** A4 in points. Bound settings so a caller cannot create a clipped page. */
 export function resolvePdfTheme(overrides: PdfThemeOverrides = {}): PdfTheme {
+  if (overrides.pageSize !== undefined && overrides.pageSize !== "A4" && overrides.pageSize !== "LETTER") {
+    throw new RangeError("Unsupported PDF page size.");
+  }
   const margins = { ...DEFAULT_PDF_THEME.margins, ...overrides.margins };
   const typography = { ...DEFAULT_PDF_THEME.typography, ...overrides.typography };
   for (const value of Object.values(margins)) {
@@ -66,7 +72,8 @@ export function resolvePdfTheme(overrides: PdfThemeOverrides = {}): PdfTheme {
   if (typography.bodySize < 9.5) throw new RangeError("PDF body text must be at least 9.5 pt.");
   if (typography.smallSize < 8.2) throw new RangeError("PDF supporting text must be at least 8.2 pt.");
   if (typography.heading2Size < 10.5) throw new RangeError("PDF section headings must be at least 10.5 pt.");
-  return { margins, typography, textColor: overrides.textColor ?? DEFAULT_PDF_THEME.textColor,
+  return { pageSize: overrides.pageSize ?? DEFAULT_PDF_THEME.pageSize,
+    margins, typography, textColor: overrides.textColor ?? DEFAULT_PDF_THEME.textColor,
     mutedColor: overrides.mutedColor ?? DEFAULT_PDF_THEME.mutedColor,
     accentColor: overrides.accentColor ?? DEFAULT_PDF_THEME.accentColor,
     secondaryAccentColor: overrides.secondaryAccentColor ?? DEFAULT_PDF_THEME.secondaryAccentColor,
