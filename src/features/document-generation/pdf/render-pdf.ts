@@ -89,12 +89,12 @@ function bulletItems(items: readonly string[] | undefined, theme: PdfTheme, key:
 function shortEntry(block: Extract<PdfBlock, { kind: "entry" }>, theme: PdfTheme): boolean {
   if (block.keepTogether === false) return false;
   const all = [block.title, block.subtitle, block.date, block.location, block.description, ...(block.bullets ?? [])].filter(hasText);
-  const width = 595 - theme.margins.left - theme.margins.right;
+  const width = (theme.pageSize === "LETTER" ? 612 : 595) - theme.margins.left - theme.margins.right;
   const charsPerLine = Math.max(20, Math.floor(width / (theme.typography.bodySize * 0.55)));
   const lines = all.reduce((count, value) => count + Math.ceil(value.length / charsPerLine), 0);
   const height = lines * theme.typography.bodySize * theme.typography.lineHeight +
     (block.bullets?.length ?? 0) * theme.typography.paragraphGap;
-  return height < (842 - theme.margins.top - theme.margins.bottom) * 0.35;
+  return height < ((theme.pageSize === "LETTER" ? 792 : 842) - theme.margins.top - theme.margins.bottom) * 0.35;
 }
 
 function contactItem(item: PdfContactItem, theme: PdfTheme, key: string) {
@@ -246,6 +246,21 @@ function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
           { fontSize: type.smallSize, fontWeight: 700, lineHeight: type.lineHeight,
             color: dark ? "#FFFFFF" : theme.textColor }, theme, `${key}-${index}-text`) }, `${key}-${index}`)) }, key);
   }
+  if (block.kind === "cefr-assessment") {
+    return jsx(View, { wrap: false, style: { marginBottom: type.paragraphGap, borderWidth: 0.7,
+      borderColor: "#B5C9DE" }, children: [
+      text(block.language, { fontSize: type.bodySize, fontWeight: 700, lineHeight: type.lineHeight,
+        paddingHorizontal: 7, paddingVertical: 4, color: theme.textColor }, theme, `${key}-language`),
+      jsx(View, { style: { flexDirection: "row" }, children: block.axes.map(([label, level], index) =>
+        jsx(View, { style: { width: "20%", borderTopWidth: 0.7, borderRightWidth: index < 4 ? 0.7 : 0,
+          borderColor: "#B5C9DE", padding: 5 }, children: [
+          text(label, { fontSize: type.smallSize, lineHeight: type.lineHeight,
+            color: theme.mutedColor }, theme, `${key}-${index}-label`),
+          text(level, { fontSize: type.bodySize, fontWeight: 700,
+            color: theme.textColor }, theme, `${key}-${index}-level`),
+        ] }, `${key}-${index}`)) }, `${key}-axes`),
+    ] }, key);
+  }
   if (block.kind === "page-break") return jsx(View, { break: true, style: { height: 0 } }, key);
   if (block.kind === "rule") return jsx(View, { style: { borderBottomWidth: 1, borderBottomColor: theme.accentColor,
     marginBottom: type.paragraphGap * 1.5 } }, key);
@@ -266,7 +281,8 @@ function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
       fontWeight: 700,
       lineHeight: type.lineHeight, color: theme.textColor, marginBottom: type.paragraphGap },
     theme, key, block.keepWithNext === false ? 0 : type.bodySize * type.lineHeight * 2) : null;
-  if (block.kind === "paragraph") return hasText(block.text) ? text(block.text,
+  if (block.kind === "paragraph") return hasText(block.text) ? text(
+    block.small && /^https:\/\//iu.test(block.text) ? wrapContact(block.text, 54) : block.text,
     { fontSize: block.small ? type.smallSize : type.bodySize, lineHeight: type.lineHeight,
       color: theme.textColor, marginBottom: type.paragraphGap }, theme, key,
     block.keepWithNext ? type.bodySize * type.lineHeight * 2 : 0) : null;
@@ -294,7 +310,10 @@ function renderBlock(block: PdfBlock, theme: PdfTheme, key: string): ReactNode {
     ] }, key) : null;
   }
   if (!hasText(block.title)) return null;
-  if (block.keepOpeningTogether || !shortEntry(block, theme)) return jsx(View, { wrap: true,
+  // A short entry should stay intact even when its opening was separately
+  // marked as important. Wrapping short projects stranded a lone bullet on
+  // the next page; long histories still flow across page boundaries.
+  if (block.keepTogether === false || !shortEntry(block, theme)) return jsx(View, { wrap: true,
     style: { marginBottom: type.paragraphGap * 1.5 }, children: [
       jsx(View, { wrap: false, children: entryOpening(block, theme, key) }, `${key}-opening`),
       ...entryBody(block, theme, key),
@@ -324,6 +343,9 @@ function renderSection(section: PdfSection, theme: PdfTheme, key: string, includ
       theme.typography.bodySize * theme.typography.lineHeight * 2) : null;
   const firstEntry = section.keepWithFirstEntry && title && section.blocks[0]?.kind === "entry"
     ? section.blocks[0] : null;
+  const firstHeading = section.keepWithFirstEntry && title && section.blocks[0]?.kind === "heading"
+    ? section.blocks[0] : null;
+  const firstHeadingDetail = firstHeading && section.blocks[1]?.kind === "paragraph" ? section.blocks[1] : null;
   if (firstEntry) {
     // React-PDF can move an entire entry after minPresenceAhead has kept its section title.
     // Keep only the title and job metadata indivisible; the description/bullets stay wrappable.
@@ -332,9 +354,16 @@ function renderSection(section: PdfSection, theme: PdfTheme, key: string, includ
     blocks.push(jsx(View, { style: { marginBottom: theme.typography.paragraphGap * 1.5 },
       children: entryBody(firstEntry, theme, `${key}-0`) }, `${key}-first-body`));
   }
+  if (firstHeading) {
+    blocks.push(jsx(View, { wrap: false, break: section.breakBefore === true,
+      children: [title, renderBlock(firstHeading, theme, `${key}-0`),
+        ...(firstHeadingDetail ? [renderBlock(firstHeadingDetail, theme, `${key}-1`)] : [])],
+    }, `${key}-first-heading`));
+  }
   let breakNext = section.breakBefore === true && !title;
-  section.blocks.slice(firstEntry ? 1 : 0).forEach((block, offset) => {
-    const index = offset + (firstEntry ? 1 : 0);
+  const firstCount = firstEntry ? 1 : firstHeading ? firstHeadingDetail ? 2 : 1 : 0;
+  section.blocks.slice(firstCount).forEach((block, offset) => {
+    const index = offset + firstCount;
     if (block.kind === "page-break") { breakNext = true; return; }
     const rendered = renderBlock(block, theme, `${key}-${index}`);
     if (!rendered) return;
@@ -343,7 +372,7 @@ function renderSection(section: PdfSection, theme: PdfTheme, key: string, includ
   });
   if (!blocks.length) return [];
   return [
-    ...(!firstEntry && title ? [section.breakBefore ? cloneElement(title as ReactElement<{ break?: boolean }>, { break: true }) : title] : []),
+    ...(!firstEntry && !firstHeading && title ? [section.breakBefore ? cloneElement(title as ReactElement<{ break?: boolean }>, { break: true }) : title] : []),
     ...blocks,
     ...(includeTrailingGap
       ? [jsx(View, { style: { height: theme.typography.sectionGap } }, `${key}-gap`)]
@@ -379,7 +408,7 @@ function pageAdornment(adornment: PdfPageAdornment | undefined, position: "heade
 
 /** Server-only, in-memory PDF render. Caller must supply already-authorized data. */
 export async function renderPdfDocument(model: PdfDocumentModel, overrides: PdfThemeOverrides = {}): Promise<Buffer> {
-  const theme = resolvePdfTheme(overrides);
+  const theme = resolvePdfTheme({ ...(model.pageSize ? { pageSize: model.pageSize } : {}), ...overrides });
   const nonEmptySections = model.sections.filter((section) => section.blocks.length > 0);
   const sections = nonEmptySections.flatMap((section, index) => renderSection(
     section,
@@ -389,7 +418,7 @@ export async function renderPdfDocument(model: PdfDocumentModel, overrides: PdfT
   ));
   const header = pageAdornment(model.header, "header", theme);
   const footer = pageAdornment(model.footer, "footer", theme);
-  const page = jsx(Page, { size: "A4", wrap: true,
+  const page = jsx(Page, { size: theme.pageSize, wrap: true,
     style: { paddingTop: theme.margins.top + (header ? ADORNMENT_HEIGHT + ADORNMENT_GAP : 0),
       paddingRight: theme.margins.right,
       paddingBottom: theme.margins.bottom + (footer ? ADORNMENT_HEIGHT + ADORNMENT_GAP : 0),
@@ -397,6 +426,7 @@ export async function renderPdfDocument(model: PdfDocumentModel, overrides: PdfT
       fontFamily: theme.typography.fontFamily, fontSize: theme.typography.bodySize,
       color: theme.textColor }, children: [header, ...sections, footer] });
   const document = jsx(Document, { title: model.title, creator: "Zevantaa Resume Builder",
+    ...(model.templateVersion ? { subject: `Zevantaa template ${model.templateVersion}` } : {}),
     creationDate: new Date(0), modificationDate: new Date(0), children: page });
   return renderToBuffer(document as ReactElement<ComponentProps<typeof Document>>);
 }

@@ -26,7 +26,7 @@ const bullets = (items: readonly string[] = []): PdfBlock[] =>
   items.some(hasText) ? [{ kind: "bullets", items: items.filter(hasText) }] : [];
 const section = (id: string, title: string, blocks: PdfBlock[]): PdfSection[] =>
   blocks.length ? [{ id, title, blocks, headingStyle: "editorial",
-    ...(id === "experience" && blocks[0]?.kind === "entry" ? { keepWithFirstEntry: true } : {}) }] : [];
+    ...(blocks[0]?.kind === "entry" || blocks[0]?.kind === "heading" ? { keepWithFirstEntry: true } : {}) }] : [];
 
 /** Presentation-only line breaks; rejoining the lines preserves the supplied URL. */
 function urlLines(value?: string): PdfBlock[] {
@@ -72,6 +72,14 @@ export function buildGccResumeModel(mapping: DocumentDataMappingResult, photoDat
     "not-open": "Relocation preference: Not open",
     "not-specified": undefined,
   }[data.identity.relocationPreference];
+  const gcc = data.regionalIntake?.gcc;
+  const verifiedMeta = [
+    gcc?.nationality && `Nationality: ${gcc.nationality}`,
+    gcc?.visaWorkStatus && `Visa / work status: ${gcc.visaWorkStatus}`,
+    gcc?.noticePeriod && `Notice period: ${gcc.noticePeriod}`,
+    gcc?.drivingLicence && `Driving licence: ${gcc.drivingLicence}`,
+    gcc?.maritalStatus && `Personal information: ${gcc.maritalStatus}`,
+  ].filter(hasText);
   const identity: PdfSection = { id: "identity", blocks: [
     { kind: "gcc-identity", name: data.identity.fullName,
       headline: (data.employment ?? []).find((item) => item.currentRole)?.jobTitle ?? data.employment?.[0]?.jobTitle,
@@ -80,7 +88,7 @@ export function buildGccResumeModel(mapping: DocumentDataMappingResult, photoDat
           data.identity.whatsappNumber ? `WhatsApp: ${data.identity.whatsappNumber}` : undefined]),
         ...(data.identity.currentLocation ? [`Current location: ${data.identity.currentLocation}`] : []),
         ...(relocation ? [relocation] : []),
-      ], ...(photoDataUri ? { photoDataUri } : {}) },
+      ], ...(photoDataUri && gcc?.photoConsent && data.gccPhotoConsentAt ? { photoDataUri } : {}) },
     ...urlLines(data.identity.linkedinUrl),
   ] };
   const certifications = (data.certifications ?? []).flatMap((item): PdfBlock[] => [
@@ -112,6 +120,9 @@ export function buildGccResumeModel(mapping: DocumentDataMappingResult, photoDat
     footer: { text: "GCC Regional Resume", pageNumbers: "current-of-total", alignment: "right" },
     sections: [
       identity,
+      ...section("gcc-verified-details", "Candidate-Confirmed Regional Details", verifiedMeta.length ? [
+        { kind: "competency-grid", items: verifiedMeta, columns: 2, tone: "plain" },
+      ] : []),
       ...section("summary", "Professional Summary", paragraph(data.professionalSummary?.text)),
       ...section("experience", "Professional Experience", (data.employment ?? []).map(experience)),
       ...section("education", "Education", (data.education ?? []).map(education)),
@@ -125,9 +136,9 @@ export function buildGccResumeModel(mapping: DocumentDataMappingResult, photoDat
       ...additional,
     ],
   }, theme: {
-    margins: { top: 40, right: 42, bottom: 40, left: 42 },
+    margins: { top: 30, right: 42, bottom: 30, left: 42 },
     typography: { bodySize: 10, smallSize: 8.6, heading1Size: 21, heading2Size: 11,
-      lineHeight: 1.36, paragraphGap: 5.5, sectionGap: 12, bulletIndent: 12 },
+      lineHeight: 1.34, paragraphGap: 4, sectionGap: 5, bulletIndent: 12 },
     accentColor: "#0F172A", secondaryAccentColor: "#0284C7", surfaceColor: "#F8FAFC",
     textColor: "#0B132B", mutedColor: "#4B5563",
   } };

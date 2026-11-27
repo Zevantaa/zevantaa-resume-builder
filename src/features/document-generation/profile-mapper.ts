@@ -5,6 +5,7 @@ import type {
 } from "@/types/client-profile";
 import type { EntityId, IsoDateTime } from "@/types/core";
 import type { DocumentCategory } from "@/types/document-record";
+import type { RegionalIntake } from "@/types/regional-intake";
 import { normalizeSkillName } from "../client-portal/skill-name";
 
 /** Transient, layout-neutral projection; never a second persisted profile. */
@@ -34,6 +35,8 @@ export interface DocumentData {
   };
   /** Private file ID only; a later server-side renderer must resolve access. */
   gccPhotoFileId?: EntityId;
+  regionalIntake?: RegionalIntake;
+  gccPhotoConsentAt?: string;
 }
 
 export type DocumentDataPurpose = Exclude<DocumentCategory, "source-resume">;
@@ -212,6 +215,8 @@ export function mapCandidateProfileToDocumentData(
       targetMarkets: [...(profile.targetMarkets ?? [])],
     },
     ...(hasText(profile.gccPhoto?.id) ? { gccPhotoFileId: profile.gccPhoto.id } : {}),
+    ...(profile.regionalIntake ? { regionalIntake: profile.regionalIntake } : {}),
+    ...(profile.gccPhotoConsentAt ? { gccPhotoConsentAt: profile.gccPhotoConsentAt } : {}),
   };
 
   if (!hasText(profile.fullName)) finding("missing_full_name", "error", "identity.fullName", "A full name is required for document output.");

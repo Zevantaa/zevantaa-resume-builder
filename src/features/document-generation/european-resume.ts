@@ -26,7 +26,7 @@ const bullets = (items: readonly string[] = []): PdfBlock[] =>
   items.some(hasText) ? [{ kind: "bullets", items: items.filter(hasText) }] : [];
 const section = (id: string, title: string, blocks: PdfBlock[]): PdfSection[] =>
   blocks.length ? [{ id, title, blocks, headingStyle: "ruled",
-    ...(blocks[0]?.kind === "entry" ? { keepWithFirstEntry: true } : {}) }] : [];
+    ...(blocks[0]?.kind === "entry" || blocks[0]?.kind === "heading" ? { keepWithFirstEntry: true } : {}) }] : [];
 
 /** Break a long link only for page layout; the underlying characters are unchanged. */
 function linkLines(value?: string): string[] {
@@ -73,13 +73,24 @@ export function buildEuropeanResumeModel(mapping: DocumentDataMappingResult): Eu
     "not-open": "Relocation preference: Not open",
     "not-specified": undefined,
   }[data.identity.relocationPreference];
+  const eu = data.regionalIntake?.eu;
+  const compact = (data.employment?.length ?? 0) <= 3 && (data.skills?.length ?? 0) <= 12 &&
+    (data.projects?.length ?? 0) <= 1 && (data.additionalSections?.length ?? 0) <= 1;
+  const eqf = (eu?.eqf ?? []).flatMap((item) => {
+    const education = data.education?.find((entry) => entry.id === item.educationId);
+    return education ? [`${education.qualification} (${education.institutionName}): EQF level ${item.level}; source: ${item.verificationBasis}`] : [];
+  });
+  const cefr: PdfBlock[] = (eu?.cefr ?? []).map((item) => ({ kind: "cefr-assessment", language: item.language,
+    axes: [["Listening", item.listening], ["Reading", item.reading],
+      ["Spoken interaction", item.spokenInteraction], ["Spoken production", item.spokenProduction],
+      ["Writing", item.writing]] as [string, string][] }));
   const identity: PdfSection = { id: "identity", blocks: [{ kind: "european-identity",
     name: data.identity.fullName,
-    contact: [data.identity.primaryEmail, data.identity.mobileNumber,
+    contact: [joined([data.identity.primaryEmail, data.identity.mobileNumber]),
       ...(data.identity.whatsappNumber ? [`WhatsApp: ${data.identity.whatsappNumber}`] : []),
       ...linkLines(data.identity.linkedinUrl)].filter(hasText),
-    context: [data.identity.currentLocation ? `Current location: ${data.identity.currentLocation}` : undefined,
-      relocation].filter(hasText),
+    context: [joined([data.identity.currentLocation ? `Current location: ${data.identity.currentLocation}` : undefined,
+      relocation]), eu?.workAuthorization && `EU / EEA work authorization: ${eu.workAuthorization}`].filter(hasText),
   }] };
   const certifications = (data.certifications ?? []).flatMap((item): PdfBlock[] => [
     { kind: "heading", level: 2, text: joined([item.name, item.issuingOrganization]) },
@@ -112,17 +123,24 @@ export function buildEuropeanResumeModel(mapping: DocumentDataMappingResult): Eu
       ...section("summary", "Professional Profile", paragraph(data.professionalSummary?.text)),
       ...section("experience", "Work Experience", (data.employment ?? []).map(employment)),
       ...section("education", "Education and Training", (data.education ?? []).map(education)),
+      ...section("eqf", "Candidate-Confirmed EQF Information", eqf.length ? [
+        { kind: "competency-grid", items: eqf, columns: 2, tone: "plain" },
+      ] : []),
       ...section("skills", "Skills", bullets((data.skills ?? []).map((item) =>
         joined([item.name, item.category ? `(${item.category})` : undefined])))),
       ...section("languages", "Languages", bullets((data.languages ?? []).map((item) =>
         item.proficiency ? `${item.name} (${item.proficiency.replaceAll("-", " ")})` : item.name))),
+      ...section("eu-language-profile", "European Language Profile", [
+        ...paragraph(eu?.motherTongue ? `Mother tongue: ${eu.motherTongue}` : undefined), ...cefr,
+      ]),
       ...section("certifications", "Certifications", certifications),
       ...section("projects", "Projects", projects),
       ...additional,
     ] }, theme: {
-      margins: { top: 44, right: 44, bottom: 44, left: 44 },
+      margins: { top: compact ? 26 : 30, right: 44, bottom: compact ? 26 : 30, left: 44 },
       typography: { bodySize: 10, smallSize: 8.6, heading1Size: 20, heading2Size: 11,
-        lineHeight: 1.36, paragraphGap: 5.5, sectionGap: 12, bulletIndent: 12 },
+        lineHeight: compact ? 1.3 : 1.34, paragraphGap: compact ? 3 : 4,
+        sectionGap: compact ? 3 : 5, bulletIndent: 12 },
       accentColor: "#0E4375", secondaryAccentColor: "#FFCC00", surfaceColor: "#EDF2F7",
       textColor: "#2D3748", mutedColor: "#4A5568",
     } };
