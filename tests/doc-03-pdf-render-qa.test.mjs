@@ -62,6 +62,16 @@ test("QA fixtures render one-page, multi-page, and selectable Unicode PDFs", asy
   assert.match(unicode[0].text, /रोहन/);
 });
 
+test("renderer supports explicit US Letter without changing the A4 default", async () => {
+  const model = createPdfRenderQaModel("one-page");
+  const a4 = await inspect(await renderPdfDocument(model));
+  const letter = await inspect(await renderPdfDocument(model, { pageSize: "LETTER" }));
+  assert.ok(Math.abs(a4[0].width - 595.28) < 1 && Math.abs(a4[0].height - 841.89) < 1);
+  assert.ok(Math.abs(letter[0].width - 612) < 1 && Math.abs(letter[0].height - 792) < 1);
+  assert.match(letter[0].text, /Operations & Supply Chain Professional/);
+  await assert.rejects(() => renderPdfDocument(model, { pageSize: "LEGAL" }), /Unsupported PDF page size/);
+});
+
 test("QA generation rechecks admin access and accepts only fixed scenario names", async () => {
   globalThis.__pdfQaRequireRole = async (role) => {
     assert.equal(role, "admin");

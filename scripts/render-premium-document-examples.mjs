@@ -28,7 +28,8 @@ const { buildCoverLetterModel } = await import("../src/features/document-generat
 const { renderPdfDocument } = await import("../src/features/document-generation/pdf/render-pdf.ts");
 
 const scenarioNames = ["short", "normal", "extensive", "edge"];
-const outputRoot = path.resolve("output", "pdf", "milestone-3.1-after");
+const stage2 = process.argv.includes("--stage2");
+const outputRoot = path.resolve("output", "pdf", stage2 ? "stage2-regional" : "milestone-3.1-after");
 const photoDataUri = await createGccQaPhotoDataUri();
 
 function normalExecutiveProfile() {
@@ -92,11 +93,24 @@ for (const scenario of scenarioNames) {
   await mkdir(outputDirectory, { recursive: true });
 
   const executiveBase = scenario === "normal" ? normalExecutiveProfile() : createLongGlobalAtsQaProfile();
-  const executiveMapping = mapCandidateProfileToDocumentData(scenarioProfile(executiveBase, scenario), "resume");
-  const gccMapping = mapCandidateProfileToDocumentData(
-    scenarioProfile(createGccQaProfile(scenario === "extensive"), scenario), "resume");
-  const europeanMapping = mapCandidateProfileToDocumentData(
-    scenarioProfile(createEuropeanQaProfile(scenario === "extensive"), scenario), "resume");
+  const executive = scenarioProfile(executiveBase, scenario);
+  const gcc = scenarioProfile(createGccQaProfile(scenario === "extensive"), scenario);
+  const european = scenarioProfile(createEuropeanQaProfile(scenario === "extensive"), scenario);
+  if (stage2) {
+    executive.regionalIntake = { version: 1, global: { market: "usa", targetJobTitle: "Operations Director",
+      targetKeywords: ["inventory reporting", "service coordination"],
+      functionalCompetencies: ["Operations planning"], technicalSkills: ["Spreadsheet reporting"] } };
+    gcc.regionalIntake = { version: 1, gcc: { nationality: "Fictional nationality",
+      visaWorkStatus: "Fictional candidate-confirmed work status", noticePeriod: "Fictional candidate-confirmed period",
+      drivingLicence: "Fictional licence category", photoConsent: true } };
+    european.regionalIntake = { version: 1, eu: { motherTongue: "Fictional mother tongue",
+      workAuthorization: "Fictional candidate-confirmed EU work authorization",
+      cefr: [{ language: "English", listening: "C1", reading: "C1", spokenInteraction: "B2", spokenProduction: "B2", writing: "C1" }],
+      eqf: [{ educationId: european.education[0].id, level: 7, verificationBasis: "Fictional documented classification" }] } };
+  }
+  const executiveMapping = mapCandidateProfileToDocumentData(executive, "resume");
+  const gccMapping = mapCandidateProfileToDocumentData(gcc, "resume");
+  const europeanMapping = mapCandidateProfileToDocumentData(european, "resume");
 
   const letterBase = createCoverLetterQaProfile();
   if (scenario === "extensive") {

@@ -41,17 +41,24 @@ for (const filename of pdfFiles) {
 
       const content = await page.getTextContent();
       const items = content.items.filter((item) => "str" in item && item.str.trim());
-      const ys = items.map((item) => item.transform[5]);
+      const bodyItems = items.filter((item) => !(item.transform[5] < 75 &&
+        /^(?:GCC Regional Resume|European Resume|Page \d+ of \d+)$/u.test(item.str.trim())));
+      const ys = bodyItems.map((item) => item.transform[5]);
       const top = ys.length ? Math.max(...ys) : 0;
       const bottom = ys.length ? Math.min(...ys) : 0;
       const occupiedHeight = top - bottom;
+      const [pageLeft, pageBottom, pageRight, pageTop] = page.view;
+      const outOfBounds = items.filter((item) => item.transform[4] < pageLeft - 1 ||
+        item.transform[4] + item.width > pageRight + 1 ||
+        item.transform[5] < pageBottom - 1 || item.transform[5] > pageTop + 1).length;
       pages.push({
         pageNumber,
         png: path.relative(process.cwd(), path.join(documentDirectory, pngName)),
-        textItems: items.length,
+        textItems: bodyItems.length,
+        outOfBounds,
         occupiedHeight: Number(occupiedHeight.toFixed(1)),
         occupancyRatio: Number((occupiedHeight / page.view[3]).toFixed(3)),
-        sparse: pageNumber > 1 && (items.length === 0 || occupiedHeight / page.view[3] < 0.25),
+        sparse: pageNumber > 1 && (bodyItems.length === 0 || occupiedHeight / page.view[3] < 0.35),
       });
       page.cleanup();
     }
@@ -63,6 +70,6 @@ for (const filename of pdfFiles) {
 
 await writeFile(path.join(outputDirectory, "visual-qa-report.json"), `${JSON.stringify(report, null, 2)}\n`);
 for (const document of report) {
-  const pageSummary = document.pages.map((page) => `${page.pageNumber}:${page.occupancyRatio}${page.sparse ? "!" : ""}`).join(" ");
+  const pageSummary = document.pages.map((page) => `${page.pageNumber}:${page.occupancyRatio}${page.sparse ? "!" : ""}${page.outOfBounds ? `+${page.outOfBounds}OOB` : ""}`).join(" ");
   process.stdout.write(`${document.filename}\t${document.pageCount} page(s)\t${pageSummary}\n`);
 }

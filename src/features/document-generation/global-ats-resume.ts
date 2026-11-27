@@ -73,16 +73,18 @@ export function buildGlobalAtsResumeModel(
   }
 
   const role = data.employment?.find((item) => item.currentRole) ?? data.employment?.[0];
+  const target = data.regionalIntake?.global;
+  const compactLetter = target?.market === "usa" || target?.market === "canada";
   const primaryContact = joined([data.identity.currentLocation, data.identity.mobileNumber,
     data.identity.primaryEmail, data.identity.whatsappNumber && `WhatsApp: ${data.identity.whatsappNumber}`]);
   const identity: PdfSection = { id: "identity", blocks: privacy ? [
     { kind: "premium-identity", style: "global-ats", name: data.identity.fullName,
-      headline: role?.jobTitle, contact: [`Zevantaa Careers | Candidate Reference: ${privacy.referenceId}`,
+      headline: target?.targetJobTitle ? `Target role: ${target.targetJobTitle}` : role?.jobTitle, contact: [`Zevantaa Careers | Candidate Reference: ${privacy.referenceId}`,
         ...(data.identity.currentLocation ? [data.identity.currentLocation] : [])] },
     { kind: "paragraph", text: "For candidate contact, please route communication through Zevantaa Careers and quote the reference above." },
   ] : [
     { kind: "premium-identity", style: "global-ats", name: data.identity.fullName,
-      headline: role?.jobTitle, contact: [primaryContact] },
+      headline: target?.targetJobTitle ? `Target role: ${target.targetJobTitle}` : role?.jobTitle, contact: [primaryContact] },
     ...urlParagraphs(data.identity.linkedinUrl),
   ] };
 
@@ -128,17 +130,26 @@ export function buildGlobalAtsResumeModel(
 
   return {
     sourceProfileId: data.sourceProfileId,
+    pageSize: target?.market === "usa" || target?.market === "canada" ? "LETTER" : "A4",
     title: `${data.identity.fullName} - Global ATS Resume`,
     sections: [
       identity,
+      ...section("availability", "Verified Availability", bullets([
+        ...(target?.noticePeriod ? [`Notice period: ${target.noticePeriod}`] : []),
+        ...(target?.workAuthorization ? [`Work authorization: ${target.workAuthorization}`] : []),
+      ])),
       ...section("summary", "Professional Summary", paragraph(data.professionalSummary?.text)),
       ...section("experience", "Professional Experience", employment),
       ...section("education", "Education", education),
-      ...section("skills", "Skills", bullets((data.skills ?? []).map((item) =>
-        joined([item.name, item.category ? `(${item.category})` : undefined])))),
+      ...section("skills", "Skills", bullets([
+        ...(data.skills ?? []).map((item) => joined([item.name, item.category ? `(${item.category})` : undefined])),
+        ...(target?.functionalCompetencies ?? []).map((item) => `Functional competency: ${item}`),
+        ...(target?.technicalSkills ?? []).map((item) => `Technical skill: ${item}`),
+        ...(compactLetter ? languages.map((item) => `Language: ${item}`) : []),
+      ])),
       ...section("certifications", "Certifications", certifications),
       ...section("projects", "Projects", projects),
-      ...section("languages", "Languages", bullets(languages)),
+      ...(!compactLetter ? section("languages", "Languages", bullets(languages)) : []),
       ...additional,
     ],
   };

@@ -212,7 +212,10 @@ for (const type of COVER_LETTER_TYPES) {
 }
 
 test("QAT-04 GCC photo is conditional; both variants remain searchable and within page bounds", async () => {
-  const mapping = mapCandidateProfileToDocumentData(complete(), "resume");
+  const profile = complete();
+  profile.regionalIntake = { version: 1, gcc: { photoConsent: true } };
+  profile.gccPhotoConsentAt = "2026-01-01T00:00:00.000Z";
+  const mapping = mapCandidateProfileToDocumentData(profile, "resume");
   const noPhoto = buildGccResumeModel(mapping);
   const withPhoto = buildGccResumeModel(mapping, await createGccQaPhotoDataUri());
   const plainBytes = await renderPdfDocument(noPhoto.model, noPhoto.theme);

@@ -143,7 +143,7 @@ test("dashboard display and server-side authorization boundaries remain explicit
   assert.match(panel, /\/100/);
   assert.doesNotMatch(panel, /certified ATS|guaranteed employer|passed ATS/i);
   assert.match(read("src/features/client-portal/client-dashboard-page.tsx"), /IndicativeAtsPanel/);
-  assert.match(read("src/app/client/ats/page.tsx"), /getCurrentClientAtsScore/);
+  assert.match(read("src/app/client/ats/page.tsx"), /getCurrentClientAtsStatus/);
   assert.match(read("src/app/client/ats/page.tsx"), /IndicativeAtsPanel/);
   assert.match(read("src/app/admin/clients/[userId]/global-ats/page.tsx"), /IndicativeAtsPanel/);
   const service = read("src/features/client-portal/client-ats-score-service.ts");

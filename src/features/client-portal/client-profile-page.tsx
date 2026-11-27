@@ -51,6 +51,7 @@ export async function ClientProfilePage() {
             <h2 className="type-heading-3" id="career-profile-heading">Keep your career facts current</h2>
             <p className="type-body text-text-muted">You can update your structured summary, experience, education, skills and other career sections. Zevantaa-managed identity and package fields stay read-only.</p>
             <Link className="type-button dashboard-primary-link" href="/client/career-profile">Update Career Profile</Link>
+            <Link className="type-button dashboard-text-link" href="/client/regional-intake">Confirm regional targets and details</Link>
           </section>
         </div>
     </div>
