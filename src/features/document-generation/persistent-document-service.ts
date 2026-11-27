@@ -23,6 +23,7 @@ import { renderPdfDocument } from "./pdf/render-pdf";
 import { buildPrivacyMaskedEmployerResume } from "./privacy-masked-resume";
 import { mapCandidateProfileToDocumentData } from "./profile-mapper";
 import { calculateIndicativeAtsScore } from "./indicative-ats-score";
+import { V1_TEMPLATE_IMPLEMENTATION_VERSION } from "./template-version";
 
 export const GENERATED_DOCUMENT_BUCKET = "candidate-documents-private";
 export const MAX_GENERATED_PDF_BYTES = 10 * 1024 * 1024;
@@ -77,7 +78,8 @@ async function buildOutput(profile: CandidateProfile, output: PersistedOutputKin
   if (standard === "gcc-resume") {
     // The caller has already resolved an authorized profile. Never accept a
     // browser-supplied photo key or expose the private source object.
-    const photo = await loadTrustedGccPhoto(profile.id);
+    const photo = profile.regionalIntake?.gcc?.photoConsent === true && profile.gccPhotoConsentAt
+      ? await loadTrustedGccPhoto(profile.id) : null;
     const trusted = photo ? mapCandidateProfileToDocumentData({ ...profile, gccPhoto: photo.reference }, "resume") : mapping;
     const uri = photo ? `data:image/png;base64,${Buffer.from(photo.png).toString("base64")}` : undefined;
     return { ...buildGccResumeModel(trusted, uri), filename };
@@ -113,6 +115,7 @@ export async function generateAndPersistDocument(
       { actorUserId: options.actorUserId })).id;
   }
   const { model, theme, filename } = await buildOutput(profile, output);
+  model.templateVersion = V1_TEMPLATE_IMPLEMENTATION_VERSION;
   const bytes = new Uint8Array(await renderPdfDocument(model, theme));
   assertGeneratedPdf(bytes);
   const { data: bucket, error: bucketError } = await db.storage.getBucket(GENERATED_DOCUMENT_BUCKET);

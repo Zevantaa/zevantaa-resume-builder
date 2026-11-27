@@ -1447,6 +1447,31 @@ body {
   .career-v8-section-button, .career-v8-child-button { transition-duration: .01ms; }
 }
 
+.regional-intake-form { max-width: 56rem; }
+.regional-intake-card, .regional-subcard {
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: 1rem;
+  background: var(--color-surface, #fff);
+  padding: clamp(1rem, 2vw, 1.5rem);
+  display: grid;
+  gap: 1rem;
+}
+.regional-subcard { border-radius: .75rem; }
+.regional-intake-card h2 { font-size: 1.25rem; font-weight: 700; }
+.regional-intake-card h3 { font-size: 1.05rem; font-weight: 650; }
+.regional-intake-card p { color: var(--color-text-muted, #475569); }
+.regional-field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: 1rem; }
+.regional-field { display: grid; gap: .4rem; min-width: 0; font-weight: 600; }
+.regional-field input, .regional-field textarea, .regional-field select {
+  width: 100%; min-width: 0; border: 1px solid #94a3b8; border-radius: .5rem;
+  background: #fff; color: #172d45; padding: .65rem .75rem; font: inherit;
+}
+.regional-field :is(input, textarea, select):focus-visible,
+.regional-intake-form button:focus-visible { outline: 3px solid #2f75bd; outline-offset: 2px; }
+.regional-checkbox { display: flex; gap: .7rem; align-items: flex-start; line-height: 1.5; }
+.regional-checkbox input { margin-top: .25rem; }
+.regional-intake-form button[type="button"] { justify-self: start; color: #0e4375; text-decoration: underline; }
+
 /* Complete client experience: compact forms, access handoff, ATS comparison and lifecycle controls. */
 .client-contact-form,
 .client-account-form { gap: var(--space-4); }

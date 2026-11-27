@@ -1,5 +1,6 @@
 import type { TimestampAuditFields } from "./audit";
 import type { EntityId, YearMonth } from "./core";
+import type { RegionalIntake } from "./regional-intake";
 import type {
   PrivateFileReference,
   ProfilePhotoFileExtension,
@@ -146,6 +147,9 @@ export interface CandidateProfile extends TimestampAuditFields {
 
   selectedPackage: V1PackageCode;
   targetMarkets: TargetMarket[];
+  /** Optional facts explicitly confirmed by this client for the existing regional outputs. */
+  regionalIntake?: RegionalIntake;
+  gccPhotoConsentAt?: string;
 
   /** Absent until the client makes the first private source-resume upload. */
   existingResume?: PrivateFileReference<

@@ -5,17 +5,25 @@ import { ATS_ALGORITHM_VERSION, calculateIndicativeAtsScore } from "@/features/d
 import { compareAtsAssessmentSnapshots, type AtsAssessmentComparison,
   type AtsAssessmentSnapshot } from "@/features/document-generation/ats-assessment-comparison";
 import { mapCandidateProfileToDocumentData } from "@/features/document-generation/profile-mapper";
+import { calculateJobDescriptionCompatibility } from "@/features/document-generation/job-description-compatibility";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 import { resolveLinkedClientProfile } from "./contact-profile-service";
 
 /** Only the authenticated active client's trusted role-to-profile link is used. */
 export async function getCurrentClientAtsScore() {
+  return (await getCurrentClientAtsStatus())?.score ?? null;
+}
+
+/** One trusted profile read feeds both indicators on the client ATS page. */
+export async function getCurrentClientAtsStatus() {
   const linked = await resolveLinkedClientProfile();
   if (!linked) return null;
   const profile = await loadCandidateProfileById(linked.profileId);
   if (!profile) return null;
-  return calculateIndicativeAtsScore(mapCandidateProfileToDocumentData(profile, "resume"));
+  const mapping = mapCandidateProfileToDocumentData(profile, "resume");
+  return { score: calculateIndicativeAtsScore(mapping),
+    compatibility: calculateJobDescriptionCompatibility(mapping.data) };
 }
 
 /** Return a comparison only when the latest recorded snapshot is current. */

@@ -39,3 +39,9 @@ No duplicate competing master file was found in the supplied directory. Existing
 | General and Relocation letters | Both HTML/PDF pairs and data-grounded generators | Recipient/company/date sources and conditional business-letter blocks; relocation source facts | Does not block existing safe letters; blocks exact composition | Approve omissions when no target recipient or visa facts exist | **Medium** |
 
 No new reference design has been invented. The missing Technology pair is the only absent frozen-V1 asset pair; regional content specifications and new-family entitlement decisions are separate gaps.
+
+## Stage 2 development update (28 November 2026)
+
+The Global ATS six-market questionnaire, conditional A4/Letter routing, GCC verified-detail grid and consent-gated photograph, and European mother tongue, five-axis CEFR, candidate-sourced EQF and work-authorization fields are implemented locally on `feature/master-template-fidelity`. The earlier "missing regional fields" rows above describe the Stage 1 snapshot and are superseded for implementation status. Approval of the exact master geometry and licensed fonts remains open; these additions do not establish master fidelity.
+
+The only missing frozen V1 reference files remain the **Technology & Startup cover-letter master HTML and its matching PDF**. No exact filenames or approval version were supplied. Germany Lebenslauf and DIN 5008 letter remain proposed outputs with no approved package entitlement or local master files; neither was added to the V1 output set.

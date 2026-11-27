@@ -41,7 +41,9 @@ for (const filename of pdfFiles) {
 
       const content = await page.getTextContent();
       const items = content.items.filter((item) => "str" in item && item.str.trim());
-      const ys = items.map((item) => item.transform[5]);
+      const bodyItems = items.filter((item) => !(item.transform[5] < 75 &&
+        /^(?:GCC Regional Resume|European Resume|Page \d+ of \d+)$/u.test(item.str.trim())));
+      const ys = bodyItems.map((item) => item.transform[5]);
       const top = ys.length ? Math.max(...ys) : 0;
       const bottom = ys.length ? Math.min(...ys) : 0;
       const occupiedHeight = top - bottom;
@@ -52,11 +54,11 @@ for (const filename of pdfFiles) {
       pages.push({
         pageNumber,
         png: path.relative(process.cwd(), path.join(documentDirectory, pngName)),
-        textItems: items.length,
+        textItems: bodyItems.length,
         outOfBounds,
         occupiedHeight: Number(occupiedHeight.toFixed(1)),
         occupancyRatio: Number((occupiedHeight / page.view[3]).toFixed(3)),
-        sparse: pageNumber > 1 && (items.length === 0 || occupiedHeight / page.view[3] < 0.35),
+        sparse: pageNumber > 1 && (bodyItems.length === 0 || occupiedHeight / page.view[3] < 0.35),
       });
       page.cleanup();
     }

@@ -3,6 +3,9 @@ import type { EntityId } from "@/types/core";
 /** Transient layout input assembled from reviewed DocumentData by a template. */
 export interface PdfDocumentModel {
   sourceProfileId: EntityId;
+  /** Optional output-specific paper size; the caller may still override it. */
+  pageSize?: "A4" | "LETTER";
+  templateVersion?: string;
   title?: string;
   sections: PdfSection[];
   header?: PdfPageAdornment;
@@ -45,6 +48,7 @@ export type PdfBlock =
   | { kind: "european-identity"; name: string; contact: string[]; context: string[] }
   | { kind: "premium-identity"; style: PdfIdentityStyle; name: string; headline?: string; contact: string[] }
   | { kind: "competency-grid"; items: string[]; columns?: 2 | 3; tone?: "plain" | "navy" | "gold" }
+  | { kind: "cefr-assessment"; language: string; axes: [string, string][] }
   | { kind: "heading"; text: string; level?: 1 | 2; keepWithNext?: boolean }
   | { kind: "banner"; title: string; subtitle?: string }
   | { kind: "rule" }

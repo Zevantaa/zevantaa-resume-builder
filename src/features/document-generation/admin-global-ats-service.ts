@@ -6,6 +6,7 @@ import type {
   AdditionalProfileSection, CandidateProfile, CertificationEntry, EducationEntry,
   LanguageEntry, ProjectEntry, SkillEntry, WorkExperienceEntry,
 } from "@/types/client-profile";
+import { validateRegionalIntake } from "../client-portal/regional-intake-validation";
 
 type OrderedRow = { id: string; sort_order: number };
 type WorkRow = OrderedRow & { employer_name: string; job_title: string; start_date: string | null; end_date: string | null;
@@ -46,7 +47,7 @@ export async function loadCandidateProfileById(profileId: string): Promise<Candi
   const db = createSupabaseAdminClient();
   const [profileResult, workResult, educationResult, skillResult, certificationResult,
     languageResult, projectResult, sectionResult] = await Promise.all([
-    db.from("candidate_profiles").select("id, full_name, primary_email, mobile_number, whatsapp_number, linkedin_url, current_location, relocation_preference, selected_package_code, target_markets, professional_summary, created_at, updated_at")
+    db.from("candidate_profiles").select("id, full_name, primary_email, mobile_number, whatsapp_number, linkedin_url, current_location, relocation_preference, selected_package_code, target_markets, professional_summary, regional_intake, gcc_photo_consent_at, created_at, updated_at")
       .eq("id", profileId).is("archived_at", null).maybeSingle(),
     db.from("profile_work_experiences").select("id, sort_order, employer_name, job_title, start_date, end_date, is_current_role, employment_type, location, description, highlights")
       .eq("candidate_profile_id", profileId).is("archived_at", null).order("sort_order").order("id"),
@@ -86,6 +87,8 @@ export async function loadCandidateProfileById(profileId: string): Promise<Candi
     relocationPreference: profile.relocation_preference as CandidateProfile["relocationPreference"],
     selectedPackage: profile.selected_package_code as CandidateProfile["selectedPackage"],
     targetMarkets: profile.target_markets as CandidateProfile["targetMarkets"],
+    ...(profile.regional_intake?.version === 1 ? { regionalIntake: validateRegionalIntake(profile.regional_intake) } : {}),
+    ...(profile.gcc_photo_consent_at ? { gccPhotoConsentAt: profile.gcc_photo_consent_at } : {}),
     createdAt: profile.created_at, updatedAt: profile.updated_at,
     ...(profile.whatsapp_number ? { whatsappNumber: profile.whatsapp_number } : {}),
     ...(profile.linkedin_url ? { linkedinUrl: profile.linkedin_url } : {}),

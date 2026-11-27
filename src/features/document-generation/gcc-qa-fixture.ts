@@ -9,6 +9,8 @@ export function createGccQaProfile(long = false) {
   const profile = createLongGlobalAtsQaProfile();
   profile.selectedPackage = "gcc-middle-east";
   profile.targetMarkets = ["gcc-middle-east"];
+  profile.regionalIntake = { version: 1, gcc: { photoConsent: true } };
+  profile.gccPhotoConsentAt = "2026-01-01T00:00:00.000Z";
   if (!long) {
     profile.professionalSummary = "Candidate-supplied fictional operations and supply-chain summary for regional resume layout QA.";
     profile.workExperience = profile.workExperience.slice(0, 2).map((role) => ({
