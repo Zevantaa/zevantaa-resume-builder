@@ -120,7 +120,7 @@ export function buildGccResumeModel(mapping: DocumentDataMappingResult, photoDat
     footer: { text: "GCC Regional Resume", pageNumbers: "current-of-total", alignment: "right" },
     sections: [
       identity,
-      ...section("gcc-verified-details", "Verified Regional Details", verifiedMeta.length ? [
+      ...section("gcc-verified-details", "Candidate-Confirmed Regional Details", verifiedMeta.length ? [
         { kind: "competency-grid", items: verifiedMeta, columns: 2, tone: "plain" },
       ] : []),
       ...section("summary", "Professional Summary", paragraph(data.professionalSummary?.text)),

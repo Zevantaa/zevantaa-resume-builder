@@ -123,7 +123,7 @@ export function buildEuropeanResumeModel(mapping: DocumentDataMappingResult): Eu
       ...section("summary", "Professional Profile", paragraph(data.professionalSummary?.text)),
       ...section("experience", "Work Experience", (data.employment ?? []).map(employment)),
       ...section("education", "Education and Training", (data.education ?? []).map(education)),
-      ...section("eqf", "Verified EQF Information", eqf.length ? [
+      ...section("eqf", "Candidate-Confirmed EQF Information", eqf.length ? [
         { kind: "competency-grid", items: eqf, columns: 2, tone: "plain" },
       ] : []),
       ...section("skills", "Skills", bullets((data.skills ?? []).map((item) =>
